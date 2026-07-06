@@ -69,6 +69,7 @@
 | ADR-023 | Strategy Stack Ontology as Alignment Framework | Accepted | 2026-07-07 |
 | ADR-024 | Reject TheBotCompany as Orchestrator | Accepted | 2026-07-07 |
 | ADR-025 | OpenRouter for Model Routing Experiments | Accepted | 2026-07-07 |
+| ADR-026 | Memory Stack — Hindsight ± Letta | Accepted | 2026-07-07 |
 
 ---
 
@@ -685,6 +686,50 @@ Model routing rules need testing before production lock-in. Multiple models acro
 - **Positive:** Easy A/B testing of models per task type
 - **Negative:** Additional dependency and markup
 - **Risks:** Provider outages; mitigated by fallback rules in routing config
+
+---
+
+## ADR-026: Memory Stack — Hindsight ± Letta
+
+**Date:** 2026-07-07  
+**Status:** Accepted  
+**Deciders:** Architecture + Aether VPS standard  
+**Supersedes:** Partial implementation detail of ADR-009 (storage backends)
+
+### Context
+
+ADR-009 defined three memory tiers (strategic, operational, ephemeral) but not which **engines** back each tier. Hindsight and Letta solve different problems. Running everything (Cognee, SurrealDB, etc.) creates duplicate beliefs and ops burden.
+
+### Options Considered
+
+1. **Hindsight only** — Hermes-native; facts, observations, mental models; benchmark-strong synthesis
+2. **Letta only** — Self-editing agent memory, MemFS, persistent identity
+3. **Both with strict boundaries** — Hindsight strategic + Letta operational + Postgres structured + Redis ephemeral
+4. **Cognee + SurrealDB + both** — Rejected as too many stores
+
+### Decision
+
+**Option 3 — phased:**
+
+- **Phase 1 (now):** Hindsight via `docker exec hermes hermes memory setup`
+- **Phase 2 (v0.2):** Optional Letta at `/opt/letta` — separate compose
+- **Always:** Postgres for structured canonical state; Redis for ephemeral only
+- **Never:** Guardian errors → memory; fleet backlog → memory
+
+Implementation: `advoi/memory/write_targets.py` + `MemoryRouter` with explicit `MemoryEventType` routing.
+
+### Consequences
+
+- **Positive:** Clear write targets; Hermes path immediate; Letta optional without rework
+- **Negative:** Two systems to operate if both enabled
+- **Risks:** Double-write if routing table violated — mitigated by `EVENT_WRITE_MAP` and code review
+
+### Checklist
+
+- [ ] Hindsight in Hermes
+- [ ] `MEMORY_PROVIDER=hindsight` in deploy/.env
+- [ ] Letta only when `LETTA_ENABLED=true` and `/opt/letta` up
+- [ ] ADR recorded; `.aether/DECISIONS.md` synced
 
 ---
 

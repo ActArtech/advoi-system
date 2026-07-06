@@ -22,8 +22,15 @@ else
 fi
 
 if command -v curl >/dev/null 2>&1; then
-  echo "--- HTTPS probe (Traefik) ---"
-  curl -k -sI "https://${HOST}" | head -5 || echo "No route yet (deploy staging overlay + DNS)"
+  echo "--- HTTPS probe (Traefik) — expect HTTP/2 200 ---"
+  STATUS=$(curl -k -sI "https://${HOST}" | head -1)
+  echo "${STATUS}"
+  if echo "${STATUS}" | grep -qE ' 200 | 301 | 302 '; then
+    echo "OK: route reachable"
+  else
+    echo "WARN: not 200 yet — check DNS (grey cloud), Traefik labels (${SLUG}-web), app profile"
+    exit 1
+  fi
 fi
 
 echo "--- Port registry reminder ---"

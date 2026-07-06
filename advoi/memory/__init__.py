@@ -1,3 +1,14 @@
-"""Hybrid memory — strategic, operational, ephemeral."""
+"""Hybrid memory — Hindsight (strategic) + Letta (operational) + Postgres + Redis."""
 
-__all__: list[str] = []
+from advoi.memory.router import MemoryConfig, MemoryRouter, RecallResult, load_memory_config
+from advoi.memory.write_targets import MemoryEventType, MemoryTier, WriteTarget
+
+__all__ = [
+    "MemoryConfig",
+    "MemoryRouter",
+    "RecallResult",
+    "load_memory_config",
+    "MemoryEventType",
+    "MemoryTier",
+    "WriteTarget",
+]

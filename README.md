@@ -27,20 +27,19 @@ ADVoi is organized as **verticals** (domain capabilities) and **horizontals** (c
 | `ontology/` | Strategy stack definitions |
 | `observability/` | Logs, metrics, SigNoz integration |
 
-## Quick Start
+## VPS deploy (Aether standard)
+
+See **[docs/VPS-SETUP.md](docs/VPS-SETUP.md)** — 8-step checklist for `/opt/advoi` @ `advoi.keyteller.com`.
+
+Memory: **[docs/MEMORY-STACK.md](docs/MEMORY-STACK.md)** — start Hindsight via Hermes; Letta optional v0.2.
+
+## Quick Start (local)
 
 ```bash
-# Copy environment template
-cp .env.example .env
-
-# Start infrastructure (Postgres, Redis, placeholders)
+cp deploy/.env.staging.example deploy/.env
 docker compose up -d
-
-# Install with uv
 uv sync
-
-# Verify package
-uv run python -c "import advoi; print(advoi.__version__)"
+uv run python -c "from advoi.memory import MemoryRouter; print('memory OK')"
 ```
 
 ## Layout
