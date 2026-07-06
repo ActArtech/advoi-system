@@ -55,7 +55,24 @@ services:
       retries: 3
       start_period: 15s
 
-  # Placeholder: LiveKit voice agent wrapper
+  advoi-web:
+    image: advoi/web:local
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT: ${NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT:-http://localhost:8010/api/livekit/token}
+        NEXT_PUBLIC_ADVOI_API_URL: ${NEXT_PUBLIC_ADVOI_API_URL:-http://localhost:8010/api}
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: .env
+    depends_on:
+      advoi-api:
+        condition: service_healthy
+    ports:
+      - "${ADVOI_WEB_PORT:-3000}:3000"
+
+  # Pipecat + LiveKit voice agent
   advoi-voice:
     image: advoi/voice:local
     build:

@@ -4,6 +4,17 @@
 name: advoi
 
 services:
+  advoi-web:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${PROJECT_SLUG}-web.rule=Host(`${STOREFRONT_HOST}`)
+      - traefik.http.routers.${PROJECT_SLUG}-web.priority=10
+      - traefik.http.routers.${PROJECT_SLUG}-web.entrypoints=websecure
+      - traefik.http.routers.${PROJECT_SLUG}-web.tls=true
+      - traefik.http.routers.${PROJECT_SLUG}-web.tls.certresolver=letsencrypt
+      - traefik.http.services.${PROJECT_SLUG}-web.loadbalancer.server.port=3000
+
   advoi-api:
     ports: !reset []
     labels:

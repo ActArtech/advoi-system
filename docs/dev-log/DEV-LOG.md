@@ -166,18 +166,40 @@ Created the `advoi-system` documentation scaffold to capture the full conversati
 
 ---
 
+## v0.2.0 — Stage 1 Voice + PWA
+
+**Date:** 2026-07-07  
+**Type:** Feature  
+**Status:** Landed (deploy pending LiveKit creds)
+
+### Shipped
+
+- Pipecat agent (`advoi-voice`) — LiveKit transport, OpenAI STT/LLM/TTS
+- FastAPI (`advoi-api`) — `/health`, `/api/livekit/token`, `/api/session`
+- Next.js PWA (`web/`) — LiveKit client, connect/disconnect, manifest
+- Scripts: `run-stage1-setup.sh`, `port-registry-apply.sh`, `aether-bootstrap.sh`
+- `.aether/` bootstrap — BET, STAGE, EVENTS, PRINCIPLES/VOICE
+- VPS port registry row applied at `/opt/shared/port-registry.md`
+
+### Next
+
+- Set `LIVEKIT_*` + `OPENAI_API_KEY` in `deploy/.env`
+- `DEPLOY_MODE=staging bash scripts/vps-deploy.sh --profile app`
+- Decision Frame button actions (Stage 2)
+
+---
+
 ## [Future Entry Placeholder]
 
-**Version:** v0.2.0  
+**Version:** v0.3.0  
 **Type:** Feature  
 **Status:** Not started
 
-### Planned: Stage 1 Voice Pipeline
+### Planned: Stage 2 Decision Frames
 
-- Pipecat pipeline with LiveKit transport
-- STT → FirstMate forward → TTS response loop
-- Web PWA with mic permission and voice session UI
-- Basic trigger word detection via local LLM
+- Decision Frame buttons wired to API
+- FirstMate fleet bridge from voice intents
+- Trigger word / wake phrase
 
 ---
 

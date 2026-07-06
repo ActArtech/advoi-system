@@ -1,7 +1,7 @@
 # Port registry entry — copy row to /opt/shared/port-registry.md
 
 ```markdown
-| advoi | /opt/advoi | advoi.keyteller.com | PG 127.0.0.1:5438, Redis 127.0.0.1:6382 | Traefik advoi-web, advoi-api; Shelve ktteam/advoi/staging |
+| advoi | /opt/advoi | advoi.keyteller.com | PG 127.0.0.1:5438, Redis 127.0.0.1:6382, API 8010, Voice 8011, Web 3000 | Traefik advoi-web, advoi-api, advoi-voice; Shelve ktteam/advoi/staging |
 ```
 
 ## Host port allocation (do not collide)

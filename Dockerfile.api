@@ -1,4 +1,3 @@
-# Placeholder — replace with production image when API is implemented
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -8,4 +7,4 @@ COPY advoi/ ./advoi/
 RUN pip install --no-cache-dir .
 
 EXPOSE 8000
-CMD ["python", "-c", "print('advoi-api placeholder — implement HTTP server')"]
+CMD ["advoi-api"]

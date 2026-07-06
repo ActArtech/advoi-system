@@ -9,6 +9,7 @@ def main() -> None:
     print(f"ADVoi v{__version__}")
     print("Modules: voice, aether, guardian, squads, decision, memory")
     print("         ingestion, reporting, routing, ontology, observability")
+    print("Run: advoi-api | advoi-voice (Stage 1 Pipecat + LiveKit)")
     sys.exit(0)
 
 

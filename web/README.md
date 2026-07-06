@@ -11,11 +11,11 @@ Mobile-first web client for voice + decision UI. **No APK** — browser installa
 
 ## Phase 1 Features
 
-- [ ] LiveKit room connect (mic permission)
-- [ ] Decision Frame buttons (mirror voice options)
+- [x] LiveKit room connect (mic permission)
+- [ ] Decision Frame buttons (mirror voice options) — Stage 2
 - [ ] Project/session navigation
 - [ ] Open Decision Briefs list (desktop-optimized view)
-- [ ] PWA manifest + service worker
+- [x] PWA manifest (service worker optional Stage 2)
 
 ## Run (once implemented)
 
