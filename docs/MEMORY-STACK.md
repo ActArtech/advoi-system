@@ -50,8 +50,8 @@ Code path: `advoi/memory/router.py` → `hindsight.py` (`hindsight-client`, brid
 
 ## Checklist before memory is "done"
 
-- [ ] `bash scripts/memory-setup-hindsight.sh` on VPS (switches Hermes off holographic → hindsight)
-- [ ] `bash scripts/memory-health.sh` passes bridge probe
+- [x] `bash scripts/memory-setup-hindsight.sh` on VPS (switches Hermes off holographic → hindsight)
+- [ ] `bash scripts/memory-health.sh` passes bridge probe (start embedded daemon first)
 - [ ] `MEMORY_PROVIDER=hindsight` in `/opt/advoi/deploy/.env`
 - [ ] `advoi/memory/write_targets.py` — no duplicate writes for same event type
 - [ ] Aether `.aether/DECISIONS.md` for architecture; Hindsight for synthesized insights
