@@ -1,0 +1,33 @@
+# Traefik overlay — host-network Traefik on shared VPS (see deployment/VPS-SETUP-INSIGHTS.md)
+# Router names must be unique: advoi-web, advoi-api (not generic "web")
+
+name: advoi
+
+services:
+  advoi-api:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${PROJECT_SLUG}-api.rule=Host(`${STOREFRONT_HOST}`) && PathPrefix(`/api`)
+      - traefik.http.routers.${PROJECT_SLUG}-api.priority=50
+      - traefik.http.routers.${PROJECT_SLUG}-api.entrypoints=websecure
+      - traefik.http.routers.${PROJECT_SLUG}-api.tls=true
+      - traefik.http.routers.${PROJECT_SLUG}-api.tls.certresolver=letsencrypt
+      - traefik.http.services.${PROJECT_SLUG}-api.loadbalancer.server.port=8000
+
+  advoi-voice:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${PROJECT_SLUG}-voice.rule=Host(`${STOREFRONT_HOST}`) && PathPrefix(`/ws/voice`)
+      - traefik.http.routers.${PROJECT_SLUG}-voice.priority=100
+      - traefik.http.routers.${PROJECT_SLUG}-voice.entrypoints=websecure
+      - traefik.http.routers.${PROJECT_SLUG}-voice.tls=true
+      - traefik.http.routers.${PROJECT_SLUG}-voice.tls.certresolver=letsencrypt
+      - traefik.http.services.${PROJECT_SLUG}-voice.loadbalancer.server.port=8080
+
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
