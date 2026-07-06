@@ -87,10 +87,32 @@ else
   "
 fi
 
+# hindsight-embed daemon reads profile env (/root/.hindsight/profiles/<name>.env), not /opt/data/.env
+docker exec "${HERMES_CONTAINER}" bash -lc "
+  set -euo pipefail
+  KEY=\$(grep '^HINDSIGHT_API_LLM_API_KEY=' '${HERMES_ENV}' | cut -d= -f2- || true)
+  if [[ -z \"\${KEY}\" ]]; then
+    KEY=\$(grep '^OPENAI_API_KEY=' '${HERMES_ENV}' | cut -d= -f2- || true)
+  fi
+  if [[ -z \"\${KEY}\" ]]; then
+    echo 'WARN: no HINDSIGHT_API_LLM_API_KEY or OPENAI_API_KEY — daemon will not start'
+    exit 0
+  fi
+  uv tool run hindsight-embed profile create hermes --port 9177 \
+    --env \"HINDSIGHT_API_LLM_API_KEY=\${KEY}\" --merge >/dev/null 2>&1 || true
+  uv tool run hindsight-embed profile set-env hermes HINDSIGHT_API_LLM_API_KEY \"\${KEY}\" >/dev/null
+  echo 'OK: hindsight-embed profile hermes has HINDSIGHT_API_LLM_API_KEY'
+"
+
 # Install hindsight-client inside Hermes for bridge script
 docker exec "${HERMES_CONTAINER}" uv pip install "hindsight-client>=0.6.1" >/dev/null 2>&1 || \
   docker exec "${HERMES_CONTAINER}" python -m pip install "hindsight-client>=0.6.1" >/dev/null 2>&1 || \
   echo "WARN: could not install hindsight-client in ${HERMES_CONTAINER} (bridge may fail until installed)"
+
+echo "--- Starting Hindsight embedded daemon (profile=hermes) ---"
+docker exec "${HERMES_CONTAINER}" bash -lc \
+  "uv tool run hindsight-embed -p hermes daemon start" || \
+  echo "WARN: hindsight daemon did not start — check /root/.hindsight/profiles/hermes.log inside ${HERMES_CONTAINER}"
 
 echo "--- Hermes memory status ---"
 docker exec "${HERMES_CONTAINER}" hermes memory status || true
