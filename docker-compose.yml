@@ -41,6 +41,9 @@ services:
     restart: unless-stopped
     profiles: ["app"]
     env_file: .env
+    environment:
+      # Host ADVOI_API_PORT maps the published port; app always listens on 8000 in-container.
+      ADVOI_API_PORT: "8000"
     depends_on:
       postgres:
         condition: service_healthy
