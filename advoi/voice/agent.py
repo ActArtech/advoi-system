@@ -12,6 +12,7 @@ load_dotenv(override=True)
 
 from loguru import logger  # noqa: E402
 
+from advoi.llm.openrouter import resolve_llm_credentials  # noqa: E402
 from advoi.memory import MemoryRouter  # noqa: E402
 from advoi.voice.prompts import build_system_instruction  # noqa: E402
 from advoi.voice.tokens import default_room_name, mint_room_token  # noqa: E402
@@ -44,9 +45,7 @@ async def run_agent() -> None:
     from pipecat.transports.livekit.transport import LiveKitParams, LiveKitTransport
     from pipecat.workers.runner import WorkerRunner
 
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
-    if not openai_key:
-        raise RuntimeError("OPENAI_API_KEY is required for Stage 1 voice")
+    creds = resolve_llm_credentials()
 
     livekit_url = os.environ.get("LIVEKIT_URL", "")
     if not livekit_url:
@@ -73,16 +72,20 @@ async def run_agent() -> None:
     )
 
     stt = OpenAISTTService(
-        api_key=openai_key,
-        model=os.getenv("OPENAI_STT_MODEL", "gpt-4o-mini-transcribe"),
+        api_key=creds.api_key,
+        base_url=creds.base_url,
+        model=creds.stt_model,
     )
     llm = OpenAILLMService(
-        api_key=openai_key,
-        model=os.getenv("DEFAULT_MODEL", "gpt-4o-mini"),
+        api_key=creds.api_key,
+        base_url=creds.base_url,
+        model=creds.llm_model,
         settings=OpenAILLMService.Settings(system_instruction=system_instruction),
     )
     tts = OpenAITTSService(
-        api_key=openai_key,
+        api_key=creds.api_key,
+        base_url=creds.base_url,
+        model=creds.tts_model,
         settings=OpenAITTSService.Settings(
             voice=os.getenv("OPENAI_TTS_VOICE", "alloy"),
         ),
@@ -124,7 +127,12 @@ async def run_agent() -> None:
 
     runner = WorkerRunner()
     await runner.add_workers(worker)
-    logger.info("ADVoi voice agent joining room {}", room_name)
+    logger.info(
+        "ADVoi voice agent joining room {} (llm_provider={} model={})",
+        room_name,
+        creds.provider,
+        creds.llm_model,
+    )
     await runner.run()
 
 
