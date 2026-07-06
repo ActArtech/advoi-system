@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-advoi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-advoi}
+      POSTGRES_DB: ${POSTGRES_DB:-advoi}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-advoi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Placeholder: main API / orchestration entrypoint
+  advoi-api:
+    image: advoi/api:local
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${ADVOI_API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Placeholder: LiveKit voice agent wrapper
+  advoi-voice:
+    image: advoi/voice:local
+    build:
+      context: .
+      dockerfile: Dockerfile.voice
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      advoi-api:
+        condition: service_healthy
+    ports:
+      - "${ADVOI_VOICE_PORT:-8080}:8080"
+
+  # Placeholder: OpenTelemetry collector → SigNoz / OTLP backend
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./deploy/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: advoi-network

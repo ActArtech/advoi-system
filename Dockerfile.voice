@@ -1,0 +1,11 @@
+# Placeholder — replace when LiveKit agent is implemented
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY advoi/ ./advoi/
+
+RUN pip install --no-cache-dir ".[voice]"
+
+EXPOSE 8080
+CMD ["python", "-c", "print('advoi-voice placeholder — implement LiveKit agent')"]

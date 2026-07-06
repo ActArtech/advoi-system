@@ -1,0 +1,149 @@
+# ADVoi Development Log
+
+> Chronological record of development activity, milestones, and implementation notes.  
+> One entry per significant work session or release.
+
+---
+
+## How to Use This Log
+
+### Entry Template
+
+```markdown
+## [YYYY-MM-DD] — Title
+
+**Version:** vX.Y.Z  
+**Author:** [name/agent]  
+**Type:** Scaffold | Feature | Fix | Refactor | Docs | Infra  
+**Status:** Complete | In Progress | Blocked
+
+### Summary
+[1-3 sentences: what was done and why]
+
+### Changes
+- [ ] Change 1
+- [ ] Change 2
+
+### Decisions Made
+- [Link to ADR-XXX if applicable]
+
+### Next Steps
+- [ ] Item 1
+- [ ] Item 2
+
+### Notes
+[Optional: blockers, learnings, deviations from plan]
+```
+
+### Versioning Convention
+
+| Bump | When |
+|------|------|
+| **Major (X.0.0)** | Breaking architecture change, new vertical/agent |
+| **Minor (0.X.0)** | New feature, new horizontal engine, new protocol |
+| **Patch (0.0.X)** | Bug fix, doc update, config tweak |
+
+---
+
+## Log Entries
+
+---
+
+## [2026-07-07] — Initial Scaffold & Documentation Capture
+
+**Version:** v0.1.0  
+**Author:** Architecture session (conversation capture)  
+**Type:** Scaffold | Docs  
+**Status:** Complete
+
+### Summary
+
+Created the `advoi-system` documentation scaffold to capture the full conversation evolution from exploratory discussions through locked architectural decisions. No application code deployed yet — this release establishes the clarity framework, decision log, dev log, and error log as the governance foundation for all subsequent implementation.
+
+### Changes
+
+- [x] Created `advoi-system/docs/` directory structure
+- [x] Created `CLARITY-FRAMEWORK.md` — master clarity document
+  - System vision (voice-first executive OS)
+  - Strategy Stack ontology layers
+  - Architecture layers (verticals + horizontals)
+  - Evolution timeline (proposed → refined → rejected → final)
+  - 24 locked final decisions
+  - Version history (v0.1.0)
+  - Open questions / deferred items
+  - Tool/repo evaluation matrix (40+ tools evaluated)
+- [x] Created `decision-log/DECISION-LOG.md` — 25 ADR-style decisions
+- [x] Created `dev-log/DEV-LOG.md` — this file (template + first entry)
+- [x] Created `error-log/ERROR-LOG.md` — Guardian agent error log template
+
+### Source Material Captured
+
+| File | Key Content Integrated |
+|------|------------------------|
+| `main1.txt` | Voice system, squads, Aether, Guardian, memory, decisions |
+| `main2.txt` | Pipecat/LiveKit, FirstMate, React Flow, PWA, meta-architecture |
+| `ontology.txt` | Strategy Stack, events, JTBD, harness mapping |
+| `data.txt` | Ingestion, warehouse, BI, Coolify rejection |
+| `aganticall.txt` | Agentic loops, progressive discovery |
+| `newaistanderd.txt` | AI-Native SaaS principles |
+| `gstak tenet.txt` | Memory system comparisons |
+
+### Architecture Locked (Not Yet Built)
+
+| Layer | Status |
+|-------|--------|
+| Web PWA client | 📋 Specified |
+| LiveKit + Pipecat voice pipeline | 📋 Specified |
+| Intent & Routing (local LLM) | 📋 Specified |
+| Aether (portfolio manager) | 📋 Specified |
+| Guardian (security/recovery) | 📋 Specified |
+| Squad experiments (5-role + 3-role) | 📋 Specified |
+| Ingestion Engine (horizontal) | 📋 Specified |
+| Reporting Engine (horizontal) | 📋 Specified |
+| PostgreSQL warehouse | 📋 Specified |
+| React Flow architecture viz | 📋 Specified |
+| Hermes + FirstMate integration | ✅ Existing (unchanged) |
+
+### Decisions Made
+
+- ADR-001 through ADR-025 documented in decision log
+- See `CLARITY-FRAMEWORK.md` Section 5 for quick reference
+
+### Next Steps
+
+- [ ] Stage 1 implementation: Pipecat + LiveKit voice pipeline on VPS
+- [ ] Web PWA shell with LiveKit web client integration
+- [ ] Thin voice wrapper → FirstMate webhook/bot connection
+- [ ] PostgreSQL schema-per-project initial migration
+- [ ] `master-state.json` / per-project `.ether` schema design
+- [ ] Guardian error log integration (wire to monitoring)
+- [ ] React Flow SystemNode prototype for architecture dashboard
+- [ ] OpenRouter tiered routing config for testing
+- [ ] Backblaze B2 backup automation script
+
+### Notes
+
+- Conversation initially explored APK/React Native — **final decision is Web PWA first** (ADR-001)
+- Lavish and Coolify explicitly rejected — do not re-introduce without new ADR
+- Two squad experiments run in parallel — not a 5→3 reduction
+- Financial agent (P&L) is future scope, separate from Aether
+- Continuous Improvement Loop, DEL triggers, and dashboard UI are deferred but documented
+
+---
+
+## [Future Entry Placeholder]
+
+**Version:** v0.2.0  
+**Type:** Feature  
+**Status:** Not started
+
+### Planned: Stage 1 Voice Pipeline
+
+- Pipecat pipeline with LiveKit transport
+- STT → FirstMate forward → TTS response loop
+- Web PWA with mic permission and voice session UI
+- Basic trigger word detection via local LLM
+
+---
+
+*Add new entries above the "Future Entry Placeholder" section.*
