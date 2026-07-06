@@ -2,5 +2,8 @@
   "url": "https://shelve.keyteller.com",
   "slug": "ktteam",
   "project": "advoi",
-  "defaultEnv": "staging"
+  "defaultEnv": "staging",
+  "envFileName": "deploy/.env",
+  "autoCreateProject": false,
+  "autoUppercase": false
 }

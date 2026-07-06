@@ -18,6 +18,13 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+# Shelve — canonical secrets (team ktteam / staging → deploy/.env)
+if [[ -f /opt/shelve/scripts/shelve-pull-deploy.sh ]]; then
+  # shellcheck source=/dev/null
+  source /opt/shelve/scripts/shelve-pull-deploy.sh
+  shelve_pull_deploy "${ROOT}"
+fi
+
 # shellcheck disable=SC1090
 set -a
 source "${ENV_FILE}"
@@ -30,6 +37,6 @@ if [[ "${1:-}" == "--profile" ]] && [[ -n "${2:-}" ]]; then
 fi
 
 echo "==> ADVoi compose project: advoi (slug isolated)"
-docker compose "${COMPOSE_FILES[@]}" --env-file "${ENV_FILE}" up -d "${PROFILE_ARGS[@]}" "$@"
+docker compose "${COMPOSE_FILES[@]}" --env-file "${ENV_FILE}" "${PROFILE_ARGS[@]}" up -d --build "$@"
 
 docker compose "${COMPOSE_FILES[@]}" --env-file "${ENV_FILE}" ps

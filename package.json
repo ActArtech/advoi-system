@@ -1,0 +1,7 @@
+{
+  "name": "advoi-system",
+  "private": true,
+  "devDependencies": {
+    "@shelve/cli": "^5.2.0"
+  }
+}
