@@ -12,6 +12,10 @@ ADVOI_ENV_REMOTE="${ADVOI_ENV_REMOTE:-/opt/advoi/deploy/.env}"
 OUT="${ROOT}/deploy/.env"
 EXAMPLE="${ROOT}/deploy/.env.staging.example"
 
+_on_vps() {
+  [[ -f "${ADVOI_ENV_REMOTE}" ]]
+}
+
 if [[ ! -f "${EXAMPLE}" ]]; then
   echo "ERROR: missing ${EXAMPLE}" >&2
   exit 1
@@ -34,23 +38,39 @@ _merge_key() {
   fi
 }
 
-_read_remote() {
+_read_key() {
+  local file="$1" key="$2"
+  grep -m1 "^${key}=" "${file}" 2>/dev/null | cut -d= -f2- || true
+}
+
+_read_remote_key() {
   local file="$1" key="$2"
   ssh -o ConnectTimeout=15 -o BatchMode=yes "${VPS_HOST}" \
     "grep -m1 '^${key}=' '${file}' 2>/dev/null | cut -d= -f2-" || true
 }
 
-echo "==> Merging VPS advoi deploy/.env (non-empty keys only)"
+echo "==> Merging advoi deploy/.env (non-empty keys only)"
+if _on_vps && [[ -f "${ADVOI_ENV_REMOTE}" ]]; then
+  advoi_src="${ADVOI_ENV_REMOTE}"
+else
+  advoi_src="$(mktemp)"
+  ssh -o ConnectTimeout=15 -o BatchMode=yes "${VPS_HOST}" "cat '${ADVOI_ENV_REMOTE}'" > "${advoi_src}" 2>/dev/null || true
+fi
 while IFS= read -r line; do
   [[ "${line}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || continue
   key="${line%%=*}"
   val="${line#*=}"
   [[ -n "${val}" ]] && _merge_key "${key}" "${val}"
-done < <(ssh -o ConnectTimeout=15 -o BatchMode=yes "${VPS_HOST}" "cat '${ADVOI_ENV_REMOTE}' 2>/dev/null" || true)
+done < "${advoi_src}"
+[[ "${advoi_src}" != "${ADVOI_ENV_REMOTE}" ]] && rm -f "${advoi_src}"
 
-echo "==> Overlay clapart OPENAI / OPENROUTER / DEEPGRAM (if set on VPS)"
+echo "==> Overlay clapart OPENAI / OPENROUTER / DEEPGRAM (if set)"
 for key in OPENAI_API_KEY OPENROUTER_API_KEY DEEPGRAM_API_KEY OPENAI_FRAMEWORK_MODEL; do
-  val="$(_read_remote "${CLAPART_ENV_REMOTE}" "${key}")"
+  if _on_vps && [[ -f "${CLAPART_ENV_REMOTE}" ]]; then
+    val="$(_read_key "${CLAPART_ENV_REMOTE}" "${key}")"
+  else
+    val="$(_read_remote_key "${CLAPART_ENV_REMOTE}" "${key}")"
+  fi
   if [[ -n "${val}" ]]; then
     _merge_key "${key}" "${val}"
     echo "    ${key} ← clapart"
