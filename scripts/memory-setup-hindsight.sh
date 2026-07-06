@@ -64,14 +64,19 @@ else
   # Local embedded: reuse existing OPENAI_API_KEY from Hermes env when present
   docker exec "${HERMES_CONTAINER}" bash -lc "
     set -euo pipefail
-    if ! grep -q '^HINDSIGHT_LLM_API_KEY=' '${HERMES_ENV}'; then
+    if ! grep -q '^HINDSIGHT_API_LLM_API_KEY=' '${HERMES_ENV}'; then
       OPENAI_KEY=\$(grep '^OPENAI_API_KEY=' '${HERMES_ENV}' | cut -d= -f2- || true)
       if [[ -n \"\${OPENAI_KEY}\" ]]; then
-        echo \"HINDSIGHT_LLM_API_KEY=\${OPENAI_KEY}\" >> '${HERMES_ENV}'
-        echo 'OK: wired HINDSIGHT_LLM_API_KEY from existing OPENAI_API_KEY'
+        echo \"HINDSIGHT_API_LLM_API_KEY=\${OPENAI_KEY}\" >> '${HERMES_ENV}'
+        echo 'OK: wired HINDSIGHT_API_LLM_API_KEY from existing OPENAI_API_KEY'
       else
-        echo 'WARN: no OPENAI_API_KEY in ${HERMES_ENV}; add HINDSIGHT_LLM_API_KEY manually'
+        echo 'WARN: no OPENAI_API_KEY in ${HERMES_ENV}; add HINDSIGHT_API_LLM_API_KEY manually'
       fi
+    fi
+    # Hermes plugin also reads HINDSIGHT_LLM_API_KEY — keep both in sync when present
+    if grep -q '^HINDSIGHT_API_LLM_API_KEY=' '${HERMES_ENV}' && ! grep -q '^HINDSIGHT_LLM_API_KEY=' '${HERMES_ENV}'; then
+      KEY=\$(grep '^HINDSIGHT_API_LLM_API_KEY=' '${HERMES_ENV}' | cut -d= -f2-)
+      echo \"HINDSIGHT_LLM_API_KEY=\${KEY}\" >> '${HERMES_ENV}'
     fi
     grep -q '^HINDSIGHT_MODE=' '${HERMES_ENV}' \
       && sed -i 's|^HINDSIGHT_MODE=.*|HINDSIGHT_MODE=local|' '${HERMES_ENV}' \
