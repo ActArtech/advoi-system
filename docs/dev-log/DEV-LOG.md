@@ -49,6 +49,41 @@
 
 ---
 
+## [2026-07-07] — VPS Clone + Infra (clone-only policy)
+
+**Version:** v0.1.1  
+**Author:** Setup session  
+**Type:** Infra  
+**Status:** Complete
+
+### Summary
+
+Cloned `advoi-system` to `/opt/advoi` on VPS without touching `/opt/firstmate`, `/opt/firstmate-fleet`, `/opt/aether`, or any other project. Started isolated postgres + redis; verified read-only fleet bridge.
+
+### Changes
+
+- [x] Clone-safe scripts: `vps-bootstrap.sh`, `vps-deploy.sh`, `vps-staging-check.sh`
+- [x] GitHub deploy key `github-advoi` (read-only)
+- [x] VPS clone at `/opt/advoi` — fresh, not migrated/overwritten
+- [x] Docker project `advoi`: postgres `127.0.0.1:5438`, redis `127.0.0.1:6382`
+- [x] `fm-bridge.sh` → `firstmate-fleet` fleet status verified
+- [x] `docs/VPS-SETUP.md` + Traefik staging overlay (not deployed yet)
+
+### Decisions Made
+
+- **Clone-only:** refuse bootstrap if `/opt/advoi` exists without `.git`
+- **No active venture switch:** gem-dev-shop remains Aether active project
+
+### Next Steps
+
+- [ ] DNS `advoi.keyteller.com` A record
+- [ ] LiveKit credentials in `deploy/.env`
+- [ ] Stage 1 voice agent + web PWA
+- [ ] Register slug in `/opt/shared/port-registry.md`
+- [ ] Bootstrap `.aether/` on advoi repo (optional, non-destructive)
+
+---
+
 ## [2026-07-07] — Initial Scaffold & Documentation Capture
 
 **Version:** v0.1.0  
