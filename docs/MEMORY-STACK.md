@@ -1,6 +1,6 @@
 # ADVoi Memory Stack
 
-**ADR-026** — Hindsight (now) + Letta (v0.2 optional) + Postgres + Redis.
+**ADR-026** — Hindsight (strategic) + Postgres (canonical) + Redis (ephemeral) + optional Letta (v0.2).
 
 ## Tier mapping
 
@@ -8,67 +8,76 @@
 Voice / ADVoi routing
     │
     ├── Hindsight (via Hermes)     → portfolio facts, decisions, governance, synthesis
+    │       └── advoi-memory-bridge (HTTP :8095) — only service with docker.sock
     │
     ├── Letta (self-hosted, v0.2)  → agent identity, user prefs, squad operational learning
     │
-    ├── PostgreSQL (advoi)         → structured state: projects, briefs, master-state.json
+    ├── PostgreSQL (advoi)         → decision_briefs, memory_events, master-state
     │
-    └── Redis                      → ephemeral: last 3–5 turns + rolling summary
+    └── Redis                      → ephemeral voice turns + advoi:briefs:open cache
 ```
 
-**Rule:** Hindsight = what the system knows and believes. Letta = who the agent is and how it improves. Postgres = canonical records. Guardian log = failures only.
+**Rule:** Hindsight = what the system knows and believes. Postgres = canonical briefs/records. Redis = last 5 voice turns per session. Guardian log = failures only.
 
-## Phase 1 — Hindsight only (this week)
+## Container architecture (production)
 
-```bash
-ssh deploy@187.77.140.216
-bash /opt/advoi/scripts/memory-setup-hindsight.sh   # non-interactive; local embedded by default
-# Or interactive: docker exec hermes hermes memory setup hindsight
-```
+App containers (`advoi-api`, `advoi-voice`, agent daemons) **cannot** `docker exec` into Hermes.
 
-`deploy/.env`:
+| Path | Who uses it |
+|------|-------------|
+| `HINDSIGHT_BRIDGE_URL=http://advoi-memory-bridge:8095` | All app containers — recall/retain via HTTP |
+| `docker exec hermes python hindsight-bridge.py` | `advoi-memory-bridge` only (docker.sock mounted) |
+| Redis `advoi:briefs:open` | Brief Curator fast path |
+| Postgres `decision_briefs` | Brief Curator canonical path |
+
+## `deploy/.env` (required)
 
 ```env
 MEMORY_PROVIDER=hindsight
 HERMES_CONTAINER=hermes
+HINDSIGHT_MODE=local
+HINDSIGHT_BRIDGE=hermes
+HINDSIGHT_BRIDGE_URL=http://advoi-memory-bridge:8095
+HINDSIGHT_BANK_ID=advoi-portfolio
 LETTA_ENABLED=false
+REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql://advoi:***@postgres:5432/advoi
 ```
 
-Code path: `advoi/memory/router.py` → `hindsight.py` (`hindsight-client`, bridged via Hermes container for local mode).
+## Setup on VPS
 
-## Phase 2 — Add Letta (optional)
+```bash
+cd /opt/advoi
+bash scripts/memory-setup-hindsight.sh      # once — Hermes embedded hindsight
+bash scripts/ensure-deploy-secrets.sh       # sets HINDSIGHT_BRIDGE_URL
+DEPLOY_MODE=staging bash scripts/vps-deploy.sh --profile app
+bash scripts/seed-advoi-briefs.sh           # Postgres + Redis + Hindsight
+bash scripts/memory-health.sh
+```
 
-1. Clone `/opt/letta` — see `docs/LETTA-OPTIONAL.md`
-2. Set `LETTA_ENABLED=true`, `MEMORY_PROVIDER=both`
-3. Never write the same event to Hindsight and Letta — use `write_targets.py`
+## Voice loop (dynamic)
+
+- **Recall** at session start — `MemoryRouter.recall()` in `advoi/voice/agent.py`
+- **Retain** each turn — `VoiceMemoryProcessor` in pipeline → Redis (`VOICE_TURN`)
+- **Briefs** — user can seed via `seed-advoi-briefs.sh`; Brief Curator merges Postgres + Redis + Hindsight
+
+## Checklist
+
+- [x] Hindsight setup on Hermes
+- [x] `advoi-memory-bridge` service (HTTP → Hermes docker exec)
+- [x] `HINDSIGHT_BRIDGE_URL` in deploy/.env
+- [x] Voice turn retain to Redis
+- [x] Postgres `decision_briefs` + Brief Curator merge
+- [x] `write_targets.py` — no duplicate writes per event type
+- [ ] Shelve push for secrets (OPENAI key corruption on pull)
+- [ ] Review queue Postgres persistence
+- [ ] (v0.2) Letta container
 
 ## What NOT to store as memory
 
-- Fleet backlog / task queue → operational queue, not recall
+- Fleet backlog / task queue → fleet snapshot files, not Hindsight
 - Guardian stack traces → `guardian_log.py` only
-- Cognee + SurrealDB + everything at once → pick this stack only
 
 ## Cost optimization
 
-Hermes runs Hindsight recall — trim memory files and apply [HERMES-COST-OPTIMIZATION.md](HERMES-COST-OPTIMIZATION.md) on `/opt/hermes` before heavy voice testing.
-
----
-
-## Checklist before memory is "done"
-
-- [x] `bash scripts/memory-setup-hindsight.sh` on VPS (switches Hermes off holographic → hindsight)
-- [ ] `bash scripts/memory-health.sh` passes bridge probe (start embedded daemon first)
-- [ ] `MEMORY_PROVIDER=hindsight` in `/opt/advoi/deploy/.env`
-- [ ] `advoi/memory/write_targets.py` — no duplicate writes for same event type
-- [ ] Aether `.aether/DECISIONS.md` for architecture; Hindsight for synthesized insights
-- [ ] Guardian errors in `docs/error-log/` — not in Hindsight
-- [ ] ADR-026 recorded in `docs/decision-log/DECISION-LOG.md`
-- [ ] (v0.2) Letta container + MemFS git backup
-
-## Decision matrix
-
-| Priority | Choose |
-|----------|--------|
-| Fastest, Hermes-native, governance | **Hindsight only** |
-| Long-lived self-editing agent identity | **Letta only** |
-| Full executive OS | **Hindsight + Letta + Postgres** ← recommended end state |
+Apply [HERMES-COST-OPTIMIZATION.md](HERMES-COST-OPTIMIZATION.md) on `/opt/hermes` before scaling voice recall frequency.

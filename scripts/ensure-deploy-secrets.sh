@@ -5,6 +5,23 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ROOT}/deploy/.env"
 
+# Shelve / hand-edits sometimes omit trailing newlines — repair merged KEY=valueKEY=value lines.
+if [[ -f "${ENV_FILE}" ]]; then
+  python3 - "${ENV_FILE}" <<'PY'
+import re, sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8", errors="replace").read()
+text = re.sub(
+    r"(?<=[^\n])(?=[A-Z][A-Z0-9_]+=)",
+    "\n",
+    text,
+)
+if text and not text.endswith("\n"):
+    text += "\n"
+open(path, "w", encoding="utf-8").write(text)
+PY
+fi
+
 if [[ -x "${ROOT}/scripts/sync-llm-keys-from-clapart.sh" ]] && [[ -f /opt/clapart/deploy/.env ]]; then
   bash "${ROOT}/scripts/sync-llm-keys-from-clapart.sh"
 elif [[ -f /opt/clapart/deploy/.env ]]; then
@@ -39,6 +56,13 @@ if [[ -f /opt/firstmate-fleet/scripts/fm-hermes-trigger.sh ]]; then
   else
     echo "FIRSTMATE_FLEET_PATH=/opt/firstmate-fleet" >> "${ENV_FILE}"
   fi
+fi
+
+# Hindsight HTTP bridge — app containers reach Hermes via this service (docker.sock isolated here)
+if grep -q '^HINDSIGHT_BRIDGE_URL=' "${ENV_FILE}"; then
+  sed -i 's|^HINDSIGHT_BRIDGE_URL=.*|HINDSIGHT_BRIDGE_URL=http://advoi-memory-bridge:8095|' "${ENV_FILE}"
+else
+  echo "HINDSIGHT_BRIDGE_URL=http://advoi-memory-bridge:8095" >> "${ENV_FILE}"
 fi
 
 # Agent daemon tick interval (background cache refresh — voice taps are immediate)

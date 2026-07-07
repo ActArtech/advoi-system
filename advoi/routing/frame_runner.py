@@ -337,8 +337,7 @@ def _voice_trim(text: str, *, max_sentences: int = 4) -> str:
     return spoken or text[:400]
 
 
-def _load_open_briefs() -> list[str]:
-    """Operational briefs in Redis — reachable from all app containers."""
+def _load_open_briefs_redis() -> list[str]:
     try:
         import json
 
@@ -357,6 +356,25 @@ def _load_open_briefs() -> list[str]:
     return []
 
 
+async def _load_open_briefs() -> list[str]:
+    """Merge Postgres canonical briefs, Redis cache, deduped."""
+    from advoi.memory.postgres_store import list_open_briefs
+
+    seen: set[str] = set()
+    merged: list[str] = []
+    for title in await list_open_briefs():
+        key = title.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            merged.append(title[:120])
+    for title in _load_open_briefs_redis():
+        key = title.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            merged.append(title[:120])
+    return merged
+
+
 async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
     if os.getenv("ADVOI_FRAME_MOCK", "").lower() in {"1", "true", "yes"}:
         return (
@@ -364,8 +382,8 @@ async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
             {"mode": "mock", "briefs": ["ADVoi voice launch", "staging catch-up"]},
         )
 
-    items = _load_open_briefs()
-    source = "redis"
+    items = await _load_open_briefs()
+    source = "postgres+redis" if items else "memory"
     if not items:
         router = MemoryRouter()
         recall = await router.recall(

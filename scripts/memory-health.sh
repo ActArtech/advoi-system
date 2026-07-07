@@ -20,11 +20,22 @@ else
   echo "WARN: ${HERMES_CONTAINER} not running"
 fi
 
-echo "--- Hindsight bridge probe ---"
+echo "--- Hindsight bridge probe (Hermes) ---"
 if docker ps --format '{{.Names}}' | grep -qx "${HERMES_CONTAINER}"; then
   docker exec "${HERMES_CONTAINER}" python /vps-projects/advoi/scripts/hindsight-bridge.py \
     --json '{"action":"recall","query":"ADVoi portfolio","limit":3}' 2>/dev/null | head -c 400 || \
     echo "WARN: hindsight bridge not ready (daemon may still be warming)"
+fi
+
+echo "--- Hindsight HTTP bridge (advoi containers) ---"
+BRIDGE_URL="${HINDSIGHT_BRIDGE_URL:-http://127.0.0.1:8095}"
+if curl -sf "${BRIDGE_URL}/health" >/dev/null 2>&1; then
+  curl -sf -X POST "${BRIDGE_URL}/recall" \
+    -H "Content-Type: application/json" \
+    -d '{"query":"ADVoi portfolio","limit":2}' 2>/dev/null | head -c 300 || \
+    echo "WARN: HTTP bridge recall failed"
+else
+  echo "WARN: advoi-memory-bridge not reachable at ${BRIDGE_URL}"
 fi
 
 echo "--- Letta (optional) ---"

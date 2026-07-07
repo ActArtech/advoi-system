@@ -124,10 +124,39 @@ def _docker_exec_available() -> bool:
     return shutil.which("docker") is not None
 
 
+async def _http_bridge_call(action: str, **kwargs: Any) -> Any:
+    url = os.getenv("HINDSIGHT_BRIDGE_URL", "").rstrip("/")
+    if not url:
+        return None
+    import httpx
+
+    path = "/recall" if action == "recall" else "/retain"
+    if action == "recall":
+        body = {"query": kwargs.get("query", ""), "limit": int(kwargs.get("limit", 8))}
+    else:
+        body = {
+            "event_type": kwargs.get("event_type", "portfolio_fact"),
+            "summary": kwargs.get("summary", ""),
+            "payload": kwargs.get("payload", {}),
+        }
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(f"{url}{path}", json=body)
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as exc:
+        _LOGGER.debug("hindsight http bridge failed: %s", exc)
+        return None
+
+
 async def _bridge_call(action: str, **kwargs: Any) -> Any:
+    http_result = await _http_bridge_call(action, **kwargs)
+    if isinstance(http_result, dict) and http_result.get("ok") is not None:
+        return http_result
+
     cfg = _hindsight_settings()
     if not _docker_exec_available():
-        _LOGGER.debug("hindsight bridge skip: docker CLI unavailable in container")
+        _LOGGER.debug("hindsight bridge skip: no HTTP bridge and docker CLI unavailable")
         return None
     script = os.getenv(
         "HINDSIGHT_BRIDGE_SCRIPT",
@@ -168,13 +197,17 @@ async def recall_strategic(
     """Recall portfolio/governance context from Hindsight."""
     cfg = _hindsight_settings()
     try:
-        if cfg["bridge"] == "hermes" or (
-            cfg["mode"] == "local" and cfg["api_url"].startswith("http://127.0.0.1")
-        ):
+        use_bridge = (
+            os.getenv("HINDSIGHT_BRIDGE_URL")
+            or cfg["bridge"] == "hermes"
+            or (cfg["mode"] == "local" and cfg["api_url"].startswith("http://127.0.0.1"))
+        )
+        if use_bridge:
             data = await _bridge_call("recall", query=query, limit=limit)
             if isinstance(data, dict) and data.get("ok"):
                 return data.get("results", [])
-            return []
+            if os.getenv("HINDSIGHT_BRIDGE_URL"):
+                return []
 
         return await _recall_direct(query, limit=limit)
     except Exception as exc:
@@ -192,9 +225,12 @@ async def retain_strategic(
     summary = payload.get("summary") or payload.get("text") or str(payload)[:2000]
     cfg = _hindsight_settings()
     try:
-        if cfg["bridge"] == "hermes" or (
-            cfg["mode"] == "local" and cfg["api_url"].startswith("http://127.0.0.1")
-        ):
+        use_bridge = (
+            os.getenv("HINDSIGHT_BRIDGE_URL")
+            or cfg["bridge"] == "hermes"
+            or (cfg["mode"] == "local" and cfg["api_url"].startswith("http://127.0.0.1"))
+        )
+        if use_bridge:
             data = await _bridge_call(
                 "retain",
                 event_type=event_type,

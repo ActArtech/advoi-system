@@ -16,6 +16,7 @@ from advoi.llm.openrouter import resolve_llm_credentials  # noqa: E402
 from advoi.memory import MemoryRouter  # noqa: E402
 from advoi.voice.livekit_env import internal_livekit_url  # noqa: E402
 from advoi.voice.frame_dispatch import handle_frame_message  # noqa: E402
+from advoi.voice.memory_hooks import build_memory_processor  # noqa: E402
 from advoi.voice.prompts import build_system_instruction  # noqa: E402
 from advoi.voice.tokens import default_room_name, mint_room_token  # noqa: E402
 
@@ -58,8 +59,11 @@ async def run_agent() -> None:
         name="ADVoi",
     )
 
+    session_id = os.getenv("ADVOI_VOICE_SESSION_ID", "voice-main")
     memory_context = await _memory_context()
     system_instruction = build_system_instruction(memory_context=memory_context)
+    memory_in = build_memory_processor(session_id)
+    memory_out = build_memory_processor(session_id)
 
     transport = LiveKitTransport(
         url=livekit_url,
@@ -101,8 +105,10 @@ async def run_agent() -> None:
         [
             transport.input(),
             stt,
+            memory_in,
             user_aggregator,
             llm,
+            memory_out,
             tts,
             transport.output(),
             assistant_aggregator,
