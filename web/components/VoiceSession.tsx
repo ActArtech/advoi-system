@@ -12,9 +12,18 @@ import styles from "./VoiceSession.module.css";
 
 type SessionState = "idle" | "connecting" | "connected" | "error";
 
-// Same-origin in production (Traefik routes /api → advoi-api). Override for non-proxy dev setups.
+type DecisionFrame = {
+  id: string;
+  label: string;
+  agent_id: string;
+  agent_name: string;
+  requires_confirmation: boolean;
+  voice_prompt: string;
+};
+
 const tokenEndpoint =
   process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "/api/livekit/token";
+const apiBase = process.env.NEXT_PUBLIC_ADVOI_API_URL?.replace(/\/$/, "") || "/api";
 
 function attachRemoteAudio(track: { kind: Track.Kind; attach: () => HTMLMediaElement }) {
   if (track.kind !== Track.Kind.Audio) return;
@@ -27,19 +36,32 @@ export function VoiceSession() {
   const [state, setState] = useState<SessionState>("idle");
   const [status, setStatus] = useState("Tap connect to start a voice session.");
   const [roomName, setRoomName] = useState("");
+  const [frames, setFrames] = useState<DecisionFrame[]>([]);
+  const [activeFrame, setActiveFrame] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
   const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: true }), []);
+
+  useEffect(() => {
+    fetch(`${apiBase}/frames`)
+      .then((r) => r.json())
+      .then((data) => setFrames(data.frames || []))
+      .catch(() => {
+        setFrames([]);
+      });
+  }, []);
 
   useEffect(() => {
     const onState = (s: ConnectionState) => {
       if (s === ConnectionState.Connected) {
         setState("connected");
-        setStatus("Connected — speak when ready.");
+        setStatus("Connected — speak or tap a decision frame.");
       } else if (s === ConnectionState.Connecting) {
         setState("connecting");
         setStatus("Connecting to LiveKit…");
       } else if (s === ConnectionState.Disconnected) {
         setState("idle");
         setStatus("Disconnected.");
+        setPendingConfirm(null);
       }
     };
 
@@ -51,6 +73,53 @@ export function VoiceSession() {
       room.disconnect();
     };
   }, [room]);
+
+  const publishSpeak = useCallback(
+    async (text: string) => {
+      const payload = new TextEncoder().encode(JSON.stringify({ type: "speak", text }));
+      await room.localParticipant.publishData(payload, { reliable: true });
+    },
+    [room],
+  );
+
+  const runFrame = useCallback(
+    async (frameId: string, confirmed = false) => {
+      if (state !== "connected") return;
+      setActiveFrame(frameId);
+      const frame = frames.find((f) => f.id === frameId);
+      setStatus(`${frame?.agent_name || "Agent"} working…`);
+
+      try {
+        const resp = await fetch(`${apiBase}/frames/${frameId}/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirmed }),
+        });
+        if (!resp.ok) {
+          throw new Error(`Frame returned ${resp.status}`);
+        }
+        const data = await resp.json();
+
+        if (data.status === "confirmation_required") {
+          setPendingConfirm(frameId);
+          setStatus(data.spoken_summary);
+          await publishSpeak(data.spoken_summary);
+          return;
+        }
+
+        setPendingConfirm(null);
+        setStatus(data.spoken_summary);
+        await publishSpeak(data.spoken_summary);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Frame failed";
+        setState("error");
+        setStatus(message);
+      } finally {
+        setActiveFrame(null);
+      }
+    },
+    [apiBase, frames, publishSpeak, state],
+  );
 
   const connect = useCallback(async () => {
     setState("connecting");
@@ -87,7 +156,16 @@ export function VoiceSession() {
     await room.disconnect();
     setState("idle");
     setStatus("Session ended.");
+    setPendingConfirm(null);
   }, [room]);
+
+  const onFrameClick = (frameId: string) => {
+    if (pendingConfirm === frameId) {
+      void runFrame(frameId, true);
+      return;
+    }
+    void runFrame(frameId, false);
+  };
 
   return (
     <section className={styles.panel}>
@@ -110,17 +188,27 @@ export function VoiceSession() {
       </div>
 
       <div className={styles.frames}>
-        <button type="button" className={styles.frameBtn} disabled>
-          Option A — Fleet status
-        </button>
-        <button type="button" className={styles.frameBtn} disabled>
-          Option B — Open briefs
-        </button>
-        <button type="button" className={styles.frameBtn} disabled>
-          Option C — Queue deep review
-        </button>
+        {frames.map((frame) => {
+          const isPending = pendingConfirm === frame.id;
+          const isActive = activeFrame === frame.id;
+          return (
+            <button
+              key={frame.id}
+              type="button"
+              className={`${styles.frameBtn} ${state === "connected" ? styles.frameBtnLive : ""} ${isActive ? styles.frameBtnActive : ""}`}
+              disabled={state !== "connected" || isActive}
+              onClick={() => onFrameClick(frame.id)}
+            >
+              <span className={styles.frameLabel}>{frame.label}</span>
+              <span className={styles.frameAgent}>{frame.agent_name}</span>
+              {isPending ? <span className={styles.frameConfirm}>Tap again to confirm</span> : null}
+            </button>
+          );
+        })}
       </div>
-      <p className={styles.hint}>Decision frame buttons ship in Stage 2. Voice path is live in Stage 1.</p>
+      <p className={styles.hint}>
+        Three specialist agents: fleet scout, brief curator, review queue. Connect voice first, then tap a frame or ask aloud.
+      </p>
     </section>
   );
 }

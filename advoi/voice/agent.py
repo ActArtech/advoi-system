@@ -15,6 +15,7 @@ from loguru import logger  # noqa: E402
 from advoi.llm.openrouter import resolve_llm_credentials  # noqa: E402
 from advoi.memory import MemoryRouter  # noqa: E402
 from advoi.voice.livekit_env import internal_livekit_url  # noqa: E402
+from advoi.voice.frame_dispatch import handle_frame_message  # noqa: E402
 from advoi.voice.prompts import build_system_instruction  # noqa: E402
 from advoi.voice.tokens import default_room_name, mint_room_token  # noqa: E402
 
@@ -139,6 +140,13 @@ async def run_agent() -> None:
     @transport.event_handler("on_first_participant_joined")
     async def on_first_participant_joined(transport, participant_id):  # noqa: ARG001
         await _greet_participant(participant_id)
+
+    @transport.event_handler("on_data_received")
+    async def on_data_received(transport, data, participant_id):  # noqa: ARG001
+        spoken = await handle_frame_message(data)
+        if spoken:
+            logger.info("Frame data from {} — speaking response", participant_id)
+            await worker.queue_frame(TTSSpeakFrame(spoken))
 
     runner = WorkerRunner()
     await runner.add_workers(worker)

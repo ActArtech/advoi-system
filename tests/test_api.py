@@ -22,7 +22,7 @@ def test_health(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["ok"] is True
-    assert data["stage"] == "voice-pwa-1"
+    assert data["stage"] == "voice-pwa-2"
 
 
 def test_livekit_token(client):
