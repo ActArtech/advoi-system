@@ -32,10 +32,21 @@ set_kv() {
 router_key="$(_read_key "${CLAPART_ENV}" OPENROUTER_API_KEY)"
 openai_key="$(_read_key "${CLAPART_ENV}" OPENAI_API_KEY)"
 
+_validate_key() {
+  local name="$1" value="$2"
+  if [[ "${value}" == *true ]] || [[ ${#value} -gt 200 ]]; then
+    echo "ERROR: ${name} looks corrupted (len=${#value}) — fix ${ADVOI_ENV} manually" >&2
+    return 1
+  fi
+  return 0
+}
+
 if [[ -n "${router_key}" ]]; then
+  _validate_key OPENROUTER_API_KEY "${router_key}"
   set_kv OPENROUTER_API_KEY "${router_key}"
   echo "OK: copied OPENROUTER_API_KEY from ${CLAPART_ENV}"
 elif [[ -n "${openai_key}" ]]; then
+  _validate_key OPENAI_API_KEY "${openai_key}"
   set_kv OPENAI_API_KEY "${openai_key}"
   echo "OK: copied OPENAI_API_KEY from ${CLAPART_ENV} (no OPENROUTER key found)"
 else

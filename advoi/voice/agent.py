@@ -115,6 +115,9 @@ async def run_agent() -> None:
             enable_metrics=True,
             enable_usage_metrics=True,
         ),
+        # Keep the bot in the room between sessions (Pipecat default is 300s idle cancel).
+        idle_timeout_secs=None,
+        cancel_on_idle_timeout=False,
     )
 
     @transport.event_handler("on_first_participant_joined")

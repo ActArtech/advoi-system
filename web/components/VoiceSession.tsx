@@ -16,6 +16,13 @@ type SessionState = "idle" | "connecting" | "connected" | "error";
 const tokenEndpoint =
   process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "/api/livekit/token";
 
+function attachRemoteAudio(track: { kind: Track.Kind; attach: () => HTMLMediaElement }) {
+  if (track.kind !== Track.Kind.Audio) return;
+  const el = track.attach();
+  el.autoplay = true;
+  document.body.appendChild(el);
+}
+
 export function VoiceSession() {
   const [state, setState] = useState<SessionState>("idle");
   const [status, setStatus] = useState("Tap connect to start a voice session.");
@@ -37,13 +44,7 @@ export function VoiceSession() {
     };
 
     room.on(RoomEvent.ConnectionStateChanged, onState);
-    room.on(RoomEvent.TrackSubscribed, (track) => {
-      if (track.kind === Track.Kind.Audio) {
-        const el = track.attach();
-        el.autoplay = true;
-        document.body.appendChild(el);
-      }
-    });
+    room.on(RoomEvent.TrackSubscribed, attachRemoteAudio);
 
     return () => {
       room.off(RoomEvent.ConnectionStateChanged, onState);
@@ -68,6 +69,11 @@ export function VoiceSession() {
       });
       await room.connect(data.url, data.token);
       await room.localParticipant.publishTrack(mic);
+      room.remoteParticipants.forEach((participant) => {
+        participant.audioTrackPublications.forEach((pub) => {
+          if (pub.track) attachRemoteAudio(pub.track);
+        });
+      });
       setStatus(`Joined ${data.room_name}. ADVoi should greet you.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Connection failed";
