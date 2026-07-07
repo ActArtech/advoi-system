@@ -68,6 +68,7 @@ export function VoiceSession() {
         noiseSuppression: true,
       });
       await room.connect(data.url, data.token);
+      await room.startAudio();
       await room.localParticipant.publishTrack(mic);
       room.remoteParticipants.forEach((participant) => {
         participant.audioTrackPublications.forEach((pub) => {

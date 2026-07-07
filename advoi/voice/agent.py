@@ -120,12 +120,25 @@ async def run_agent() -> None:
         cancel_on_idle_timeout=False,
     )
 
-    @transport.event_handler("on_first_participant_joined")
-    async def on_first_participant_joined(transport, participant_id):  # noqa: ARG001
+    greeted_participants: set[str] = set()
+
+    async def _greet_participant(participant_id: str) -> None:
+        if participant_id in greeted_participants:
+            return
+        greeted_participants.add(participant_id)
         await asyncio.sleep(0.5)
+        logger.info("Greeting participant {}", participant_id)
         await worker.queue_frame(
             TTSSpeakFrame("Hi — I'm ADVoi. What should we look at in the portfolio today?")
         )
+
+    @transport.event_handler("on_participant_connected")
+    async def on_participant_connected(transport, participant_id):  # noqa: ARG001
+        await _greet_participant(participant_id)
+
+    @transport.event_handler("on_first_participant_joined")
+    async def on_first_participant_joined(transport, participant_id):  # noqa: ARG001
+        await _greet_participant(participant_id)
 
     runner = WorkerRunner()
     await runner.add_workers(worker)

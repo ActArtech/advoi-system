@@ -91,7 +91,8 @@ services:
       - ./deploy/livekit.yaml:/etc/livekit.yaml:ro
     ports:
       - "127.0.0.1:${LIVEKIT_HOST_PORT:-7880}:7880"
-      - "127.0.0.1:${LIVEKIT_RTC_TCP_PORT:-7881}:7881"
+      - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881/tcp"
+      - "50100-50200:50100-50200/udp"
 
   # Pipecat + LiveKit voice agent
   advoi-voice:
