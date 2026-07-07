@@ -70,7 +70,7 @@ services:
       context: .
       dockerfile: Dockerfile.web
       args:
-        NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT: ${NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT:-http://localhost:8010/api/livekit/token}
+        NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT: ${NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT:-/api/livekit/token}
         NEXT_PUBLIC_ADVOI_API_URL: ${NEXT_PUBLIC_ADVOI_API_URL:-http://localhost:8010/api}
     restart: unless-stopped
     profiles: ["app"]

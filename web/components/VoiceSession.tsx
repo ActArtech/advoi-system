@@ -12,8 +12,9 @@ import styles from "./VoiceSession.module.css";
 
 type SessionState = "idle" | "connecting" | "connected" | "error";
 
+// Same-origin in production (Traefik routes /api → advoi-api). Override for non-proxy dev setups.
 const tokenEndpoint =
-  process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "http://127.0.0.1:8010/api/livekit/token";
+  process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "/api/livekit/token";
 
 export function VoiceSession() {
   const [state, setState] = useState<SessionState>("idle");
