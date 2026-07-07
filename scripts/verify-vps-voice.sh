@@ -20,9 +20,20 @@ r = c.audio.speech.create(model="tts-1", voice="alloy", input="ok")
 print("tts_bytes", len(r.content))
 '
 
-echo "==> docker from api"
-docker exec advoi-advoi-api-1 docker ps --format "{{.Names}}" | grep firstmate-fleet || echo "fleet not visible"
+echo "==> fleet data visible in api container"
+docker exec advoi-advoi-api-1 test -f /opt/firstmate-fleet/data/backlog.md
+docker exec advoi-advoi-api-1 test -f /opt/firstmate-fleet/state/.afk
 
-echo "==> fleet frame"
-curl -sf -X POST https://advoi.keyteller.com/api/frames/fleet_status/run -H "Content-Type: application/json" -d "{}" | head -c 300
+echo "==> fleet frame (fresh, bypass cache)"
+FLEET_JSON="$(curl -sf -X POST 'https://advoi.keyteller.com/api/frames/fleet_status/run?refresh=true' -H 'Content-Type: application/json' -d '{"refresh":true}')"
+echo "${FLEET_JSON}" | head -c 500
 echo
+if echo "${FLEET_JSON}" | grep -qi 'container firstmate-fleet not running'; then
+  echo "FAIL: fleet frame still using docker-exec error"
+  exit 1
+fi
+if ! echo "${FLEET_JSON}" | grep -qi 'fleet snapshot'; then
+  echo "FAIL: fleet frame missing file-based snapshot"
+  exit 1
+fi
+echo "OK: fleet frame returned file-based status"

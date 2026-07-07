@@ -64,3 +64,11 @@ def test_journey_frame_run_mock(client, frame_id, agent_id):
     data = resp.json()
     assert data["agent_id"] == agent_id
     assert data["spoken_summary"]
+
+
+def test_journey_frame_refresh_query_param(client):
+    resp = client.post("/api/frames/fleet_status/run?refresh=true", json={})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["agent_id"] == "fleet-scout"
+    assert data["spoken_summary"]

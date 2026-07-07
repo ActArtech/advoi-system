@@ -30,7 +30,7 @@ async def _cache_result(agent_id: str, payload: dict) -> None:
         client = redis.from_url(url, decode_responses=True)
         client.setex(f"advoi:agent:{agent_id}:last", INTERVAL_SECS * 2, json.dumps(payload))
     except Exception as exc:
-        logger.warning("Redis cache skip for {}: {}", agent_id, exc)
+        logger.warning("Redis cache skip for %s: %s", agent_id, exc)
 
 
 async def run_specialist(agent_id: str) -> None:
@@ -39,22 +39,23 @@ async def run_specialist(agent_id: str) -> None:
         raise SystemExit(f"Unknown agent: {agent_id}")
 
     agent = AGENTS[agent_id]
-    logger.info("{} ({}) online — interval {}s", agent.name, agent_id, INTERVAL_SECS)
+    logger.info("%s (%s) online — interval %ss", agent.name, agent_id, INTERVAL_SECS)
 
     while True:
         try:
             confirmed = frame_id == "queue_deep_review"
-            result = await run_frame(frame_id, confirmed=confirmed)
+            result = await run_frame(frame_id, confirmed=confirmed, refresh=True)
             payload = {
                 "agent_id": result.agent_id,
                 "frame_id": result.frame_id,
                 "status": result.status,
                 "spoken_summary": result.spoken_summary,
             }
-            await _cache_result(agent_id, payload)
-            logger.info("{} tick ok: {}", agent_id, result.status)
+            if result.status == "ok":
+                await _cache_result(agent_id, payload)
+            logger.info("%s tick ok: %s", agent_id, result.status)
         except Exception as exc:
-            logger.error("{} tick failed: {}", agent_id, exc)
+            logger.error("%s tick failed: %s", agent_id, exc)
         await asyncio.sleep(INTERVAL_SECS)
 
 

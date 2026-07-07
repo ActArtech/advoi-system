@@ -85,6 +85,7 @@ async def session_info() -> dict[str, Any]:
 
 class FrameRunRequest(BaseModel):
     confirmed: bool = False
+    refresh: bool = False
 
 
 class FrameRunResponse(BaseModel):
@@ -129,10 +130,18 @@ async def list_agents() -> dict[str, Any]:
 
 
 @app.post("/api/frames/{frame_id}/run", response_model=FrameRunResponse)
-async def run_decision_frame(frame_id: str, body: FrameRunRequest | None = None) -> FrameRunResponse:
+async def run_decision_frame(
+    frame_id: str,
+    body: FrameRunRequest | None = None,
+    refresh: bool = False,
+) -> FrameRunResponse:
     req = body or FrameRunRequest()
     try:
-        result = await run_frame(frame_id, confirmed=req.confirmed)
+        result = await run_frame(
+            frame_id,
+            confirmed=req.confirmed,
+            refresh=refresh or req.refresh,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return FrameRunResponse(

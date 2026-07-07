@@ -90,11 +90,15 @@ export function VoiceSession() {
       setStatus(`${frame?.agent_name || "Agent"} working…`);
 
       try {
-        const resp = await fetch(`${apiBase}/frames/${frameId}/run`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ confirmed }),
-        });
+        const refresh = frameId === "fleet_status";
+        const resp = await fetch(
+          `${apiBase}/frames/${frameId}/run${refresh ? "?refresh=true" : ""}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ confirmed, refresh }),
+          },
+        );
         if (!resp.ok) {
           throw new Error(`Frame returned ${resp.status}`);
         }

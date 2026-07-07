@@ -33,5 +33,6 @@ async def handle_frame_message(raw: bytes | str) -> str | None:
         return None
 
     confirmed = bool(payload.get("confirmed", False))
-    result = await run_frame(str(frame_id), confirmed=confirmed)
+    refresh = bool(payload.get("refresh", False))
+    result = await run_frame(str(frame_id), confirmed=confirmed, refresh=refresh)
     return result.spoken_summary
