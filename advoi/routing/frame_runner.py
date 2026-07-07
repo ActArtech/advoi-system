@@ -29,19 +29,22 @@ async def _run_fleet_scout() -> tuple[str, dict[str, Any]]:
         )
 
     fleet_root = os.getenv("FIRSTMATE_FLEET_PATH", "/opt/firstmate-fleet")
-    script = os.getenv(
+    trigger = os.getenv(
         "FIRSTMATE_TRIGGER_SCRIPT",
         f"{fleet_root}/scripts/fm-hermes-trigger.sh",
     )
-    fallback = f"{fleet_root}/scripts/fm-advanced-status.sh"
+    # Prefer file-based status inside containers (no docker CLI/socket required).
+    candidates = [
+        f"{fleet_root}/scripts/fm-fleet-health.sh",
+        f"{fleet_root}/scripts/fm-advanced-status.sh",
+        trigger,
+    ]
+    script = next((p for p in candidates if os.path.isfile(p)), trigger)
     msg = "fleet status"
     try:
-        if not os.path.isfile(script) and os.path.isfile(fallback):
-            script = fallback
-            cmd = ["bash", script]
-        else:
-            cmd = ["bash", script, msg]
+        cmd = [script, msg] if script == trigger else [script]
         proc = await asyncio.create_subprocess_exec(
+            "bash",
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

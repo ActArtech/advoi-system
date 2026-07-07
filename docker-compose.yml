@@ -46,7 +46,6 @@ services:
       ADVOI_API_PORT: "8000"
     volumes:
       - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,7 +104,6 @@ services:
     command: ["python", "-m", "advoi.routing.agent_daemon", "fleet-scout"]
     volumes:
       - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       redis:
         condition: service_healthy
@@ -118,7 +116,6 @@ services:
     command: ["python", "-m", "advoi.routing.agent_daemon", "brief-curator"]
     volumes:
       - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       redis:
         condition: service_healthy
@@ -131,7 +128,6 @@ services:
     command: ["python", "-m", "advoi.routing.agent_daemon", "review-queue"]
     volumes:
       - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       redis:
         condition: service_healthy
@@ -147,7 +143,6 @@ services:
     env_file: .env
     volumes:
       - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       redis:
         condition: service_healthy

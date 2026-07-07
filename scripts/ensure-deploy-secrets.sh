@@ -7,6 +7,8 @@ ENV_FILE="${ROOT}/deploy/.env"
 
 if [[ -x "${ROOT}/scripts/sync-llm-keys-from-clapart.sh" ]] && [[ -f /opt/clapart/deploy/.env ]]; then
   bash "${ROOT}/scripts/sync-llm-keys-from-clapart.sh"
+elif [[ -f /opt/clapart/deploy/.env ]]; then
+  bash "${ROOT}/scripts/sync-llm-keys-from-clapart.sh"
 fi
 
 _validate() {
