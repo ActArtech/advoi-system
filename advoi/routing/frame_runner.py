@@ -337,6 +337,26 @@ def _voice_trim(text: str, *, max_sentences: int = 4) -> str:
     return spoken or text[:400]
 
 
+def _load_open_briefs() -> list[str]:
+    """Operational briefs in Redis — reachable from all app containers."""
+    try:
+        import json
+
+        import redis
+
+        url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        client = redis.from_url(url, decode_responses=True)
+        raw = client.get("advoi:briefs:open")
+        if not raw:
+            return []
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return [str(x)[:120] for x in data if x]
+    except Exception:
+        pass
+    return []
+
+
 async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
     if os.getenv("ADVOI_FRAME_MOCK", "").lower() in {"1", "true", "yes"}:
         return (
@@ -344,17 +364,23 @@ async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
             {"mode": "mock", "briefs": ["ADVoi voice launch", "staging catch-up"]},
         )
 
-    router = MemoryRouter()
-    recall = await router.recall(session_id="voice-main", query="open decision briefs portfolio")
-    items: list[str] = []
-    for bucket in (recall.strategic, recall.operational, recall.ephemeral):
-        for item in bucket[:3]:
-            text = item.get("text") or item.get("summary") or item.get("content")
-            if text:
-                items.append(str(text)[:120])
+    items = _load_open_briefs()
+    source = "redis"
+    if not items:
+        router = MemoryRouter()
+        recall = await router.recall(
+            session_id="voice-main",
+            query="open decision brief ADVoi portfolio staging",
+        )
+        for bucket in (recall.strategic, recall.operational, recall.ephemeral):
+            for item in bucket[:3]:
+                text = item.get("text") or item.get("summary") or item.get("content")
+                if text:
+                    items.append(str(text)[:120])
+        source = "memory"
     if items:
-        spoken = "Open briefs from memory: " + "; ".join(items[:3])
-        return spoken, {"briefs": items}
+        spoken = "Open briefs: " + "; ".join(items[:3])
+        return spoken, {"briefs": items, "source": source}
     return (
         "No briefs in memory yet. Say what you want captured and I'll log it after confirm.",
         {"briefs": []},

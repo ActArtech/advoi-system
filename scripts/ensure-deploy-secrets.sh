@@ -41,4 +41,11 @@ if [[ -f /opt/firstmate-fleet/scripts/fm-hermes-trigger.sh ]]; then
   fi
 fi
 
+# Agent daemon tick interval (background cache refresh — voice taps are immediate)
+if grep -q '^ADVOI_AGENT_INTERVAL_SECS=' "${ENV_FILE}"; then
+  sed -i 's|^ADVOI_AGENT_INTERVAL_SECS=.*|ADVOI_AGENT_INTERVAL_SECS=45|' "${ENV_FILE}"
+else
+  echo "ADVOI_AGENT_INTERVAL_SECS=45" >> "${ENV_FILE}"
+fi
+
 echo "OK: deploy secrets validated"

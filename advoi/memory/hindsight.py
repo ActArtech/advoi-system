@@ -118,8 +118,17 @@ def _bridge_payload(action: str, **kwargs: Any) -> str:
     return json.dumps({"action": action, **kwargs})
 
 
+def _docker_exec_available() -> bool:
+    import shutil
+
+    return shutil.which("docker") is not None
+
+
 async def _bridge_call(action: str, **kwargs: Any) -> Any:
     cfg = _hindsight_settings()
+    if not _docker_exec_available():
+        _LOGGER.debug("hindsight bridge skip: docker CLI unavailable in container")
+        return None
     script = os.getenv(
         "HINDSIGHT_BRIDGE_SCRIPT",
         "/vps-projects/advoi/scripts/hindsight-bridge.py",
