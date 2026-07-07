@@ -14,6 +14,7 @@ from loguru import logger  # noqa: E402
 
 from advoi.llm.openrouter import resolve_llm_credentials  # noqa: E402
 from advoi.memory import MemoryRouter  # noqa: E402
+from advoi.voice.livekit_env import internal_livekit_url  # noqa: E402
 from advoi.voice.prompts import build_system_instruction  # noqa: E402
 from advoi.voice.tokens import default_room_name, mint_room_token  # noqa: E402
 
@@ -47,9 +48,7 @@ async def run_agent() -> None:
 
     creds = resolve_llm_credentials()
 
-    livekit_url = os.environ.get("LIVEKIT_URL", "")
-    if not livekit_url:
-        raise RuntimeError("LIVEKIT_URL is required")
+    livekit_url = internal_livekit_url()
 
     room_name = default_room_name()
     bot_token = mint_room_token(

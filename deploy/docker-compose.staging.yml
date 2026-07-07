@@ -40,5 +40,16 @@ services:
   postgres:
     ports: !reset []
 
+  livekit:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${PROJECT_SLUG}-livekit.rule=Host(`${LIVEKIT_HOST}`)
+      - traefik.http.routers.${PROJECT_SLUG}-livekit.priority=20
+      - traefik.http.routers.${PROJECT_SLUG}-livekit.entrypoints=websecure
+      - traefik.http.routers.${PROJECT_SLUG}-livekit.tls=true
+      - traefik.http.routers.${PROJECT_SLUG}-livekit.tls.certresolver=letsencrypt
+      - traefik.http.services.${PROJECT_SLUG}-livekit.loadbalancer.server.port=7880
+
   redis:
     ports: !reset []

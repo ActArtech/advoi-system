@@ -8,6 +8,8 @@ from datetime import timedelta
 
 from livekit import api
 
+from advoi.voice.livekit_env import resolve_api_key, resolve_api_secret
+
 
 def mint_room_token(
     *,
@@ -18,10 +20,13 @@ def mint_room_token(
     api_secret: str | None = None,
     ttl_seconds: int = 3600,
 ) -> str:
-    key = api_key or os.getenv("LIVEKIT_API_KEY", "")
-    secret = api_secret or os.getenv("LIVEKIT_API_SECRET", "")
+    key = api_key or resolve_api_key()
+    secret = api_secret or resolve_api_secret()
     if not key or not secret:
-        raise ValueError("LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required")
+        raise ValueError(
+            "LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required "
+            "(or enable self-hosted dev keys: LIVEKIT_USE_DEV_KEYS=true)"
+        )
 
     ident = identity or f"user-{uuid.uuid4().hex[:12]}"
     display = name or ident

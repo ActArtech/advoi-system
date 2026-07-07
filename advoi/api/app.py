@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from advoi import __version__
+from advoi.voice.livekit_env import public_livekit_url
 from advoi.voice.tokens import default_room_name, mint_room_token
 
 app = FastAPI(title="ADVoi API", version=__version__)
@@ -50,9 +51,7 @@ async def health() -> dict[str, Any]:
 
 @app.post("/api/livekit/token", response_model=LiveKitTokenResponse)
 async def livekit_token(body: LiveKitTokenRequest | None = None) -> LiveKitTokenResponse:
-    url = os.getenv("LIVEKIT_URL", "")
-    if not url:
-        raise HTTPException(status_code=503, detail="LIVEKIT_URL not configured")
+    url = public_livekit_url()
 
     req = body or LiveKitTokenRequest()
     room = req.room_name or default_room_name()
