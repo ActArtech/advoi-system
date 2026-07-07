@@ -23,6 +23,10 @@ if [[ -f /opt/shelve/scripts/shelve-pull-deploy.sh ]]; then
   # shellcheck source=/dev/null
   source /opt/shelve/scripts/shelve-pull-deploy.sh
   shelve_pull_deploy "${ROOT}"
+  # Shelve copy can corrupt long OPENAI keys — re-overlay from clapart when available.
+  if [[ -x "${ROOT}/scripts/sync-llm-keys-from-clapart.sh" ]] && [[ -f /opt/clapart/deploy/.env ]]; then
+    bash "${ROOT}/scripts/sync-llm-keys-from-clapart.sh" || true
+  fi
 fi
 
 # shellcheck disable=SC1090
