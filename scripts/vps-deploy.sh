@@ -18,12 +18,28 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-# Shelve — canonical secrets (team ktteam / staging → deploy/.env)
-if [[ -f /opt/shelve/scripts/shelve-pull-deploy.sh ]]; then
+# Shelve pull is opt-in — it has corrupted deploy/.env (char-split lines, merged keys).
+if [[ "${ADVOI_SHELVE_PULL:-false}" == "true" ]] && [[ -f /opt/shelve/scripts/shelve-pull-deploy.sh ]]; then
   # shellcheck source=/dev/null
   source /opt/shelve/scripts/shelve-pull-deploy.sh
   shelve_pull_deploy "${ROOT}"
-  # Shelve copy can corrupt long OPENAI keys — re-overlay from clapart when available.
+fi
+
+_env_is_corrupt() {
+  local f="$1"
+  [[ ! -f "${f}" ]] && return 0
+  # Shelve bug: one character per line, or missing PROJECT_SLUG=
+  local single_char_lines
+  single_char_lines="$(grep -cE '^.$' "${f}" 2>/dev/null || echo 0)"
+  [[ "${single_char_lines}" -gt 20 ]] && return 0
+  ! grep -q '^PROJECT_SLUG=advoi' "${f}" 2>/dev/null && return 0
+  return 1
+}
+
+if _env_is_corrupt "${ENV_FILE}"; then
+  echo "WARN: ${ENV_FILE} corrupt or missing — restoring from deploy/.env.staging.example"
+  cp deploy/.env.staging.example "${ENV_FILE}"
+  sed -i 's/change-me-advoi-pg/advoi/' "${ENV_FILE}" 2>/dev/null || true
 fi
 
 if [[ -x "${ROOT}/scripts/ensure-deploy-secrets.sh" ]]; then
