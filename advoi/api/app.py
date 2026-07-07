@@ -102,12 +102,30 @@ async def list_frames() -> dict[str, Any]:
 
 @app.get("/api/agents")
 async def list_agents() -> dict[str, Any]:
-    return {
-        "agents": [
+    agents_out = []
+    try:
+        import json
+
+        import redis
+
+        client = redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"), decode_responses=True)
+        for a in AGENTS.values():
+            row: dict[str, Any] = {
+                "id": a.id,
+                "name": a.name,
+                "role": a.role,
+                "speaks_first": a.speaks_first,
+            }
+            raw = client.get(f"advoi:agent:{a.id}:last")
+            if raw:
+                row["last_run"] = json.loads(raw)
+            agents_out.append(row)
+    except Exception:
+        agents_out = [
             {"id": a.id, "name": a.name, "role": a.role, "speaks_first": a.speaks_first}
             for a in AGENTS.values()
         ]
-    }
+    return {"agents": agents_out}
 
 
 @app.post("/api/frames/{frame_id}/run", response_model=FrameRunResponse)

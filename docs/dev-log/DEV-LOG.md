@@ -49,6 +49,57 @@
 
 ---
 
+## [2026-07-07] — Hermes cost optimization directive
+
+**Version:** v0.1.3  
+**Author:** Docs session  
+**Type:** Docs  
+**Status:** Complete
+
+### Summary
+
+Added portfolio-wide Hermes Cost Optimization Directive (5 priority sections) and ADVoi-specific cost notes for Hindsight/voice coexistence.
+
+### Changes
+
+- [x] `deployment/hermes/HERMES-COST-OPTIMIZATION.md` — canonical directive
+- [x] `docs/HERMES-COST-OPTIMIZATION.md` — ADVoi operator context
+- [x] Linked from `MEMORY-STACK.md`, `PLAN-SETUP-REVIEW.md`, Hermes ops docs
+
+---
+
+## [2026-07-07] — Plan setup review & insight documentation
+
+**Version:** v0.1.2  
+**Author:** Review session  
+**Type:** Docs  
+**Status:** Complete
+
+### Summary
+
+Documented Stage 1 plan setup gaps (deploy blockers, Shelve, portfolio registration) and distilled all eight conversation `.txt` sources into `docs/insights/` markdown files.
+
+### Changes
+
+- [x] `docs/PLAN-SETUP-REVIEW.md` — exit criteria, blockers, priority actions
+- [x] `docs/insights/01`–`08` — voice, Pipecat, ontology, data/BI, agentic loops, AI-native SaaS, memory, poker/venture
+- [x] `docs/insights/README.md` — index + architecture mapping
+- [x] Updated `docs/README.md`, `SOURCE-MATERIALS.md`, `VERSIONS.md`
+
+### Key findings
+
+- Code ~75% for Stage 1; success signal blocked by API port/env bugs and missing secrets
+- HTTPS `advoi.keyteller.com` returns 404 — app profile not healthy
+- Shelve `ktteam/advoi/staging` not fully wired
+
+### Next Steps
+
+- [ ] Fix API port semantics and compose `env_file`
+- [ ] Create Shelve project + deploy app profile
+- [ ] E2E voice test; update portfolio inventory
+
+---
+
 ## [2026-07-07] — VPS Clone + Infra (clone-only policy)
 
 **Version:** v0.1.1  

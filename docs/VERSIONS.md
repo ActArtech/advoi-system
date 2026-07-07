@@ -1,8 +1,43 @@
 # ADVoi Version History
 
+## v0.1.3 — Hermes cost optimization directive (2026-07-07)
+
+**Status:** Documentation
+
+### Added
+- `docs/HERMES-COST-OPTIMIZATION.md` — ADVoi-specific Hermes spend notes
+- Canonical `deployment/hermes/HERMES-COST-OPTIMIZATION.md` — full 5-section directive
+- Cross-links from `MEMORY-STACK.md`, `PLAN-SETUP-REVIEW.md`, Hermes `README.md`
+
+---
+
+## v0.1.2 — Plan review & insight docs (2026-07-07)
+
+**Status:** Stage 1 code built; deploy blocked
+
+### Added
+- `docs/PLAN-SETUP-REVIEW.md` — gaps, blockers, priority actions
+- `docs/insights/` — 8 distilled markdown files from conversation `.txt` sources
+- Updated `docs/README.md`, `SOURCE-MATERIALS.md`
+
+### Documented blockers
+- API port / healthcheck mismatch
+- Compose `env_file` path vs `deploy/.env`
+- Shelve project not wired; HTTPS 404 on staging
+
+---
+
+## v0.1.1 — VPS clone + infra (2026-07-07)
+
+**Status:** Postgres + Redis on VPS; app profile not healthy
+
+See `dev-log/DEV-LOG.md` entry.
+
+---
+
 ## v0.1.0 — Initial Scaffold (2026-07-07)
 
-**Status:** Architecture locked, implementation starting
+**Status:** Architecture locked; Stage 1 implementation followed in v0.1.1+
 
 ### Added
 - Python package scaffold with verticals + horizontals
@@ -12,7 +47,7 @@
 - `docs/error-log/ERROR-LOG.md` — Guardian error log template
 - `docs/SOURCE-MATERIALS.md` — conversation source index
 - Docker Compose skeleton (PostgreSQL, Redis)
-- Web PWA placeholder (`web/`)
+- Web PWA scaffold (`web/`) — LiveKit client in v0.1.1+
 - GitHub repository
 
 ### Locked Architecture

@@ -48,6 +48,12 @@ Code path: `advoi/memory/router.py` → `hindsight.py` (`hindsight-client`, brid
 - Guardian stack traces → `guardian_log.py` only
 - Cognee + SurrealDB + everything at once → pick this stack only
 
+## Cost optimization
+
+Hermes runs Hindsight recall — trim memory files and apply [HERMES-COST-OPTIMIZATION.md](HERMES-COST-OPTIMIZATION.md) on `/opt/hermes` before heavy voice testing.
+
+---
+
 ## Checklist before memory is "done"
 
 - [x] `bash scripts/memory-setup-hindsight.sh` on VPS (switches Hermes off holographic → hindsight)

@@ -15,11 +15,28 @@
 | `gstak tenet.txt` | `../gstak tenet.txt` | GStack/GBrain, memory systems (Hindsight, Letta, Mnemosyne), Nexus/Graphify critique |
 | `poker.txt` | `../poker.txt` | Range-based decision making, staged bets, venture mindset (supporting mental model) |
 
+## Distilled insight docs
+
+Each source has a scannable markdown summary in `docs/insights/`:
+
+| Source | Insight doc |
+|--------|-------------|
+| `main1.txt` | [insights/01-voice-loops-and-harness.md](insights/01-voice-loops-and-harness.md) |
+| `main2.txt` | [insights/02-pipecat-livekit-executive-os.md](insights/02-pipecat-livekit-executive-os.md) |
+| `ontology.txt` | [insights/03-ontology-and-strategy-stack.md](insights/03-ontology-and-strategy-stack.md) |
+| `data.txt` | [insights/04-ingestion-data-bi.md](insights/04-ingestion-data-bi.md) |
+| `aganticall.txt` | [insights/05-agentic-progressive-discovery.md](insights/05-agentic-progressive-discovery.md) |
+| `newaistanderd.txt` | [insights/06-ai-native-saas-principles.md](insights/06-ai-native-saas-principles.md) |
+| `gstak tenet.txt` | [insights/07-memory-stack-comparison.md](insights/07-memory-stack-comparison.md) |
+| `poker.txt` | [insights/08-venture-poker-decision-model.md](insights/08-venture-poker-decision-model.md) |
+
 ## How These Map to Documentation
 
 | Output Doc | Primary Sources |
 |------------|-----------------|
 | `CLARITY-FRAMEWORK.md` | All sources — synthesis |
+| `PLAN-SETUP-REVIEW.md` | VPS setup, portfolio guide, Stage 1 code review |
+| `insights/*.md` | Per-source distillation (see table above) |
 | `decision-log/DECISION-LOG.md` | main1, main2, data, ontology |
 | `dev-log/DEV-LOG.md` | Scaffold + implementation notes |
 | `error-log/ERROR-LOG.md` | main1 (Guardian design) |

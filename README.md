@@ -33,6 +33,8 @@ See **[docs/VPS-SETUP.md](docs/VPS-SETUP.md)** — 8-step checklist for `/opt/ad
 
 Memory: **[docs/MEMORY-STACK.md](docs/MEMORY-STACK.md)** — start Hindsight via Hermes; Letta optional v0.2.
 
+Hermes spend: **[docs/HERMES-COST-OPTIMIZATION.md](docs/HERMES-COST-OPTIMIZATION.md)** — cost directive before scaling voice/memory.
+
 ## Quick Start (local)
 
 ```bash
@@ -67,6 +69,8 @@ advoi-system/
 
 | Doc | Purpose |
 |-----|---------|
+| [PLAN-SETUP-REVIEW.md](docs/PLAN-SETUP-REVIEW.md) | Stage 1 gaps, blockers, next actions |
+| [insights/](docs/insights/README.md) | Distilled insights from conversation `.txt` sources |
 | [CLARITY-FRAMEWORK.md](docs/CLARITY-FRAMEWORK.md) | Vision, ontology, evolution, locked decisions |
 | [DECISION-LOG.md](docs/decision-log/DECISION-LOG.md) | ADR-style architecture decisions |
 | [DEV-LOG.md](docs/dev-log/DEV-LOG.md) | Implementation progress |

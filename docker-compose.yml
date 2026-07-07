@@ -44,6 +44,9 @@ services:
     environment:
       # Host ADVOI_API_PORT maps the published port; app always listens on 8000 in-container.
       ADVOI_API_PORT: "8000"
+    volumes:
+      - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,6 +97,45 @@ services:
       - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881/tcp"
       - "50100-50200:50100-50200/udp"
 
+  advoi-agent-fleet:
+    image: advoi/api:local
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: .env
+    command: ["python", "-m", "advoi.routing.agent_daemon", "fleet-scout"]
+    volumes:
+      - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  advoi-agent-briefs:
+    image: advoi/api:local
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: .env
+    command: ["python", "-m", "advoi.routing.agent_daemon", "brief-curator"]
+    volumes:
+      - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  advoi-agent-review:
+    image: advoi/api:local
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: .env
+    command: ["python", "-m", "advoi.routing.agent_daemon", "review-queue"]
+    volumes:
+      - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      redis:
+        condition: service_healthy
+
   # Pipecat + LiveKit voice agent
   advoi-voice:
     image: advoi/voice:local
@@ -103,6 +145,9 @@ services:
     restart: unless-stopped
     profiles: ["app"]
     env_file: .env
+    volumes:
+      - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       redis:
         condition: service_healthy

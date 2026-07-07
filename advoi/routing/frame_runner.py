@@ -28,16 +28,21 @@ async def _run_fleet_scout() -> tuple[str, dict[str, Any]]:
             {"mode": "mock", "projects_idle": 2},
         )
 
+    fleet_root = os.getenv("FIRSTMATE_FLEET_PATH", "/opt/firstmate-fleet")
     script = os.getenv(
         "FIRSTMATE_TRIGGER_SCRIPT",
-        "/opt/firstmate-fleet/scripts/fm-hermes-trigger.sh",
+        f"{fleet_root}/scripts/fm-hermes-trigger.sh",
     )
+    fallback = f"{fleet_root}/scripts/fm-advanced-status.sh"
     msg = "fleet status"
     try:
+        if not os.path.isfile(script) and os.path.isfile(fallback):
+            script = fallback
+            cmd = ["bash", script]
+        else:
+            cmd = ["bash", script, msg]
         proc = await asyncio.create_subprocess_exec(
-            "bash",
-            script,
-            msg,
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -101,7 +106,30 @@ async def _run_review_queue(*, confirmed: bool) -> tuple[str, dict[str, Any]]:
     )
 
 
-async def run_frame(frame_id: str, *, confirmed: bool = False) -> FrameResult:
+def _cached_frame(agent_id: str) -> FrameResult | None:
+    try:
+        import json
+
+        import redis
+
+        url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        client = redis.from_url(url, decode_responses=True)
+        raw = client.get(f"advoi:agent:{agent_id}:last")
+        if not raw:
+            return None
+        data = json.loads(raw)
+        return FrameResult(
+            frame_id=data["frame_id"],
+            agent_id=data["agent_id"],
+            status=data["status"],
+            spoken_summary=data["spoken_summary"],
+            detail={"cached": True},
+        )
+    except Exception:
+        return None
+
+
+async def run_frame(frame_id: str, *, confirmed: bool = False, use_cache: bool = True) -> FrameResult:
     frame = get_frame(frame_id)
     if not frame:
         raise ValueError(f"Unknown frame: {frame_id}")
@@ -109,6 +137,11 @@ async def run_frame(frame_id: str, *, confirmed: bool = False) -> FrameResult:
     agent = AGENTS.get(frame.agent_id)
     if not agent:
         raise ValueError(f"Unknown agent for frame: {frame_id}")
+
+    if use_cache and not confirmed:
+        cached = _cached_frame(frame.agent_id)
+        if cached and cached.status == "ok":
+            return cached
 
     if frame.id == "fleet_status":
         spoken, detail = await _run_fleet_scout()
