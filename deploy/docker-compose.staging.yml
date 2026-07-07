@@ -41,7 +41,7 @@ services:
     ports: !reset []
 
   livekit:
-    ports: !reset
+    ports: !override
       - "${LIVEKIT_RTC_TCP_PORT:-7881}:7881/tcp"
       - "50100-50200:50100-50200/udp"
     labels:
