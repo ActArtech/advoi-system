@@ -295,7 +295,7 @@ Created the `advoi-system` documentation scaffold to capture the full conversati
 
 **Date:** 2026-07-08
 **Type:** Feature
-**Status:** Landed locally; staging E2E pending
+**Status:** Complete (code); staging automated clearance done
 
 ### Shipped
 
@@ -306,13 +306,43 @@ Created the `advoi-system` documentation scaffold to capture the full conversati
 - PWA agent freshness chips, confirmation flow in VoiceLoop
 - Voice diagnostics LLM key fail-fast; smoke tests expanded
 - PowerShell startup scripts: `start-api.ps1`, `start-supervisor.ps1`, `start-web.ps1`
-- **91 pytest tests** passing; `agents-smoke-test.ps1` green locally
+- **107 pytest tests**; CI: python + web + agents-smoke + staging-smoke
 
 ### Next
 
-- VPS deploy with LLM keys + human voice E2E sign-off
-- PWA review queue list UI
-- CI gate (pytest + docker smoke)
+- Human phone E2E — `docs/operations/E2E-SIGNOFF.md`
+- Port registry row to vps-shared
+
+---
+
+## [2026-07-08] — Build 1.5 automated staging clearance
+
+**Version:** v0.3.1  
+**Type:** Infra  
+**Status:** Complete (automated); human E2E pending
+
+### Summary
+
+Staging at `advoi.keyteller.com` passes all automated gates. Build 1.5 is code-complete; only human mic → TTS sign-off blocks "validated" status.
+
+### Automated proof (staging)
+
+- `voice-smoke-test.sh` — all checks, `sla_ok: true`, ~35ms API path
+- `/api/health` — 3/3 agents ready
+- `/api/diagnostics/voice` — ok, llm_key, memory_bridge hermes
+- Traefik env repaired; `ADVOI_SHELVE_PULL=false`; LLM keys from clapart
+- PWA `/` + `/briefs/[id]` — 200
+- Latency baseline: `docs/operations/latency-baseline.json`
+
+### Still open (human)
+
+- [ ] Phone: connect voice, hear greeting + frame TTS — E2E-SIGNOFF.md
+- [ ] Optional: "queue review" → "yes" on device
+- [ ] Port registry sync to vps-shared
+
+### Reference
+
+- `docs/current-state/BUILD-1.5-FINAL.md`
 
 ---
 

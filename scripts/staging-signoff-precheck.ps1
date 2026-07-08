@@ -40,6 +40,17 @@ try {
 } catch { Write-Host "    FAIL"; $fail = 1 }
 Write-Host ""
 
+Write-Host "==> agents-smoke-test"
+try {
+    & "$PSScriptRoot\agents-smoke-test.ps1" -Base $Base
+    if ($LASTEXITCODE -ne 0) { throw "exit $LASTEXITCODE" }
+    Write-Host "    OK"
+} catch {
+    Write-Host "    FAIL"
+    $fail = 1
+}
+Write-Host ""
+
 if ($fail -eq 0) {
     Write-Host "=========================================="
     Write-Host "AUTOMATED PRE-CHECKS PASSED"

@@ -12,6 +12,7 @@ Honest snapshot of ADVoi before planning next work.
 
 | Doc | Read when you want to know... |
 |-----|-------------------------------|
+| **[BUILD-1.5-FINAL.md](BUILD-1.5-FINAL.md)** | **Gap table answered** — done vs open, your 15-min checklist |
 | **[path-to-full-system.md](path-to-full-system.md)** | How close we are to done and what to do next |
 | [what-we-have.md](what-we-have.md) | Everything that is built and tested |
 | [gaps-and-blockers.md](gaps-and-blockers.md) | What still blocks production validation |
