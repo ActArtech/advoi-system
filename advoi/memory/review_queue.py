@@ -100,6 +100,32 @@ async def enqueue_review(
         return None
 
 
+async def get_review_item(queue_id: int) -> dict[str, Any] | None:
+    dsn = os.getenv("DATABASE_URL", "")
+    if not dsn:
+        return None
+    try:
+        import psycopg
+
+        async with await psycopg.AsyncConnection.connect(dsn) as conn:
+            async with conn.cursor() as cur:
+                await _ensure_table(cur)
+                await cur.execute(
+                    """
+                    SELECT id, title, source_frame, status, metadata, created_at
+                    FROM review_queue
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (queue_id,),
+                )
+                row = await cur.fetchone()
+        return _row_to_dict(row) if row else None
+    except Exception as exc:
+        _LOGGER.debug("postgres review get deferred: %s", exc)
+        return None
+
+
 async def list_pending(*, limit: int = 20) -> list[dict[str, Any]]:
     dsn = os.getenv("DATABASE_URL", "")
     if not dsn:

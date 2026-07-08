@@ -3,7 +3,7 @@
 How close ADVoi is to a **complete, testable staging system** and what to do next.
 
 **Last verified:** 2026-07-08  
-**Commit:** `48e7645`  
+**Commit:** `db5caeb` (pending next push with briefs + staging CI)  
 **Staging:** `https://advoi.keyteller.com`  
 **VPS:** `deploy@187.77.140.216` `/opt/advoi`
 
@@ -139,7 +139,7 @@ Ordered by leverage. Do **1 through 5** before any P2 work.
 |---|--------|-------|--------|--------|
 | 1 | **Human Path A E2E** on phone | Human | 15 min | [E2E-SIGNOFF.md](../operations/E2E-SIGNOFF.md) steps 3-7 |
 | 2 | **Say "queue review" → "yes"** on staging | Human | 15 min | Item appears in PWA review list |
-| 3 | **Run staging smoke from VPS** | Human/agent | 15 min | `ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/voice-smoke-test.sh` |
+| 3 | **Run staging precheck** | Agent | 5 min | `bash scripts/staging-signoff-precheck.sh` (passes as of 2026-07-08) |
 | 4 | **Record sign-off in DEV-LOG** | Human | 5 min | Date + device + PASS/FAIL |
 | 5 | **Close STAGE.md exit criteria** | Agent | 15 min | Mark Traefik + E2E boxes done |
 | 6 | Path B desktop spot-check (`/voice-local`) | Human | 1 hr | WebGPU loads, speak, hear reply |

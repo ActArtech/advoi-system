@@ -19,7 +19,7 @@ User opens PWA at advoi.keyteller.com, connects voice, hears greeting and frame 
 - [x] API: token, frames, agents, `/api/voice/respond`, `/api/voice/intent`, `/api/review-queue`
 - [x] Keyword intent classifier + warmth layer for client voice
 - [x] Review queue Postgres persistence (with mock fallback)
-- [x] 105 pytest tests; agents-smoke-test.ps1 passes locally; CI agents-smoke job
+- [x] 107 pytest tests; voice-smoke + staging-signoff-precheck pass on staging; CI agents-smoke + staging-smoke jobs
 - [x] Traefik live at advoi.keyteller.com with valid deploy/.env and LLM keys (verified 2026-07-08)
 - [ ] Human E2E sign-off: mic → STT → TTS on staging (use docs/operations/E2E-SIGNOFF.md)
 - [ ] Port registry row synced to shared repo

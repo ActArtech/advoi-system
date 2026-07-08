@@ -22,6 +22,7 @@ Concrete inventory of `advoi-system` as of **2026-07-08**, commit `48e7645`.
 | POST | `/api/voice/intent` | Classify transcript → frame or chat + preview |
 | POST | `/api/voice/respond` | Warm spoken reply for client voice loop |
 | GET | `/api/review-queue` | Pending deep-review items (Postgres) |
+| GET | `/api/review-queue/{id}` | Single review item for desktop brief page |
 | GET | `/api/diagnostics/agents` | Agent cache readiness |
 | GET | `/api/diagnostics/voice` | Voice journey probe (LLM, LiveKit, memory bridge) |
 | GET | `/api/diagnostics/latency` | Health + token + frame timing |
@@ -94,6 +95,7 @@ Startup prewarm when `ADVOI_PREWARM_AGENTS=true` (default).
 |-------|-----------|------|
 | `/` | `VoiceSession.tsx` | Path A — LiveKit PWA |
 | `/voice-local` | `VoiceLoop.tsx` | Path B — client STT/TTS |
+| `/briefs/[id]` | Brief page | Desktop deep-review follow-up from queue URLs |
 
 ### VoiceSession features (Path A)
 
@@ -165,7 +167,7 @@ Traefik routes on `advoi.keyteller.com`:
 
 ---
 
-## Tests — 105 passing (15 modules)
+## Tests — 107 passing (15 modules)
 
 ```bash
 uv run pytest tests/ -q

@@ -73,7 +73,12 @@ check "frame intents" "${BASE}/api/frames" "voice_prompt"
 for frame_id in fleet_status open_briefs queue_deep_review; do
   echo -n "==> intent ${frame_id} ... "
   if resp=$(curl -sf "${BASE}/api/frames" 2>/dev/null); then
-    if echo "${resp}" | grep -q "\"id\": \"${frame_id}\"" && echo "${resp}" | grep -q "voice_prompt"; then
+    if echo "${resp}" | python3 -c "
+import json, sys
+frames = json.load(sys.stdin).get('frames', [])
+match = next((f for f in frames if f.get('id') == sys.argv[1]), None)
+sys.exit(0 if match and match.get('voice_prompt') else 1)
+" "${frame_id}"; then
       echo "OK"
     else
       echo "FAIL"

@@ -90,7 +90,7 @@ bash scripts/voice-smoke-test.sh
 |-----|--------|--------|
 | LiveKit two-turn confirm | Wired in `intent_processor.py`; say "queue review" → "yes" on device | **Open** — needs device test |
 | Path B client voice | `/voice-local`, Kokoro/Parakeet; browser model load + iOS WebGPU not validated | **Open** |
-| Voice latency target | `/api/diagnostics/latency` reports timings; under 800ms perceived not measured on real voice | **Open** |
+| Voice latency target | API path SLA passes (`sla_ok: true`, ~35ms); baseline in `docs/operations/latency-baseline.json`; full mic-STT-TTS TBD | **Partial** |
 | Memory bridge without Hermes | Non-fatal mock fallback; diagnostics report `memory_bridge_ok` and `memory_bridge_mode` | **Mitigated** |
 | Review queue UI | Postgres + `GET /api/review-queue` + PWA list | **Resolved** |
 | Intent routing | Keyword classifier + LiveKit STT processor + Path B loop | **Resolved** |

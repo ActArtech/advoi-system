@@ -134,6 +134,16 @@ async def review_queue_pending() -> dict[str, Any]:
     return {"pending": items, "count": len(items)}
 
 
+@app.get("/api/review-queue/{queue_id}")
+async def review_queue_item(queue_id: int) -> dict[str, Any]:
+    from advoi.memory.review_queue import get_review_item
+
+    item = await get_review_item(queue_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Review queue item not found")
+    return {"item": item}
+
+
 @app.get("/api/agents")
 async def list_agents() -> dict[str, Any]:
     return agents_status_summary()

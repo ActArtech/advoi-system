@@ -213,3 +213,31 @@ def test_api_review_queue_lists_pending(client, monkeypatch):
     data = resp.json()
     assert data["count"] == 1
     assert data["pending"][0]["queue_id"] == 3
+
+
+def test_api_review_queue_item_found(client, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test")
+    item = {
+        "queue_id": 12,
+        "title": "Fleet governance review",
+        "source_frame": "queue_deep_review",
+        "status": "pending",
+        "metadata": {},
+        "brief_url": "https://advoi.keyteller.com/briefs/12",
+        "created_at": "2026-07-08T12:00:00+00:00",
+    }
+
+    with patch("advoi.memory.review_queue.get_review_item", AsyncMock(return_value=item)):
+        resp = client.get("/api/review-queue/12")
+
+    assert resp.status_code == 200
+    assert resp.json()["item"]["queue_id"] == 12
+
+
+def test_api_review_queue_item_not_found(client, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test")
+
+    with patch("advoi.memory.review_queue.get_review_item", AsyncMock(return_value=None)):
+        resp = client.get("/api/review-queue/999")
+
+    assert resp.status_code == 404

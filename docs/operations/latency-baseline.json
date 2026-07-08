@@ -1,0 +1,19 @@
+{
+  "sla_ok": true,
+  "base_url": "https://advoi.keyteller.com",
+  "captured_at": "2026-07-08T15:47:52.3556123Z",
+  "sla_scope": "API intent + frame preview only; full mic-STT-TTS round trip not measured here",
+  "ok": true,
+  "intent_frame_id": "fleet_status",
+  "frame_id": "fleet_status",
+  "timings_ms": {
+    "health_ms": 0.8,
+    "token_ms": 0.6,
+    "frame_run_ms": 0.4,
+    "intent_ms": 0.1,
+    "intent_preview_ms": 34.4,
+    "respond_ms": 45.6,
+    "api_voice_path_ms": 34.5
+  },
+  "sla_target_ms": 800.0
+}
