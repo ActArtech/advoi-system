@@ -7,9 +7,12 @@ export default function HomePage() {
       <header className={styles.hero}>
         <p className={styles.eyebrow}>Stage 1 · Voice + PWA</p>
         <h1>ADVoi</h1>
-        <p className={styles.lede}>Portfolio voice layer — thin wrapper over Hermes, fleet, and memory.</p>
+        <p className={styles.lede}>Portfolio voice layer. Thin wrapper over Hermes, fleet, and memory.</p>
       </header>
       <VoiceSession />
+      <p style={{ marginTop: "1.25rem", fontSize: "0.9rem", color: "var(--muted)" }}>
+        <a href="/voice-local">Client-side voice loop</a> (Kokoro + Parakeet, no LiveKit)
+      </p>
     </main>
   );
 }

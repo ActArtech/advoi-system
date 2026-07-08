@@ -136,7 +136,7 @@ async def run_agent() -> None:
         await asyncio.sleep(0.5)
         logger.info("Greeting participant {}", participant_id)
         await worker.queue_frame(
-            TTSSpeakFrame("Hi — I'm ADVoi. What should we look at in the portfolio today?")
+            TTSSpeakFrame("Hi, I'm ADVoi. What should we look at in the portfolio today?")
         )
 
     @transport.event_handler("on_participant_connected")
@@ -151,7 +151,7 @@ async def run_agent() -> None:
     async def on_data_received(transport, data, participant_id):  # noqa: ARG001
         spoken = await handle_frame_message(data)
         if spoken:
-            logger.info("Frame data from {} — speaking response", participant_id)
+            logger.info("Frame data from {}, speaking response", participant_id)
             await worker.queue_frame(TTSSpeakFrame(spoken))
 
     runner = WorkerRunner()

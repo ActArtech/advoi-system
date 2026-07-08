@@ -37,6 +37,7 @@ dev = [
 advoi = "advoi.cli:main"
 advoi-api = "advoi.api.main:main"
 advoi-voice = "advoi.voice.agent:main"
+advoi-supervisor = "advoi.routing.agent_supervisor:main"
 
 [build-system]
 requires = ["hatchling"]

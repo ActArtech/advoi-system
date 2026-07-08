@@ -72,3 +72,33 @@ def test_journey_frame_refresh_query_param(client):
     data = resp.json()
     assert data["agent_id"] == "fleet-scout"
     assert data["spoken_summary"]
+
+
+def test_journey_voice_respond_empty(client):
+    resp = client.post("/api/voice/respond", json={"transcript": ""})
+    assert resp.status_code == 200
+    assert "did not catch" in resp.json()["spoken"].lower()
+
+
+def test_journey_voice_respond_mocked(monkeypatch, client):
+    async def fake_reply(transcript, **kwargs):
+        assert transcript == "hello portfolio"
+        assert kwargs.get("session_id") == "voice-local"
+        return "Quick take on your portfolio."
+
+    monkeypatch.setattr("advoi.api.app.warm_spoken_reply", fake_reply)
+    resp = client.post(
+        "/api/voice/respond",
+        json={"transcript": "hello portfolio", "recent_phrases": ["portfolio"]},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["spoken"] == "Quick take on your portfolio."
+
+
+def test_journey_diagnostics_voice_local_mode(client, monkeypatch):
+    monkeypatch.setenv("ADVOI_VOICE_MODE", "local")
+    resp = client.get("/api/diagnostics/voice")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["voice_mode"] == "local"
+    assert data["checks"]["voice_respond_ready"] is True

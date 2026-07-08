@@ -20,19 +20,19 @@ class DecisionFrame:
 FRAMES: tuple[DecisionFrame, ...] = (
     DecisionFrame(
         id="fleet_status",
-        label="Option A — Fleet status",
+        label="Option A: Fleet status",
         agent_id="fleet-scout",
         voice_prompt="Give me a quick fleet status update.",
     ),
     DecisionFrame(
         id="open_briefs",
-        label="Option B — Open briefs",
+        label="Option B: Open briefs",
         agent_id="brief-curator",
         voice_prompt="What decision briefs are open right now?",
     ),
     DecisionFrame(
         id="queue_deep_review",
-        label="Option C — Queue deep review",
+        label="Option C: Queue deep review",
         agent_id="review-queue",
         voice_prompt="Queue a deep review for the top priority item.",
         requires_confirmation=True,

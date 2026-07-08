@@ -29,7 +29,7 @@ AGENTS: dict[str, SpecialistAgent] = {
     "review-queue": SpecialistAgent(
         id="review-queue",
         name="Review Queue",
-        role="Queue async deep review — desktop follow-up, not live execution",
+        role="Queue async deep review for desktop follow-up, not live execution",
         speaks_first="I can queue a deep review. I'll need your confirmation first.",
     ),
 }

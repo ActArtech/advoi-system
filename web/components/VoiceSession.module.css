@@ -127,6 +127,59 @@
   color: var(--accent);
 }
 
+.agentRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.agentChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: var(--muted);
+}
+
+.agentChip.ready {
+  color: var(--ok);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.agentDot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.agentDot.ready {
+  background: var(--ok);
+}
+
+.freshnessBadge {
+  font-size: 0.65rem;
+  opacity: 0.9;
+  color: var(--muted);
+  padding-left: 0.15rem;
+}
+
+.freshnessBadge.ready {
+  color: var(--ok);
+}
+
+.intentHint {
+  margin: 0.5rem 0 0;
+  color: var(--accent);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .hint {
   margin: 0.75rem 0 0;
   color: var(--muted);

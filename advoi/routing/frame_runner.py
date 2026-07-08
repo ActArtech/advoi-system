@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from advoi.cache.agent_cache import read_agent_cache
+from advoi.cache.redis_client import get_redis
+from advoi.copy_style import plain_copy
 from advoi.decision.frames import DecisionFrame, get_frame
 from advoi.memory import MemoryRouter
 from advoi.routing.agents import AGENTS
@@ -341,10 +344,9 @@ def _load_open_briefs_redis() -> list[str]:
     try:
         import json
 
-        import redis
-
-        url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        client = redis.from_url(url, decode_responses=True)
+        client = get_redis()
+        if not client:
+            return []
         raw = client.get("advoi:briefs:open")
         if not raw:
             return []
@@ -424,17 +426,10 @@ async def _run_review_queue(*, confirmed: bool) -> tuple[str, dict[str, Any]]:
 
 def _cached_frame(agent_id: str) -> FrameResult | None:
     try:
-        import json
-
-        import redis
-
-        url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        client = redis.from_url(url, decode_responses=True)
-        raw = client.get(f"advoi:agent:{agent_id}:last")
-        if not raw:
+        data = read_agent_cache(agent_id)
+        if not data:
             return None
-        data = json.loads(raw)
-        spoken = data.get("spoken_summary", "")
+        spoken = plain_copy(data.get("spoken_summary", ""))
         if _looks_like_fleet_error(spoken):
             return None
         return FrameResult(
@@ -493,7 +488,7 @@ async def run_frame(
         status = "unsupported"
 
     preamble = agent.speaks_first
-    full_spoken = f"{preamble} {spoken}".strip()
+    full_spoken = plain_copy(f"{preamble} {spoken}".strip())
 
     return FrameResult(
         frame_id=frame.id,

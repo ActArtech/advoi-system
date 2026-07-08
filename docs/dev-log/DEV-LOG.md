@@ -49,6 +49,57 @@
 
 ---
 
+## [2026-07-08] — Docs and smoke tests aligned to landed features
+
+**Version:** v0.2.1-docs  
+**Author:** Docs session  
+**Type:** Docs  
+**Status:** Complete
+
+### Summary
+
+Updated current-state, voice-path architecture, staging runbook, and smoke scripts to match code already in repo: `plain_copy`, colon frame labels, `/api/voice/respond`, `voice-interface/` + `/voice-local`, and 69 passing tests. P0 blockers unchanged (VPS keys, human E2E sign-off).
+
+### Changes
+
+- [x] `docs/current-state/gaps-and-blockers.md` — resolved copy/respond/cache items; Path B partial
+- [x] `docs/current-state/what-we-have.md` — voice-interface, respond API, 69 tests
+- [x] `docs/architecture/02-voice-paths.md` — Path B partially landed
+- [x] `scripts/voice-smoke-test.sh` — voice respond + frame intent checks
+- [x] `scripts/agents-smoke-test.ps1` — same checks + `last_run` warn
+- [x] `docs/operations/staging-runbook.md` — API expectations + E2E sign-off checkbox
+
+### Notes
+
+Intent routing (utterance → frame) remains catalog-only via `voice_prompt`; classifier not implemented.
+
+---
+
+## [2026-07-08] — Architecture and current-state documentation
+
+**Version:** v0.2.0-docs  
+**Author:** Docs session  
+**Type:** Docs  
+**Status:** Complete
+
+### Summary
+
+Added structured documentation tree: architecture (5 docs), current-state (gaps, roadmap, inventory), operations (local + staging runbooks). Updated docs hub and root README. Marked `PLAN-SETUP-REVIEW.md` partially superseded.
+
+### Changes
+
+- [x] `docs/architecture/` — overview, voice paths, multi-agent, memory, deployment
+- [x] `docs/current-state/` — what-we-have, gaps-and-blockers, improvement-roadmap
+- [x] `docs/operations/` — local-testing, staging-runbook
+- [x] `docs/README.md` — master index
+- [x] Root `README.md` — links to new hub
+
+### Notes
+
+Reflects Stage 1.5 (3 agents, frames, memory bridge). Client Kokoro path documented as planned, not in repo.
+
+---
+
 ## [2026-07-07] — Hermes cost optimization directive
 
 **Version:** v0.1.3  

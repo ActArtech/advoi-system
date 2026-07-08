@@ -1,5 +1,7 @@
 # ADVoi Plan Setup Review
 
+> **Superseded in part (2026-07-08):** Multi-agent frames, agent daemons, and Stage 1.5 work are documented in [current-state/](current-state/README.md) and [architecture/](architecture/README.md). Keep this file for historical onboarding analysis.
+
 **Date:** 2026-07-07  
 **Stage:** Build 1.1 — Voice + PWA  
 **Review method:** Parallel code + portfolio onboarding analysis against `NEW-PROJECT-DEPLOYMENT-GUIDE.md` and `.aether/STAGE.md`

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from advoi.copy_style import plain_copy
 from advoi.routing.frame_runner import run_frame
 
 
@@ -23,7 +24,7 @@ async def handle_frame_message(raw: bytes | str) -> str | None:
 
     if msg_type == "speak":
         text = payload.get("text")
-        return str(text).strip() if text else None
+        return plain_copy(str(text).strip()) if text else None
 
     if msg_type != "frame":
         return None
@@ -35,4 +36,4 @@ async def handle_frame_message(raw: bytes | str) -> str | None:
     confirmed = bool(payload.get("confirmed", False))
     refresh = bool(payload.get("refresh", False))
     result = await run_frame(str(frame_id), confirmed=confirmed, refresh=refresh)
-    return result.spoken_summary
+    return plain_copy(result.spoken_summary)

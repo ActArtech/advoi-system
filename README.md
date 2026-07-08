@@ -67,16 +67,16 @@ advoi-system/
 
 ## Documentation
 
-| Doc | Purpose |
-|-----|---------|
-| [PLAN-SETUP-REVIEW.md](docs/PLAN-SETUP-REVIEW.md) | Stage 1 gaps, blockers, next actions |
-| [insights/](docs/insights/README.md) | Distilled insights from conversation `.txt` sources |
-| [CLARITY-FRAMEWORK.md](docs/CLARITY-FRAMEWORK.md) | Vision, ontology, evolution, locked decisions |
-| [DECISION-LOG.md](docs/decision-log/DECISION-LOG.md) | ADR-style architecture decisions |
-| [DEV-LOG.md](docs/dev-log/DEV-LOG.md) | Implementation progress |
-| [ERROR-LOG.md](docs/error-log/ERROR-LOG.md) | Guardian failure/recovery log |
-| [VERSIONS.md](docs/VERSIONS.md) | Release history |
-| [SOURCE-MATERIALS.md](docs/SOURCE-MATERIALS.md) | Conversation source index (main1, main2, etc.) |
+**Hub:** [docs/README.md](docs/README.md)
+
+| Section | Purpose |
+|---------|---------|
+| [docs/architecture/](docs/architecture/README.md) | System design, voice paths, multi-agent, deployment |
+| [docs/current-state/](docs/current-state/README.md) | What we have, gaps, improvement roadmap |
+| [docs/operations/](docs/operations/README.md) | Local testing and staging runbook |
+| [docs/insights/](docs/insights/README.md) | Research distillations |
+| [docs/decision-log/](docs/decision-log/DECISION-LOG.md) | ADRs |
+| [docs/CLARITY-FRAMEWORK.md](docs/CLARITY-FRAMEWORK.md) | Product vision |
 
 ## Principles
 

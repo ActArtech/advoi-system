@@ -42,8 +42,7 @@ services:
     profiles: ["app"]
     env_file: deploy/.env
     environment:
-      # Host ADVOI_API_PORT maps the published port; app always listens on 8000 in-container.
-      ADVOI_API_PORT: "8000"
+      ADVOI_API_LISTEN_PORT: "8000"
     volumes:
       - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
     depends_on:
@@ -54,7 +53,7 @@ services:
       advoi-memory-bridge:
         condition: service_started
     ports:
-      - "${ADVOI_API_PORT:-8000}:8000"
+      - "${ADVOI_API_HOST_PORT:-${ADVOI_API_PORT:-8000}}:8000"
     healthcheck:
       test:
         [
