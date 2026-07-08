@@ -346,9 +346,39 @@ Staging at `advoi.keyteller.com` passes all automated gates. Build 1.5 is code-c
 
 ---
 
+## [2026-07-08] — Build 1.5 finalized (automated gates)
+
+**Version:** v0.3.1  
+**Type:** Docs  
+**Status:** Complete (automated); human E2E pending
+
+### Summary
+
+Gap table reviewed and closed for everything an agent can verify. `staging-signoff-precheck.ps1` passed at commit `c14c38d`. Build 1.5 is frozen until human phone sign-off.
+
+### Gap table final
+
+| Priority | Item | Result |
+|----------|------|--------|
+| P0 | Human E2E voice | **OPEN** — user on phone |
+| P0 | LLM keys / Shelve | **DONE** |
+| P1 | Two-turn confirm | **BUILT** — device test optional |
+| P1 | Path B WebGPU | **BUILT** — not device-tested |
+| P1 | Latency < 800ms | **PARTIAL** — API ok; voice round-trip TBD |
+| P2 | Letta, OTel, Aether, dashboard | **Phase 4** — after sign-off |
+
+### Next (human, ~15 min)
+
+1. Open https://advoi.keyteller.com on phone
+2. Connect voice, tap A/B/C, hear TTS
+3. Record PASS in `docs/operations/E2E-SIGNOFF.md`
+4. Then Phase 4 or port registry sync
+
+---
+
 ## [Future Entry Placeholder]
 
-**Version:** v0.3.0  
+**Version:** v0.4.0  
 **Type:** Feature  
 **Status:** Not started
 

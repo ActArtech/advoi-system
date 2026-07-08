@@ -3,7 +3,7 @@
 Human validation template for Path A (LiveKit + server TTS). Copy this section into `docs/dev-log/DEV-LOG.md` or a ticket when signing off.
 
 **Environment:** `https://advoi.keyteller.com`  
-**Deploy ref / date:** `65780eb` / 2026-07-08 (update when you test)  
+**Deploy ref / date:** `c14c38d` / 2026-07-08 (update when you test)  
 **Tester:** ____________________  
 **Browser / device:** ____________________
 
@@ -15,7 +15,7 @@ These passed against staging before human test. Re-run before you sign off:
 - [x] `/api/diagnostics/voice` — `ok: true`, `llm_key: true`, `memory_bridge_mode: hermes`
 - [x] `/api/agents` — 3/3 ready
 - [x] VPS env — `PROJECT_SLUG=advoi`, `STOREFRONT_HOST=advoi.keyteller.com`, LLM key synced
-- [x] `staging-signoff-precheck.ps1` — passed 2026-07-08 (use `.ps1` on Windows, `.sh` on VPS)
+- [x] `staging-signoff-precheck.ps1` — passed 2026-07-08 at `c14c38d` (use `.ps1` on Windows, `.sh` on VPS)
 
 ## Pre-checks (automated)
 

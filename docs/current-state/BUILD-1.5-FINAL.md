@@ -1,8 +1,9 @@
 # Build 1.5 — Final status
 
 **Date:** 2026-07-08  
-**Commit:** `65780eb` (GitHub `ActArtech/advoi-system`)  
-**Staging:** https://advoi.keyteller.com
+**Commit:** `c14c38d` (GitHub `ActArtech/advoi-system`)  
+**Staging:** https://advoi.keyteller.com  
+**Automated precheck:** PASSED 2026-07-08 (`staging-signoff-precheck.ps1`)
 
 This document answers: *have we done the gap table items, and what is next?*
 
