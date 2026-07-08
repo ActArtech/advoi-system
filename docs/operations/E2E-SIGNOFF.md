@@ -9,8 +9,18 @@ Human validation template for Path A (LiveKit + server TTS). Copy this section i
 
 ## Pre-checks (automated)
 
+Run one command (runs all checks below):
+
+```bash
+bash scripts/staging-signoff-precheck.sh
+# Windows: .\scripts\staging-signoff-precheck.ps1
+```
+
+Or individually:
+
 - [ ] `bash scripts/voice-smoke-test.sh` → `/api/diagnostics/voice` reports `"ok": true`
 - [ ] `bash scripts/agents-smoke-test.sh` (or `.ps1`) → all 3 agents + 3 frames OK
+- [ ] `GET /api/diagnostics/latency` → `sla_ok: true` (API path under 800ms)
 - [ ] `docker compose --profile app ps` → `advoi-api`, `advoi-voice`, `advoi-web`, `livekit` up
 - [ ] `grep -E '^(OPENAI_API_KEY|OPENROUTER_API_KEY)=' deploy/.env` → non-empty on VPS
 

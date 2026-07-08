@@ -64,6 +64,12 @@
 
 .hint { margin-top: 1rem; font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
 
+.backLink {
+  color: var(--accent);
+  text-decoration: none;
+}
+.backLink:hover { text-decoration: underline; }
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }

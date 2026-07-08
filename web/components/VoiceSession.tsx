@@ -46,6 +46,23 @@ type ReviewQueueItem = {
   created_at?: string;
 };
 
+type VoiceDiagnostics = {
+  ok: boolean;
+  checks?: {
+    agents?: number;
+    frame_run_ms?: number;
+  };
+};
+
+type LatencyDiagnostics = {
+  ok: boolean;
+  sla_ok?: boolean;
+  sla_target_ms?: number;
+  timings_ms?: {
+    frame_run_ms?: number | null;
+  };
+};
+
 const tokenEndpoint =
   process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "/api/livekit/token";
 const apiBase = process.env.NEXT_PUBLIC_ADVOI_API_URL?.replace(/\/$/, "") || "/api";
@@ -101,6 +118,8 @@ export function VoiceSession() {
   const [activeFrame, setActiveFrame] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
+  const [voiceDiag, setVoiceDiag] = useState<VoiceDiagnostics | null>(null);
+  const [latencyDiag, setLatencyDiag] = useState<LatencyDiagnostics | null>(null);
   const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: true }), []);
 
   const loadReviewQueue = useCallback(() => {
@@ -108,6 +127,18 @@ export function VoiceSession() {
       .then((r) => (r.ok ? r.json() : { pending: [] }))
       .then((data) => setReviewQueue((data.pending || []) as ReviewQueueItem[]))
       .catch(() => setReviewQueue([]));
+  }, []);
+
+  const loadDiagnostics = useCallback(() => {
+    fetch(`${apiBase}/diagnostics/voice`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setVoiceDiag(data as VoiceDiagnostics | null))
+      .catch(() => setVoiceDiag(null));
+
+    fetch(`${apiBase}/diagnostics/latency`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setLatencyDiag(data as LatencyDiagnostics | null))
+      .catch(() => setLatencyDiag(null));
   }, []);
 
   const loadAgents = useCallback(() => {
@@ -141,12 +172,17 @@ export function VoiceSession() {
       .catch(() => setFrames([]));
     loadAgents();
     loadReviewQueue();
-    const t = setInterval(() => {
+    loadDiagnostics();
+    const agentsT = setInterval(() => {
       loadAgents();
       loadReviewQueue();
     }, 30000);
-    return () => clearInterval(t);
-  }, [loadAgents, loadReviewQueue]);
+    const diagT = setInterval(loadDiagnostics, 60000);
+    return () => {
+      clearInterval(agentsT);
+      clearInterval(diagT);
+    };
+  }, [loadAgents, loadDiagnostics, loadReviewQueue]);
 
   useEffect(() => {
     const onState = (s: ConnectionState) => {
@@ -255,7 +291,15 @@ export function VoiceSession() {
     try {
       const resp = await fetch(tokenEndpoint, { method: "POST" });
       if (!resp.ok) {
-        throw new Error(`Token endpoint returned ${resp.status}`);
+        const status = resp.status;
+        if (status === 401 || status === 403 || status === 503) {
+          throw new Error(
+            stripEmDash(
+              `Token failed (${status}). Check LiveKit API keys and that the advoi-voice container is running.`,
+            ),
+          );
+        }
+        throw new Error(`Token endpoint returned ${status}`);
       }
       const data = await resp.json();
       setRoomName(data.room_name || "");
@@ -274,7 +318,14 @@ export function VoiceSession() {
       });
       setStatus(`Joined ${data.room_name}. ADVoi should greet you.`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Connection failed";
+      let message = err instanceof Error ? err.message : "Connection failed";
+      const tokenHint =
+        message.startsWith("Token failed") || message.startsWith("Token endpoint returned");
+      if (!tokenHint) {
+        message = stripEmDash(
+          `${message}. Check LiveKit WSS URL and allow microphone access.`,
+        );
+      }
       setState("error");
       setStatus(message);
     }
@@ -297,6 +348,8 @@ export function VoiceSession() {
   };
 
   const agentsReady = agents.filter((a) => a.cached).length;
+  const agentsTotal = agents.length || voiceDiag?.checks?.agents;
+  const frameRunMs = latencyDiag?.timings_ms?.frame_run_ms;
 
   return (
     <section className={styles.panel}>
@@ -305,6 +358,34 @@ export function VoiceSession() {
         <p className={styles.status}>{status}</p>
       </div>
       {roomName ? <p className={styles.meta}>Room: {roomName}</p> : null}
+
+      {voiceDiag || latencyDiag ? (
+        <div className={styles.systemHealth} aria-label="System health">
+          {voiceDiag ? (
+            <span
+              className={`${styles.healthItem} ${voiceDiag.ok ? styles.healthOk : styles.healthWarn}`}
+            >
+              Voice: {voiceDiag.ok ? "ready" : "not ready"}
+            </span>
+          ) : null}
+          {agentsTotal != null ? (
+            <span className={styles.healthItem}>
+              Agents: {agents.length > 0 ? `${agentsReady}/${agentsTotal}` : `?/${agentsTotal}`}
+            </span>
+          ) : null}
+          {frameRunMs != null ? (
+            <span className={styles.healthItem}>Frame: {frameRunMs}ms</span>
+          ) : null}
+          {latencyDiag?.sla_ok != null ? (
+            <span
+              className={`${styles.healthBadge} ${latencyDiag.sla_ok ? styles.healthOk : styles.healthWarn}`}
+            >
+              SLA {latencyDiag.sla_ok ? "ok" : "miss"}
+              {latencyDiag.sla_target_ms != null ? ` (${latencyDiag.sla_target_ms}ms)` : ""}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {state === "connected" ? (
         <p className={styles.intentHint}>Try: fleet status, open briefs, queue review</p>
@@ -399,6 +480,11 @@ export function VoiceSession() {
       <p className={styles.hint}>
         Three specialist agents run in the background. Tap frames anytime (text mode). Connect voice for TTS.
         Shift+click fleet for a fresh read.
+      </p>
+      <p className={styles.footer}>
+        <a className={styles.footerLink} href="/voice-local">
+          Try client voice loop
+        </a>
       </p>
     </section>
   );

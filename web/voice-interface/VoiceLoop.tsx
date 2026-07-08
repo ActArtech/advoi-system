@@ -24,9 +24,15 @@ function isFrameIntent(data: VoiceIntentResponse): data is VoiceIntentResponse &
   return data.action === "frame";
 }
 
+function webGpuAvailable(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return "gpu" in navigator;
+}
+
 export function VoiceLoop() {
   const [state, setState] = useState<LoopState>("loading");
   const [status, setStatus] = useState("Loading Kokoro and Parakeet models...");
+  const [webGpu, setWebGpu] = useState<boolean | null>(null);
   const [transcript, setTranscript] = useState("");
   const [voice, setVoice] = useState<VoiceId>("af_heart");
   const busy = useRef(false);
@@ -145,11 +151,16 @@ export function VoiceLoop() {
   const { isListening, toggleListening } = useVoiceSTT({ onTranscript, onError });
 
   useEffect(() => {
+    setWebGpu(webGpuAvailable());
+  }, []);
+
+  useEffect(() => {
     void preload().then(() => {
       setState("ready");
-      setStatus("Ready. Tap listen and speak.");
+      const accel = webGpu ? "WebGPU" : "WASM fallback";
+      setStatus(`Ready (${accel}). Tap listen and speak.`);
     });
-  }, [preload]);
+  }, [preload, webGpu]);
 
   useEffect(() => {
     if (isListening) setState("listening");
@@ -206,9 +217,17 @@ export function VoiceLoop() {
           Test voice
         </button>
       </div>
+      {webGpu === false ? (
+        <p className={styles.hint}>
+          WebGPU not detected. Models use WASM (slower). Desktop Chrome recommended; iOS may not support Path B yet.
+        </p>
+      ) : null}
       <p className={styles.hint}>
         Parakeet STT and Kokoro TTS run in your browser. Replies use the multi-agent API when available.
-        Try: fleet status, open briefs, queue review.
+        Try: fleet status, open briefs, queue review.{" "}
+        <a className={styles.backLink} href="/">
+          Back to LiveKit PWA
+        </a>
       </p>
     </section>
   );

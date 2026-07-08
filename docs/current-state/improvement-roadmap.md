@@ -30,7 +30,7 @@ Prioritized work after current state. Ordered by impact on **testable staging** 
 | 3.2 | Warmth layer in prompts (mirror user phrases) | Less robotic server TTS | [x] Done |
 | 3.3 | Client voice path: Kokoro + Parakeet + `/voice-local` | Private low-latency option | [x] Done |
 | 3.4 | `POST /api/voice/respond` | STT → LLM → TTS loop without LiveKit | [x] Done |
-| 3.5 | Latency metrics (first byte, round-trip) | Target under 800ms perceived | [ ] Open |
+| 3.5 | Latency metrics (first byte, round-trip) | Target under 800ms perceived | [x] Partial (`/api/diagnostics/latency` + SLA; full mic-STT-TTS TBD) |
 
 ## Phase 4 — Platform (later)
 

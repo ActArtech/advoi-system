@@ -365,10 +365,56 @@ async def voice_diagnostics() -> dict[str, Any]:
     return await _voice_diagnostics_payload()
 
 
+def _latency_sla_ms() -> float:
+    raw = os.getenv("ADVOI_LATENCY_SLA_MS", "800")
+    try:
+        return max(100.0, float(raw))
+    except ValueError:
+        return 800.0
+
+
+async def _measure_intent_latency_ms() -> dict[str, Any]:
+    """Time classify + optional preview frame for voice intent path."""
+    transcript = "give me a fleet status update"
+    try:
+        started = time.perf_counter()
+        action = resolve_voice_action(transcript)
+        intent_ms = round((time.perf_counter() - started) * 1000, 1)
+        preview_ms: float | None = None
+        if action.get("action") == "frame" and action.get("frame_id"):
+            started = time.perf_counter()
+            result = await run_frame(action["frame_id"], confirmed=bool(action.get("confirmed")))
+            preview_ms = round((time.perf_counter() - started) * 1000, 1)
+            return {
+                "intent_ms": intent_ms,
+                "intent_preview_ms": preview_ms,
+                "intent_frame_id": action["frame_id"],
+                "intent_status": result.status,
+            }
+        return {"intent_ms": intent_ms, "intent_preview_ms": None, "intent_frame_id": None}
+    except Exception as exc:
+        return {"intent_ms": None, "intent_preview_ms": None, "intent_error": str(exc)}
+
+
+async def _measure_respond_latency_ms() -> dict[str, Any]:
+    """Time warm_spoken_reply on a frame-routed transcript (mock-friendly)."""
+    try:
+        started = time.perf_counter()
+        spoken = await warm_spoken_reply("fleet status please", session_id="latency-probe")
+        respond_ms = round((time.perf_counter() - started) * 1000, 1)
+        return {
+            "respond_ms": respond_ms,
+            "respond_chars": len(spoken or ""),
+        }
+    except Exception as exc:
+        return {"respond_ms": None, "respond_error": str(exc)}
+
+
 @app.get("/api/diagnostics/latency")
 async def latency_diagnostics() -> dict[str, Any]:
-    """Quick timing probe: health, token mint, and one fleet_status frame."""
+    """Quick timing probe: health, token mint, frame, intent, and respond paths."""
     timings_ms: dict[str, float | None] = {}
+    sla_ms = _latency_sla_ms()
 
     started = time.perf_counter()
     health_payload = await health()
@@ -390,14 +436,39 @@ async def latency_diagnostics() -> dict[str, Any]:
     frame_latency = await _measure_frame_latency_ms()
     timings_ms["frame_run_ms"] = frame_latency.get("frame_run_ms")
 
+    intent_latency = await _measure_intent_latency_ms()
+    timings_ms["intent_ms"] = intent_latency.get("intent_ms")
+    timings_ms["intent_preview_ms"] = intent_latency.get("intent_preview_ms")
+
+    respond_latency = await _measure_respond_latency_ms()
+    timings_ms["respond_ms"] = respond_latency.get("respond_ms")
+
+    api_path_ms: float | None = None
+    parts = [
+        timings_ms.get("intent_ms"),
+        timings_ms.get("intent_preview_ms") or timings_ms.get("frame_run_ms"),
+    ]
+    if all(p is not None for p in parts):
+        api_path_ms = round(float(parts[0]) + float(parts[1]), 1)  # type: ignore[arg-type]
+    timings_ms["api_voice_path_ms"] = api_path_ms
+
+    sla_ok = api_path_ms is not None and api_path_ms <= sla_ms
+
     return {
         "ok": bool(
             health_payload.get("ok")
             and token_ok
             and timings_ms.get("frame_run_ms") is not None
+            and timings_ms.get("intent_ms") is not None
+            and timings_ms.get("respond_ms") is not None
         ),
         "stage": "voice-pwa-2",
         "timings_ms": timings_ms,
+        "sla_target_ms": sla_ms,
+        "sla_ok": sla_ok,
+        "sla_scope": "API intent + frame preview only; full mic-STT-TTS round trip not measured here",
         "frame_id": frame_latency.get("frame_id", "fleet_status"),
         "frame_status": frame_latency.get("frame_status"),
+        "intent_frame_id": intent_latency.get("intent_frame_id"),
+        "respond_chars": respond_latency.get("respond_chars"),
     }

@@ -61,10 +61,17 @@ def test_journey_latency_diagnostics(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["ok"] is True
-    assert data["timings_ms"]["health_ms"] is not None
-    assert data["timings_ms"]["token_ms"] is not None
-    assert data["timings_ms"]["frame_run_ms"] is not None
+    timings = data["timings_ms"]
+    assert timings["health_ms"] is not None
+    assert timings["token_ms"] is not None
+    assert timings["frame_run_ms"] is not None
+    assert timings["intent_ms"] is not None
+    assert timings["respond_ms"] is not None
+    assert timings["api_voice_path_ms"] is not None
+    assert data["sla_target_ms"] == 800.0
+    assert data["sla_ok"] is True
     assert data["frame_id"] == "fleet_status"
+    assert "sla_scope" in data
 
 
 def test_journey_diagnostics_missing_llm_key(client, monkeypatch):

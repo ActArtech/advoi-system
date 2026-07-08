@@ -45,6 +45,42 @@
   font-size: 0.85rem;
 }
 
+.systemHealth {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.healthItem {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.healthBadge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.healthOk {
+  color: var(--ok);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.healthWarn {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
 .actions {
   margin-top: 1.25rem;
 }
@@ -237,6 +273,21 @@
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+.footer {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+}
+
+.footerLink {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.footerLink:hover {
+  text-decoration: underline;
 }
 
 @keyframes pulse {

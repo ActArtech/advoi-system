@@ -13,4 +13,5 @@ terminals
 web/node_modules
 web/.next
 *.md
+!README.md
 !web/README.md

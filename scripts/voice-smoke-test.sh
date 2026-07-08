@@ -85,6 +85,29 @@ for frame_id in fleet_status open_briefs queue_deep_review; do
   fi
 done
 
+echo -n "==> latency ... "
+if resp=$(curl -sf "${BASE}/api/diagnostics/latency" 2>/dev/null); then
+  if echo "${resp}" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') and d['timings_ms'].get('respond_ms') is not None else 1)"; then
+    sla=$(echo "${resp}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sla_ok'))")
+    path_ms=$(echo "${resp}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['timings_ms'].get('api_voice_path_ms'))")
+    echo "OK (api_voice_path_ms=${path_ms}, sla_ok=${sla})"
+  else
+    echo "FAIL"
+    FAIL=1
+  fi
+else
+  echo "FAIL (HTTP)"
+  FAIL=1
+fi
+
+echo -n "==> review-queue ... "
+if curl -sf "${BASE}/api/review-queue" | grep -q '"pending"'; then
+  echo "OK"
+else
+  echo "FAIL"
+  FAIL=1
+fi
+
 if [[ "${FAIL}" -eq 0 ]]; then
   echo "All voice journey checks passed."
   exit 0
