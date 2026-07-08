@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+# On Windows: use agents-smoke-test.ps1 (PowerShell env vars do not reach WSL bash).
 set -euo pipefail
-BASE="${ADVOI_BASE_URL:-http://127.0.0.1:8010}"
+BASE="${ADVOI_BASE_URL:-https://advoi.keyteller.com}"
 FAIL=0
 
 expect_agent() {
@@ -22,14 +23,18 @@ sys.exit(0 if match else 1)
 }
 
 check_post() {
-  local name="$1" url="$2" body="${3:-{}}"
+  local name="$1" url="$2" body="${3:-"{}"}"
+  local attempt
   echo -n "==> ${name} ... "
-  if curl -sf -X POST -H "Content-Type: application/json" -d "${body}" "${url}" >/dev/null 2>&1; then
-    echo OK
-  else
-    echo FAIL
-    FAIL=1
-  fi
+  for attempt in 1 2 3; do
+    if curl -sf -X POST -H "Content-Type: application/json" -d "${body}" "${url}" >/dev/null 2>&1; then
+      echo OK
+      return
+    fi
+    [[ "${attempt}" -lt 3 ]] && sleep 2
+  done
+  echo FAIL
+  FAIL=1
 }
 
 echo "==> Multi-agent smoke (${BASE})"

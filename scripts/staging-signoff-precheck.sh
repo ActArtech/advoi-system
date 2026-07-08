@@ -72,7 +72,7 @@ fi
 echo ""
 
 if [[ -f scripts/agents-smoke-test.sh ]]; then
-  ADVOI_BASE_URL="${BASE}" run_check "agents-smoke-test" bash scripts/agents-smoke-test.sh
+  run_check "agents-smoke-test" env ADVOI_BASE_URL="${BASE}" bash scripts/agents-smoke-test.sh
 fi
 
 if [[ "${FAIL}" -eq 0 ]]; then

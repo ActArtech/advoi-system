@@ -23,7 +23,12 @@ Run one command (runs all checks below):
 
 ```bash
 bash scripts/staging-signoff-precheck.sh
-# Windows: .\scripts\staging-signoff-precheck.ps1
+```
+
+**Windows:** use PowerShell only (WSL bash does not inherit `$env:ADVOI_BASE_URL`):
+
+```powershell
+.\scripts\staging-signoff-precheck.ps1
 ```
 
 Or individually:
