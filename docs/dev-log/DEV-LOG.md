@@ -291,6 +291,31 @@ Created the `advoi-system` documentation scaffold to capture the full conversati
 
 ---
 
+## v0.3.0 — Stage 1.5 Multi-agent + Intent
+
+**Date:** 2026-07-08
+**Type:** Feature
+**Status:** Landed locally; staging E2E pending
+
+### Shipped
+
+- Keyword intent routing (`advoi/routing/intent.py`) + `/api/voice/intent`
+- LiveKit `VoiceIntentProcessor` — spoken "fleet status" routes to frames
+- Review queue Postgres (`advoi/memory/review_queue.py`) + `GET /api/review-queue`
+- Client voice loop (`/voice-local`) with Kokoro/Parakeet + intent preview
+- PWA agent freshness chips, confirmation flow in VoiceLoop
+- Voice diagnostics LLM key fail-fast; smoke tests expanded
+- PowerShell startup scripts: `start-api.ps1`, `start-supervisor.ps1`, `start-web.ps1`
+- **91 pytest tests** passing; `agents-smoke-test.ps1` green locally
+
+### Next
+
+- VPS deploy with LLM keys + human voice E2E sign-off
+- PWA review queue list UI
+- CI gate (pytest + docker smoke)
+
+---
+
 ## [Future Entry Placeholder]
 
 **Version:** v0.3.0  

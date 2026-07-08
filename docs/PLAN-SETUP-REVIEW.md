@@ -1,6 +1,10 @@
 # ADVoi Plan Setup Review
 
-> **Superseded in part (2026-07-08):** Multi-agent frames, agent daemons, and Stage 1.5 work are documented in [current-state/](current-state/README.md) and [architecture/](architecture/README.md). Keep this file for historical onboarding analysis.
+> **⚠️ Historical document — do not use for current status**
+>
+> **Authoritative docs:** [current-state/](current-state/README.md) (gaps, roadmap, what we have), [architecture/](architecture/README.md), [operations/staging-runbook.md](operations/staging-runbook.md).
+>
+> This file is a 2026-07-07 onboarding snapshot. Many blockers listed below are mitigated or resolved; see [gaps-and-blockers.md](current-state/gaps-and-blockers.md).
 
 **Date:** 2026-07-07  
 **Stage:** Build 1.1 — Voice + PWA  

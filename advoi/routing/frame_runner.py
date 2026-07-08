@@ -408,19 +408,42 @@ async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
 
 
 async def _run_review_queue(*, confirmed: bool) -> tuple[str, dict[str, Any]]:
+    from advoi.memory.review_queue import desktop_brief_url, enqueue_review
+
     if not confirmed and os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() == "true":
         return (
             "To queue a deep review, confirm yes on voice or tap again after reviewing.",
             {"awaiting_confirmation": True},
         )
+
+    title = "ADVoi voice validation"
+    briefs = await _load_open_briefs()
+    if briefs:
+        title = briefs[0]
+
     if os.getenv("ADVOI_FRAME_MOCK", "").lower() in {"1", "true", "yes"}:
+        mock_id = 0
+        url = desktop_brief_url(mock_id)
         return (
-            "Queued deep review for ADVoi voice validation. You'll get a desktop brief link.",
-            {"mode": "mock", "queued": True},
+            f"Queued deep review for {title}. Desktop brief: {url}.",
+            {"mode": "mock", "queued": True, "queue_id": mock_id, "title": title, "brief_url": url},
         )
+
+    queue_id = await enqueue_review(
+        title,
+        source_frame="queue_deep_review",
+        metadata={"trigger": "voice_frame"},
+    )
+    if queue_id is None:
+        return (
+            "Deep review queued for desktop prep. I'll surface the brief when it's ready.",
+            {"queued": True, "persistence": "unavailable", "title": title},
+        )
+
+    url = desktop_brief_url(queue_id)
     return (
-        "Deep review queued for desktop prep. I'll surface the brief when it's ready.",
-        {"queued": True},
+        f"Queued deep review for {title}. Desktop brief: {url}.",
+        {"queued": True, "queue_id": queue_id, "title": title, "brief_url": url},
     )
 
 

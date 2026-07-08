@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
@@ -125,6 +126,14 @@ async def list_frames() -> dict[str, Any]:
     return {"frames": [frame_to_dict(f) for f in FRAMES]}
 
 
+@app.get("/api/review-queue")
+async def review_queue_pending() -> dict[str, Any]:
+    from advoi.memory.review_queue import list_pending
+
+    items = await list_pending()
+    return {"pending": items, "count": len(items)}
+
+
 @app.get("/api/agents")
 async def list_agents() -> dict[str, Any]:
     return agents_status_summary()
@@ -240,9 +249,42 @@ async def run_decision_frame(
     )
 
 
-@app.get("/api/diagnostics/voice")
-async def voice_diagnostics() -> dict[str, Any]:
-    """Journey-test endpoint — checks config without joining a LiveKit room."""
+async def _probe_memory_bridge() -> dict[str, Any]:
+    """Check Hindsight HTTP bridge reachability (short timeout, non-blocking)."""
+    url = os.getenv("HINDSIGHT_BRIDGE_URL", "").rstrip("/")
+    if not url:
+        return {"memory_bridge_ok": False, "memory_bridge_mode": "mock"}
+
+    timeout = httpx.Timeout(2.0, connect=1.0)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            health = await client.get(f"{url}/health")
+            health.raise_for_status()
+            return {"memory_bridge_ok": True, "memory_bridge_mode": "hermes"}
+    except Exception:
+        return {"memory_bridge_ok": False, "memory_bridge_mode": "unavailable"}
+
+
+async def _measure_frame_latency_ms(frame_id: str = "fleet_status") -> dict[str, Any]:
+    """Time one mock or live frame run for latency hints in diagnostics."""
+    try:
+        started = time.perf_counter()
+        result = await run_frame(frame_id)
+        return {
+            "frame_run_ms": round((time.perf_counter() - started) * 1000, 1),
+            "frame_id": frame_id,
+            "frame_status": result.status,
+        }
+    except Exception as exc:
+        return {
+            "frame_run_ms": None,
+            "frame_id": frame_id,
+            "frame_error": str(exc),
+        }
+
+
+async def _voice_diagnostics_payload() -> dict[str, Any]:
+    """Build voice journey diagnostics without joining a LiveKit room."""
     checks: dict[str, Any] = {
         "livekit_url": bool(public_livekit_url()),
         "livekit_keys": bool(os.getenv("LIVEKIT_API_KEY") and os.getenv("LIVEKIT_API_SECRET")),
@@ -250,25 +292,112 @@ async def voice_diagnostics() -> dict[str, Any]:
         "agents": len(AGENTS),
         "memory_provider": os.getenv("MEMORY_PROVIDER", "hindsight"),
         "voice_respond_ready": False,
+        "llm_key": False,
     }
+    warnings: list[str] = []
+    llm_key = False
+
     try:
         creds = resolve_llm_credentials()
         checks["llm_provider"] = creds.provider
         checks["llm_model"] = creds.llm_model
         checks["llm_key"] = True
         checks["voice_respond_ready"] = True
+        llm_key = True
     except RuntimeError:
-        checks["llm_key"] = False
+        checks["llm_key_required"] = True
+        warnings.append(
+            "OPENROUTER_API_KEY or OPENAI_API_KEY is required; advoi-voice exits at startup without it."
+        )
 
     voice_mode = os.getenv("ADVOI_VOICE_MODE", "livekit").lower()
     if voice_mode == "local":
         ok = checks["voice_respond_ready"]
     else:
-        ok = checks["livekit_url"] and checks["livekit_keys"] and checks["llm_key"]
+        ok = bool(checks["livekit_url"] and checks["livekit_keys"] and llm_key)
+
+    reason: str | None = None
+    if not ok:
+        reasons: list[str] = []
+        if voice_mode != "local" and not checks["livekit_url"]:
+            reasons.append("LIVEKIT_URL is not set")
+        if voice_mode != "local" and not checks["livekit_keys"]:
+            reasons.append("LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required")
+        if not llm_key:
+            reasons.append("OPENROUTER_API_KEY or OPENAI_API_KEY is required for voice")
+        if voice_mode == "local" and not checks["voice_respond_ready"]:
+            reasons.append("voice respond is not ready (missing LLM API key)")
+        reason = "; ".join(reasons) if reasons else "voice diagnostics failed"
+
+    voice_agent_hint = (
+        "advoi-voice (Pipecat + LiveKit) needs OPENROUTER_API_KEY or OPENAI_API_KEY for "
+        "STT, LLM, and TTS. Set keys in deploy/.env and restart the advoi-voice container."
+        if not llm_key
+        else "advoi-voice has LLM credentials configured for STT, LLM, and TTS."
+    )
+
+    memory_bridge = await _probe_memory_bridge()
+    checks.update(memory_bridge)
+
+    if memory_bridge["memory_bridge_mode"] == "unavailable":
+        warnings.append("Memory bridge down — frames use mock cache (non-fatal)")
+
+    latency = await _measure_frame_latency_ms()
+    if latency.get("frame_run_ms") is not None:
+        checks["frame_run_ms"] = latency["frame_run_ms"]
+
     return {
         "ok": ok,
+        "reason": reason,
         "stage": "voice-pwa-2",
         "voice_mode": voice_mode,
         "checks": checks,
+        "warnings": warnings,
+        "voice_agent_hint": voice_agent_hint,
         "room": default_room_name(),
+        "latency": latency,
+    }
+
+
+@app.get("/api/diagnostics/voice")
+async def voice_diagnostics() -> dict[str, Any]:
+    """Journey-test endpoint — checks config without joining a LiveKit room."""
+    return await _voice_diagnostics_payload()
+
+
+@app.get("/api/diagnostics/latency")
+async def latency_diagnostics() -> dict[str, Any]:
+    """Quick timing probe: health, token mint, and one fleet_status frame."""
+    timings_ms: dict[str, float | None] = {}
+
+    started = time.perf_counter()
+    health_payload = await health()
+    timings_ms["health_ms"] = round((time.perf_counter() - started) * 1000, 1)
+
+    started = time.perf_counter()
+    token_ok = False
+    try:
+        mint_room_token(
+            room_name=default_room_name(),
+            identity="latency-probe",
+            name="Latency probe",
+        )
+        token_ok = True
+        timings_ms["token_ms"] = round((time.perf_counter() - started) * 1000, 1)
+    except Exception:
+        timings_ms["token_ms"] = None
+
+    frame_latency = await _measure_frame_latency_ms()
+    timings_ms["frame_run_ms"] = frame_latency.get("frame_run_ms")
+
+    return {
+        "ok": bool(
+            health_payload.get("ok")
+            and token_ok
+            and timings_ms.get("frame_run_ms") is not None
+        ),
+        "stage": "voice-pwa-2",
+        "timings_ms": timings_ms,
+        "frame_id": frame_latency.get("frame_id", "fleet_status"),
+        "frame_status": frame_latency.get("frame_status"),
     }

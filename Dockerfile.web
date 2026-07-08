@@ -1,8 +1,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY web/package.json web/package-lock.json* ./
-RUN npm install
+RUN npm ci
 COPY web/ ./
+RUN find node_modules/.bin -type f -exec chmod +x {} + 2>/dev/null || true
 ARG NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT
 ARG NEXT_PUBLIC_ADVOI_API_URL
 ENV NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT=$NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT

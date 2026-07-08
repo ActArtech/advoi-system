@@ -72,6 +72,11 @@ def _detect_confirmation(text: str) -> bool:
     return any(_has_word(text, word) for word in _CONFIRM_WORDS)
 
 
+def is_confirm_phrase(transcript: str) -> bool:
+    """Return True when the transcript is a short confirmation (yes, go ahead, etc.)."""
+    return _detect_confirmation(_normalize(transcript))
+
+
 def classify_transcript(transcript: str) -> FrameId | None:
     """Map a voice transcript to a decision frame id, or None for general chat."""
     text = _normalize(transcript)

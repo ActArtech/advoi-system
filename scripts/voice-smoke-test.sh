@@ -44,11 +44,26 @@ check_post() {
 
 check "health" "${BASE}/api/health" "voice-pwa-2"
 check "diagnostics" "${BASE}/api/diagnostics/voice" '"checks"'
+
+echo -n "==> diagnostics llm_key ... "
+if resp=$(curl -sf "${BASE}/api/diagnostics/voice" 2>/dev/null); then
+  if echo "${resp}" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('checks',{}).get('llm_key') else 1)"; then
+    echo "OK"
+  else
+    echo "FAIL (llm_key false — advoi-voice needs OPENROUTER_API_KEY or OPENAI_API_KEY)"
+    FAIL=1
+  fi
+else
+  echo "FAIL (HTTP)"
+  FAIL=1
+fi
 check "frames" "${BASE}/api/frames" "fleet_status"
 check "agents" "${BASE}/api/agents" "fleet-scout"
 check_post "token" "${BASE}/api/livekit/token" "{}" '"token"'
 check_post "voice intent fleet" "${BASE}/api/voice/intent" '{"transcript":"Give me a fleet status update","preview":true}' '"frame_id":"fleet_status"'
 check_post "voice intent chat" "${BASE}/api/voice/intent" '{"transcript":"How are you today?"}' '"action":"chat"'
+check_post "voice intent review" "${BASE}/api/voice/intent" '{"transcript":"queue deep review"}' '"frame_id":"queue_deep_review"'
+check_post "voice intent review confirm" "${BASE}/api/voice/intent" '{"transcript":"queue deep review"}' '"confirmed":false'
 check_post "frame fleet" "${BASE}/api/frames/fleet_status/run" "{}"
 check_post "frame briefs" "${BASE}/api/frames/open_briefs/run" "{}"
 check_post "frame review" "${BASE}/api/frames/queue_deep_review/run" '{"confirmed":true}'

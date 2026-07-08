@@ -1,0 +1,16 @@
+# Keep Docker builds clean — Windows tar uploads can break node_modules permissions.
+.git
+.github
+.aether
+docs
+tests
+terminals
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+.venv
+web/node_modules
+web/.next
+*.md
+!web/README.md

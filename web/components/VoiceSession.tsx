@@ -38,6 +38,14 @@ type AgentRow = {
   last_run?: LastRun;
 };
 
+type ReviewQueueItem = {
+  queue_id: number;
+  title: string;
+  status: string;
+  brief_url?: string;
+  created_at?: string;
+};
+
 const tokenEndpoint =
   process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "/api/livekit/token";
 const apiBase = process.env.NEXT_PUBLIC_ADVOI_API_URL?.replace(/\/$/, "") || "/api";
@@ -92,7 +100,15 @@ export function VoiceSession() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [activeFrame, setActiveFrame] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: true }), []);
+
+  const loadReviewQueue = useCallback(() => {
+    fetch(`${apiBase}/review-queue`)
+      .then((r) => (r.ok ? r.json() : { pending: [] }))
+      .then((data) => setReviewQueue((data.pending || []) as ReviewQueueItem[]))
+      .catch(() => setReviewQueue([]));
+  }, []);
 
   const loadAgents = useCallback(() => {
     fetch(`${apiBase}/agents`)
@@ -124,9 +140,13 @@ export function VoiceSession() {
       .then((data) => setFrames(data.frames || []))
       .catch(() => setFrames([]));
     loadAgents();
-    const t = setInterval(loadAgents, 30000);
+    loadReviewQueue();
+    const t = setInterval(() => {
+      loadAgents();
+      loadReviewQueue();
+    }, 30000);
     return () => clearInterval(t);
-  }, [loadAgents]);
+  }, [loadAgents, loadReviewQueue]);
 
   useEffect(() => {
     const onState = (s: ConnectionState) => {
@@ -195,6 +215,29 @@ export function VoiceSession() {
         setStatus(spoken);
         await publishSpeak(spoken);
         loadAgents();
+        if (frameId === "queue_deep_review" && data.status === "ok") {
+          const detail = data.detail as {
+            brief_url?: string;
+            title?: string;
+            queue_id?: number;
+          };
+          if (detail?.brief_url) {
+            setReviewQueue((prev) => {
+              const id = detail.queue_id ?? prev.length;
+              if (prev.some((r) => r.queue_id === id)) return prev;
+              return [
+                {
+                  queue_id: id,
+                  title: detail.title || "Deep review",
+                  status: "pending",
+                  brief_url: detail.brief_url,
+                },
+                ...prev,
+              ];
+            });
+          }
+          loadReviewQueue();
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Frame failed";
         setState((s) => (s === "connected" ? "connected" : "error"));
@@ -203,7 +246,7 @@ export function VoiceSession() {
         setActiveFrame(null);
       }
     },
-    [apiBase, frames, loadAgents, publishSpeak],
+    [apiBase, frames, loadAgents, loadReviewQueue, publishSpeak],
   );
 
   const connect = useCallback(async () => {
@@ -310,6 +353,29 @@ export function VoiceSession() {
           </button>
         )}
       </div>
+
+      {reviewQueue.length > 0 ? (
+        <div className={styles.reviewSection} aria-label="Pending deep reviews">
+          <p className={styles.reviewHeading}>Review queue ({reviewQueue.length})</p>
+          <ul className={styles.reviewList}>
+            {reviewQueue.slice(0, 5).map((item) => (
+              <li key={item.queue_id} className={styles.reviewItem}>
+                <span className={styles.reviewTitle}>{item.title}</span>
+                {item.brief_url ? (
+                  <a
+                    className={styles.reviewLink}
+                    href={item.brief_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open brief
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className={styles.frames}>
         {frames.map((frame) => {

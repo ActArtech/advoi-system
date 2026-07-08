@@ -1,0 +1,85 @@
+name: ADVoi CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: advoi-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --group dev
+
+      - name: Run pytest
+        run: uv run pytest tests/ -q
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build Next.js PWA
+        working-directory: web
+        run: npm run build
+
+  agents-smoke:
+    runs-on: ubuntu-latest
+    env:
+      ADVOI_FRAME_MOCK: "true"
+      ADVOI_AGENT_INTERVAL_SECS: "15"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --group dev
+
+      - name: Start API server
+        run: uv run uvicorn advoi.api.app:app --host 127.0.0.1 --port 8010 &
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8010/api/health >/dev/null; then
+              echo "API healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to become healthy within 30s"
+          exit 1
+
+      - name: Run fast pytest subset
+        run: uv run pytest tests/test_intent.py tests/test_review_queue.py -q
+
+      - name: Smoke fleet frame and review queue
+        run: |
+          curl -sf -X POST -H "Content-Type: application/json" -d '{}' \
+            http://127.0.0.1:8010/api/frames/fleet_status/run
+          curl -sf http://127.0.0.1:8010/api/review-queue

@@ -2,30 +2,36 @@
 
 **Project:** ADVoi
 **Stage:** Build
-**Sub-stage:** 1.1 Voice + PWA
-**Entered:** 2026-07-07
-**Appetite:** 3 days
-**Bet:** Stage 1 Pipecat agent + web client + port registry + Aether bootstrap
+**Sub-stage:** 1.5 Voice + PWA + Multi-agent
+**Entered:** 2026-07-08
+**Appetite:** 5 days (staging validation)
+**Bet:** Pipecat LiveKit voice, 3 specialist agents, intent routing, client voice loop, staging E2E
 
 ## Success signal
 
-User opens PWA, connects mic, hears ADVoi in LiveKit room; API health and token routes respond; port registry row present on VPS.
+User opens PWA at advoi.keyteller.com, connects voice, hears greeting and frame TTS; three background agents cache fleet/briefs/review; voice diagnostics reports `ok: true` with LLM keys present.
 
 ## Exit criteria checklist
 
-- [x] Pipecat + LiveKit voice agent code path
-- [x] Web PWA scaffold with LiveKit client
-- [x] API token endpoint
-- [ ] Traefik route live at advoi.keyteller.com (DNS + deploy)
-- [x] `.aether/` bootstrap complete on repo
-- [ ] Port registry row on VPS `/opt/shared/port-registry.md`
+- [x] Pipecat + LiveKit voice agent with greeting and data-channel frames
+- [x] LiveKit STT intent routing to decision frames (`VoiceIntentProcessor`)
+- [x] Web PWA with 3 frame buttons, agent freshness chips, `/voice-local` client loop
+- [x] API: token, frames, agents, `/api/voice/respond`, `/api/voice/intent`, `/api/review-queue`
+- [x] Keyword intent classifier + warmth layer for client voice
+- [x] Review queue Postgres persistence (with mock fallback)
+- [x] 91+ pytest tests; agents-smoke-test.ps1 passes locally
+- [ ] Traefik live at advoi.keyteller.com with valid deploy/.env and LLM keys
+- [ ] Human E2E sign-off: mic → STT → TTS on staging
+- [ ] Port registry row synced to shared repo
 
 ## Transition history
 
 | Date | From | To | Direction | Decision ref |
 |------|------|-----|-----------|--------------|
-| 2026-07-07 | Idea | Build | forward | ADR-001, ADR-002 |
+| 2026-07-07 | Idea | Build 1.1 | forward | ADR-001, ADR-002 |
+| 2026-07-08 | Build 1.1 | Build 1.5 | forward | multi-agent, intent, review queue |
 
 ## Notes
 
 Infrastructure venture — does not replace gem-dev-shop as active Aether product venture.
+P0 for staging: LLM keys in deploy/.env, advoi-voice healthy, Shelve pull disabled.

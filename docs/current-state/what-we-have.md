@@ -9,6 +9,7 @@ Concrete inventory of the `advoi-system` repo as of 2026-07-08.
 - Pipecat pipeline: OpenAI STT, LLM, TTS via OpenRouter-first credentials
 - LiveKit transport (self-hosted dev keys)
 - Greeting on first participant
+- STT intent routing via `VoiceIntentProcessor` (spoken frame intents skip LLM)
 - LiveKit data channel: `speak` and `frame` message types
 - Memory recall at session start; retain on turns
 - `livekit_env.py` — public vs internal URL resolution
@@ -98,7 +99,7 @@ Concrete inventory of the `advoi-system` repo as of 2026-07-08.
 
 ## Tests
 
-12 test modules, **69 passing** pytest tests including:
+12+ test modules, **91 passing** pytest tests including:
 
 - API health and token
 - Frames and frame dispatch

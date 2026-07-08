@@ -27,6 +27,7 @@ Check-Post "briefs" "$Base/api/frames/open_briefs/run"
 Check-Post "review" "$Base/api/frames/queue_deep_review/run" '{"confirmed":true}'
 Check-Post "voice respond" "$Base/api/voice/respond" '{"transcript":"What briefs are open?"}' "spoken"
 Check-Get "frame intents" "$Base/api/frames" "voice_prompt"
+Check-Get "review queue" "$Base/api/review-queue" "pending"
 foreach ($id in @("fleet_status", "open_briefs", "queue_deep_review")) {
     Write-Host -NoNewline "==> intent $id ... "
     try {

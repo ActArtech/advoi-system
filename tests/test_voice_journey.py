@@ -45,8 +45,41 @@ def test_journey_diagnostics(client):
     resp = client.get("/api/diagnostics/voice")
     assert resp.status_code == 200
     data = resp.json()
+    assert data["ok"] is True
     assert data["checks"]["frames"] == 3
     assert data["checks"]["llm_key"] is True
+    assert "advoi-voice" in data["voice_agent_hint"]
+    assert data["reason"] is None
+    assert data["latency"]["frame_run_ms"] is not None
+    assert data["checks"]["frame_run_ms"] == data["latency"]["frame_run_ms"]
+    assert data["checks"]["memory_bridge_mode"] == "mock"
+    assert data["checks"]["memory_bridge_ok"] is False
+
+
+def test_journey_latency_diagnostics(client):
+    resp = client.get("/api/diagnostics/latency")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["timings_ms"]["health_ms"] is not None
+    assert data["timings_ms"]["token_ms"] is not None
+    assert data["timings_ms"]["frame_run_ms"] is not None
+    assert data["frame_id"] == "fleet_status"
+
+
+def test_journey_diagnostics_missing_llm_key(client, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    resp = client.get("/api/diagnostics/voice")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is False
+    assert data["checks"]["llm_key"] is False
+    assert data["checks"]["llm_key_required"] is True
+    assert data["warnings"]
+    assert "OPENROUTER_API_KEY or OPENAI_API_KEY" in data["warnings"][0]
+    assert "advoi-voice" in data["voice_agent_hint"]
+    assert "OPENROUTER_API_KEY or OPENAI_API_KEY" in data["reason"]
 
 
 @pytest.mark.parametrize(

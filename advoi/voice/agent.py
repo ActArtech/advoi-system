@@ -16,6 +16,7 @@ from advoi.llm.openrouter import resolve_llm_credentials  # noqa: E402
 from advoi.memory import MemoryRouter  # noqa: E402
 from advoi.voice.livekit_env import internal_livekit_url  # noqa: E402
 from advoi.voice.frame_dispatch import handle_frame_message  # noqa: E402
+from advoi.voice.intent_processor import build_intent_processor  # noqa: E402
 from advoi.voice.memory_hooks import build_memory_processor  # noqa: E402
 from advoi.voice.prompts import build_system_instruction  # noqa: E402
 from advoi.voice.tokens import default_room_name, mint_room_token  # noqa: E402
@@ -64,6 +65,14 @@ async def run_agent() -> None:
     system_instruction = build_system_instruction(memory_context=memory_context)
     memory_in = build_memory_processor(session_id)
     memory_out = build_memory_processor(session_id)
+    worker_ref: list[PipelineWorker | None] = [None]
+
+    async def _speak_frame_response(text: str) -> None:
+        worker = worker_ref[0]
+        if worker is not None:
+            await worker.queue_frame(TTSSpeakFrame(text))
+
+    intent_in = build_intent_processor(session_id=session_id, speak=_speak_frame_response)
 
     transport = LiveKitTransport(
         url=livekit_url,
@@ -106,6 +115,7 @@ async def run_agent() -> None:
             transport.input(),
             stt,
             memory_in,
+            intent_in,
             user_aggregator,
             llm,
             memory_out,
@@ -126,6 +136,7 @@ async def run_agent() -> None:
         idle_timeout_secs=None,
         cancel_on_idle_timeout=False,
     )
+    worker_ref[0] = worker
 
     greeted_participants: set[str] = set()
 
