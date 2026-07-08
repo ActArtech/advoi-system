@@ -13,7 +13,7 @@ from typing import Any
 
 from advoi.cache.agent_cache import read_agent_cache
 from advoi.cache.redis_client import get_redis
-from advoi.copy_style import plain_copy
+from advoi.copy_style import format_briefs_spoken, normalize_brief_title, plain_copy
 from advoi.decision.frames import DecisionFrame, get_frame
 from advoi.memory import MemoryRouter
 from advoi.routing.agents import AGENTS
@@ -365,24 +365,24 @@ async def _load_open_briefs() -> list[str]:
     seen: set[str] = set()
     merged: list[str] = []
     for title in await list_open_briefs():
-        key = title.strip().lower()
+        clean = normalize_brief_title(title)[:120]
+        key = clean.strip().lower()
         if key and key not in seen:
             seen.add(key)
-            merged.append(title[:120])
+            merged.append(clean)
     for title in _load_open_briefs_redis():
-        key = title.strip().lower()
+        clean = normalize_brief_title(title)[:120]
+        key = clean.strip().lower()
         if key and key not in seen:
             seen.add(key)
-            merged.append(title[:120])
+            merged.append(clean)
     return merged
 
 
 async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
     if os.getenv("ADVOI_FRAME_MOCK", "").lower() in {"1", "true", "yes"}:
-        return (
-            "You have two open briefs: ADVoi voice launch and staging catch-up.",
-            {"mode": "mock", "briefs": ["ADVoi voice launch", "staging catch-up"]},
-        )
+        mock = ["ADVoi voice launch", "Staging catch-up"]
+        return format_briefs_spoken(mock), {"mode": "mock", "briefs": mock}
 
     items = await _load_open_briefs()
     source = "postgres+redis" if items else "memory"
@@ -399,8 +399,7 @@ async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
                     items.append(str(text)[:120])
         source = "memory"
     if items:
-        spoken = "Open briefs: " + "; ".join(items[:3])
-        return spoken, {"briefs": items, "source": source}
+        return format_briefs_spoken(items), {"briefs": items, "source": source}
     return (
         "No briefs in memory yet. Say what you want captured and I'll log it after confirm.",
         {"briefs": []},
@@ -510,8 +509,11 @@ async def run_frame(
         spoken, detail = "That frame is not wired yet.", {}
         status = "unsupported"
 
-    preamble = agent.speaks_first
-    full_spoken = plain_copy(f"{preamble} {spoken}".strip())
+    if frame.id == "open_briefs":
+        full_spoken = plain_copy(spoken)
+    else:
+        preamble = agent.speaks_first
+        full_spoken = plain_copy(f"{preamble} {spoken}".strip())
 
     return FrameResult(
         frame_id=frame.id,

@@ -241,14 +241,20 @@ export function VoiceSession() {
         if (data.status === "confirmation_required") {
           setPendingConfirm(frameId);
           const confirmSpoken = stripEmDash(data.spoken_summary as string);
-          setStatus(confirmSpoken);
+          setStatus(
+            state === "connected"
+              ? confirmSpoken
+              : `${confirmSpoken} Connect voice to hear TTS, then tap again to confirm.`,
+          );
           await publishSpeak(confirmSpoken);
           return;
         }
 
         setPendingConfirm(null);
         const spoken = stripEmDash(data.spoken_summary as string);
-        setStatus(spoken);
+        setStatus(
+          state === "connected" ? spoken : `${spoken} Connect voice to hear TTS.`,
+        );
         await publishSpeak(spoken);
         loadAgents();
         if (frameId === "queue_deep_review" && data.status === "ok") {

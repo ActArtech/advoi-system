@@ -4,22 +4,24 @@ import { useCallback, useRef, useState } from "react";
 import type { VoiceId } from "./types";
 import { playSpeechSynthesisFallback } from "./audio";
 import { warmTextForTTS } from "./warmth";
+import { withBackendFallback, type ModelBackend } from "./modelBackend";
 
 const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
-let sharedTts: Promise<import("kokoro-js").KokoroTTS> | null = null;
+const ttsCache = new Map<ModelBackend, Promise<import("kokoro-js").KokoroTTS>>();
 
-async function loadTts() {
-  if (!sharedTts) {
-    sharedTts = (async () => {
+async function loadTts(backend: ModelBackend) {
+  let pending = ttsCache.get(backend);
+  if (!pending) {
+    pending = (async () => {
       const { KokoroTTS } = await import("kokoro-js");
-      const device = typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "wasm";
       return KokoroTTS.from_pretrained(MODEL_ID, {
-        dtype: device === "webgpu" ? "fp32" : "q8",
-        device,
+        dtype: backend === "webgpu" ? "fp32" : "q8",
+        device: backend,
       });
     })();
+    ttsCache.set(backend, pending);
   }
-  return sharedTts;
+  return pending;
 }
 
 function playBlob(blob: Blob): Promise<void> {
@@ -43,24 +45,34 @@ export function useVoiceTTS({
   speed = 1.2,
   onComplete,
   onError,
+  onBackendReady,
+  onFallback,
 }: {
   voice?: VoiceId;
   speed?: number;
   onComplete?: () => void;
   onError?: (msg: string) => void;
+  onBackendReady?: (backend: ModelBackend) => void;
+  onFallback?: () => void;
 } = {}) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [usingBrowserVoice, setUsingBrowserVoice] = useState(false);
   const busy = useRef(false);
+  const activeBackend = useRef<ModelBackend | null>(null);
 
   const preload = useCallback(async () => {
     try {
-      await loadTts();
+      const { backend, value } = await withBackendFallback(loadTts);
+      await value;
+      activeBackend.current = backend;
+      onBackendReady?.(backend);
       setIsReady(true);
+      setUsingBrowserVoice(false);
     } catch (e) {
       onError?.(e instanceof Error ? e.message : "Kokoro preload failed");
     }
-  }, [onError]);
+  }, [onError, onBackendReady]);
 
   const speak = useCallback(
     async (text: string) => {
@@ -68,9 +80,12 @@ export function useVoiceTTS({
       busy.current = true;
       setIsSpeaking(true);
       try {
-        const { KokoroTTS, TextSplitterStream } = await import("kokoro-js");
-        const tts = await loadTts();
+        const backend = activeBackend.current ?? (await withBackendFallback(loadTts)).backend;
+        activeBackend.current = backend;
+        const { TextSplitterStream } = await import("kokoro-js");
+        const tts = await loadTts(backend);
         setIsReady(true);
+        setUsingBrowserVoice(false);
         const splitter = new TextSplitterStream();
         const stream = tts.stream(splitter, { voice, speed });
         const playback = (async () => {
@@ -83,6 +98,8 @@ export function useVoiceTTS({
         await playback;
       } catch (e) {
         onError?.(e instanceof Error ? e.message : "TTS failed");
+        setUsingBrowserVoice(true);
+        onFallback?.();
         await playSpeechSynthesisFallback(text);
       } finally {
         busy.current = false;
@@ -90,8 +107,8 @@ export function useVoiceTTS({
         onComplete?.();
       }
     },
-    [voice, speed, onComplete, onError],
+    [voice, speed, onComplete, onError, onFallback],
   );
 
-  return { speak, isSpeaking, isReady, preload };
+  return { speak, isSpeaking, isReady, usingBrowserVoice, preload };
 }

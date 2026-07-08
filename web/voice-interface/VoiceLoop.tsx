@@ -5,6 +5,7 @@ import styles from "./VoiceLoop.module.css";
 import { useVoiceSTT } from "./VoiceSTT";
 import { useVoiceTTS } from "./VoiceTTS";
 import { isConfirmPhrase, mirrorPhrases, stripEmDash } from "./warmth";
+import { backendLabel, isWindows, type ModelBackend } from "./modelBackend";
 import { WARM_VOICES, type VoiceId } from "./types";
 
 const apiBase = process.env.NEXT_PUBLIC_ADVOI_API_URL?.replace(/\/$/, "") || "/api";
@@ -33,6 +34,9 @@ export function VoiceLoop() {
   const [state, setState] = useState<LoopState>("loading");
   const [status, setStatus] = useState("Loading Kokoro and Parakeet models...");
   const [webGpu, setWebGpu] = useState<boolean | null>(null);
+  const [sttBackend, setSttBackend] = useState<ModelBackend | null>(null);
+  const [ttsBackend, setTtsBackend] = useState<ModelBackend | null>(null);
+  const [browserTts, setBrowserTts] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [voice, setVoice] = useState<VoiceId>("af_heart");
   const busy = useRef(false);
@@ -43,7 +47,13 @@ export function VoiceLoop() {
     setStatus(msg);
   }, []);
 
-  const { speak, isSpeaking, preload } = useVoiceTTS({ voice, speed: 1.2, onError });
+  const { speak, isSpeaking, preload, usingBrowserVoice } = useVoiceTTS({
+    voice,
+    speed: 1.2,
+    onError,
+    onBackendReady: setTtsBackend,
+    onFallback: () => setBrowserTts(true),
+  });
 
   const respond = useCallback(
     async (text: string) => {
@@ -148,7 +158,11 @@ export function VoiceLoop() {
     [respond],
   );
 
-  const { isListening, toggleListening } = useVoiceSTT({ onTranscript, onError });
+  const { isListening, toggleListening } = useVoiceSTT({
+    onTranscript,
+    onError,
+    onBackendReady: setSttBackend,
+  });
 
   useEffect(() => {
     setWebGpu(webGpuAvailable());
@@ -157,10 +171,10 @@ export function VoiceLoop() {
   useEffect(() => {
     void preload().then(() => {
       setState("ready");
-      const accel = webGpu ? "WebGPU" : "WASM fallback";
-      setStatus(`Ready (${accel}). Tap listen and speak.`);
+      const accel = ttsBackend ? backendLabel(ttsBackend) : webGpu ? "WebGPU" : "WASM";
+      setStatus(`Ready (Kokoro ${accel}). Tap listen and speak.`);
     });
-  }, [preload, webGpu]);
+  }, [preload, webGpu, ttsBackend]);
 
   useEffect(() => {
     if (isListening) setState("listening");
@@ -217,7 +231,18 @@ export function VoiceLoop() {
           Test voice
         </button>
       </div>
-      {webGpu === false ? (
+      {sttBackend && ttsBackend ? (
+        <p className={styles.hint}>
+          STT: Parakeet ({backendLabel(sttBackend)}). TTS:{" "}
+          {usingBrowserVoice || browserTts ? "browser voice (Kokoro unavailable)" : `Kokoro (${backendLabel(ttsBackend)})`}
+          .
+        </p>
+      ) : null}
+      {isWindows() ? (
+        <p className={styles.hint}>
+          Windows uses WASM for client models (WebGPU is unstable here). First load downloads ~200MB; cache errors in the console are usually harmless.
+        </p>
+      ) : webGpu === false ? (
         <p className={styles.hint}>
           WebGPU not detected. Models use WASM (slower). Desktop Chrome recommended; iOS may not support Path B yet.
         </p>

@@ -2,9 +2,9 @@
 from __future__ import annotations
 import asyncio, json, os, sys
 BRIEFS = [
-    "Open brief: ADVoi voice launch, validate PWA connect, frame buttons, and TTS on staging",
-    "Open brief: Shelve secrets, push fixed OPENAI_API_KEY to ktteam/advoi/staging",
-    "Open brief: Portfolio registration, add advoi row to vps-shared port registry",
+    "ADVoi voice launch: validate PWA connect, frame buttons, and TTS on staging",
+    "Shelve secrets: push fixed OPENAI_API_KEY to ktteam/advoi/staging",
+    "Portfolio registration: add advoi row to vps-shared port registry",
 ]
 async def seed_postgres():
     try:

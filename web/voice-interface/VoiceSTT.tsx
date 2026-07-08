@@ -3,28 +3,32 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ParakeetModel } from "parakeet.js";
 import { rmsEnergy, startMicCapture } from "./audio";
+import { withBackendFallback, type ModelBackend } from "./modelBackend";
 import type { TranscriptHandler } from "./types";
 
 const MODEL_KEY = "parakeet-tdt-0.6b-v3";
-let sharedModel: Promise<ParakeetModel> | null = null;
+const modelCache = new Map<ModelBackend, Promise<ParakeetModel>>();
 
-async function loadModel() {
-  if (!sharedModel) {
-    sharedModel = (async () => {
+async function loadModel(backend: ModelBackend): Promise<ParakeetModel> {
+  let pending = modelCache.get(backend);
+  if (!pending) {
+    pending = (async () => {
       const { fromHub } = await import("parakeet.js");
-      const backend = typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "wasm";
       return fromHub(MODEL_KEY, { backend, encoderQuant: "fp32", decoderQuant: "int8" });
     })();
+    modelCache.set(backend, pending);
   }
-  return sharedModel;
+  return pending;
 }
 
 export function useVoiceSTT({
   onTranscript,
   onError,
+  onBackendReady,
 }: {
   onTranscript: TranscriptHandler;
   onError?: (msg: string) => void;
+  onBackendReady?: (backend: ModelBackend) => void;
 }) {
   const [isListening, setIsListening] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -38,10 +42,11 @@ export function useVoiceSTT({
 
   useEffect(() => {
     let cancelled = false;
-    loadModel()
-      .then((m) => {
+    withBackendFallback(loadModel)
+      .then(({ value, backend }) => {
         if (!cancelled) {
-          modelRef.current = m;
+          modelRef.current = value;
+          onBackendReady?.(backend);
           setIsReady(true);
         }
       })
@@ -49,7 +54,7 @@ export function useVoiceSTT({
     return () => {
       cancelled = true;
     };
-  }, [onError]);
+  }, [onError, onBackendReady]);
 
   const stopListening = useCallback(() => {
     listening.current = false;
@@ -68,7 +73,8 @@ export function useVoiceSTT({
       return;
     }
     try {
-      const model = modelRef.current ?? (await loadModel());
+      const model =
+        modelRef.current ?? (await withBackendFallback(loadModel)).value;
       modelRef.current = model;
       setIsReady(true);
       const transcriber = model.createStreamingTranscriber({ returnConfidences: true, sampleRate: 16000 });
