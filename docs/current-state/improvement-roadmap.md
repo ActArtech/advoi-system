@@ -48,17 +48,27 @@ Prioritized work after current state. Ordered by impact on **testable staging** 
 | Item | Recommendation |
 |------|----------------|
 | Stale `PLAN-SETUP-REVIEW.md` | [x] Banner added pointing to `current-state/` |
-| 8 tests mentioned in old docs | Update to 37+; keep `tests/` as source of truth |
+| 8 tests mentioned in old docs | **105 tests** in 15 modules; keep `tests/` as source of truth |
 | Hermes-only Hindsight | Document fallback when bridge down; optional cloud Hindsight |
 | Shelve integration | Fix format or remove from deploy path permanently |
 | FastAPI TestClient deprecation | Migrate to httpx2 when upgrading |
 
 ## Success metrics (testing ready)
 
-| Metric | Target |
-|--------|--------|
-| `pytest` | 100% pass |
-| `agents-smoke-test` | All 3 agents + 3 frames OK |
-| `voice-smoke-test` | diagnostics `ok: true` on staging |
-| Voice E2E | Greeting + frame TTS heard within 10s of connect |
-| Agent cache | `last_run` present within 1 interval after deploy |
+| Metric | Target | Today (2026-07-08) |
+|--------|--------|---------------------|
+| `pytest` | 100% pass | **105 passed** |
+| `agents-smoke-test` | All 3 agents + 3 frames OK | Passes locally + staging API |
+| `voice-smoke-test` | diagnostics `ok: true` on staging | **Pass** |
+| Voice E2E | Greeting + frame TTS heard within 10s of connect | **Open** — human sign-off |
+| Agent cache | `last_run` present within 1 interval after deploy | **Pass** — 15s on staging |
+
+## Path to full system
+
+See **[path-to-full-system.md](path-to-full-system.md)** for:
+- Definition of "full working system"
+- Critical path actions (human E2E first)
+- Regression risks
+- Quick commands (local + VPS)
+
+**Next milestone:** Close Build 1.5 by recording human E2E sign-off, then start Phase 3.5 (latency) and Phase 4 (platform).
