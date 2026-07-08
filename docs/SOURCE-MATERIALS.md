@@ -30,11 +30,17 @@ Each source has a scannable markdown summary in `docs/insights/`:
 | `gstak tenet.txt` | [insights/07-memory-stack-comparison.md](insights/07-memory-stack-comparison.md) |
 | `poker.txt` | [insights/08-venture-poker-decision-model.md](insights/08-venture-poker-decision-model.md) |
 
+## Coverage audit
+
+Full done/partial/gap matrix for the four core transcripts:  
+**`docs/current-state/SOURCE-COVERAGE-MAP.md`** (2026-07-08).
+
 ## How These Map to Documentation
 
 | Output Doc | Primary Sources |
 |------------|-----------------|
 | `CLARITY-FRAMEWORK.md` | All sources — synthesis |
+| `current-state/SOURCE-COVERAGE-MAP.md` | ontology, aganticall, main1, main2 — coverage matrix |
 | `PLAN-SETUP-REVIEW.md` | VPS setup, portfolio guide, Stage 1 code review |
 | `insights/*.md` | Per-source distillation (see table above) |
 | `decision-log/DECISION-LOG.md` | main1, main2, data, ontology |

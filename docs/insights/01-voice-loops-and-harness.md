@@ -1,7 +1,7 @@
 # Voice Loops, Harness & Confirmation
 
 **Source:** `deployment/advoi/main1.txt`  
-**Status:** Partially implemented in Stage 1
+**Status:** Partially implemented in Build 1.5
 
 ---
 
@@ -100,7 +100,7 @@ Rejected **Lavish** (token-heavy, mobile friction). Preferred design:
 - **Confirmation loop** — always before execution
 - **Deferred deep review** — complex HTML/visual prep for desktop, not live voice
 
-Stage 1 ships disabled frame buttons in `VoiceSession.tsx`.
+Build 1.5 ships live frame buttons + voice triggers in `VoiceSession.tsx` (3 frames: fleet, briefs, review).
 
 ---
 
