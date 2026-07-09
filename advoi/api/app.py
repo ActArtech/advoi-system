@@ -28,7 +28,12 @@ from advoi.routing.orchestrator import (
     systems_for_frame,
 )
 from advoi.voice.livekit_env import public_livekit_url
-from advoi.guardian.confirmation import frame_needs_confirmation, global_confirmation_enabled
+from advoi.guardian.confirmation import (
+    fleet_action_needs_confirmation,
+    frame_needs_confirmation,
+    global_confirmation_enabled,
+    high_risk_fleet_actions,
+)
 from advoi.observability.otel_setup import setup_otel
 from advoi.observability.request_trace import RequestTraceMiddleware
 from advoi.aether.service import get_aether_service
@@ -690,11 +695,25 @@ async def guardian_diagnostics() -> dict[str, Any]:
         }
         for f in FRAMES
     ]
+    fleet_ops = [
+        {
+            "action": action,
+            "requires_confirmation": fleet_action_needs_confirmation(action),
+        }
+        for action in (
+            "wake_firstmate",
+            "start_development",
+            "run_next_backlog",
+            "fleet_stop",
+        )
+    ]
     return {
         "ok": True,
         "confirmation_enabled": global_confirmation_enabled(),
         "frames": frames,
         "high_risk_frames": [row["frame_id"] for row in frames if row["requires_confirmation"]],
+        "fleet_actions": fleet_ops,
+        "high_risk_fleet_actions": high_risk_fleet_actions(),
     }
 
 

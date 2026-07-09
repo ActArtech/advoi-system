@@ -269,17 +269,18 @@ async def warm_spoken_reply(
             systems=["agents"],
         )
     if op in _FLEET_WRITE_INTENTS:
-        from advoi.fleet.trigger import fleet_action_needs_confirm, fleet_confirm_prompt
+        from advoi.guardian.confirmation import evaluate_fleet_confirmation
 
-        if fleet_action_needs_confirm(text):
+        gate = evaluate_fleet_confirmation(op, confirmed=False, transcript=text)
+        if not gate["proceed"]:
             set_pending_fleet(session_id, op, text)
             return VoiceReply(
-                spoken=fleet_confirm_prompt(op),
+                spoken=str(gate.get("prompt", "Confirm yes to proceed.")),
                 action="confirmation_required",
                 pending_operator=op,
                 agent_id="advoi-core",
                 agent_name="ADVoi Core",
-                systems=["firstmate"],
+                systems=["firstmate", "guardian"],
             )
     if op:
         reply = await _reply_operator_intent(op, transcript=text)

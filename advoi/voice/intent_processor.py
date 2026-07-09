@@ -84,7 +84,7 @@ async def maybe_handle_frame_intent(
         set_pending_fleet,
     )
     from advoi.voice.respond import _FLEET_WRITE_INTENTS, _stop_agents_needs_confirm
-    from advoi.fleet.trigger import fleet_action_needs_confirm, fleet_confirm_prompt
+    from advoi.guardian.confirmation import evaluate_fleet_confirmation
 
     pending_fleet = get_pending_fleet(session_id)
     if pending_fleet and is_confirm_phrase(text):
@@ -104,10 +104,12 @@ async def maybe_handle_frame_intent(
     if op == "stop_agents" and _stop_agents_needs_confirm(text):
         await speak("To pause background agent daemons, say stop agents confirm.")
         return True
-    if op in _FLEET_WRITE_INTENTS and fleet_action_needs_confirm(text):
-        set_pending_fleet(session_id, op, text)
-        await speak(fleet_confirm_prompt(op))
-        return True
+    if op in _FLEET_WRITE_INTENTS:
+        gate = evaluate_fleet_confirmation(op, confirmed=False, transcript=text)
+        if not gate["proceed"]:
+            set_pending_fleet(session_id, op, text)
+            await speak(str(gate.get("prompt", "Confirm yes to proceed.")))
+            return True
     if op:
         reply = await _reply_operator_intent(op, transcript=text)
         if reply:

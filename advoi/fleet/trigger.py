@@ -135,28 +135,16 @@ def classify_fleet_voice_intent(transcript: str) -> FleetVoiceAction | None:
 
 
 def fleet_action_needs_confirm(transcript: str) -> bool:
-    if os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() not in {
-        "1",
-        "true",
-        "yes",
-    }:
-        return False
-    from advoi.routing.intent import is_confirm_phrase
+    """Deprecated: use guardian.evaluate_fleet_confirmation for a specific action."""
+    from advoi.guardian.confirmation import transcript_has_explicit_confirm
 
-    lowered = (transcript or "").lower()
-    if is_confirm_phrase(lowered):
-        return False
-    return not any(w in lowered for w in ("confirm", "confirmed", "yes go ahead"))
+    return not transcript_has_explicit_confirm(transcript)
 
 
 def fleet_confirm_prompt(action: FleetVoiceAction) -> str:
-    prompts = {
-        "wake_firstmate": "To wake FirstMate and arm the fleet loop, say wake firstmate confirm.",
-        "start_development": "To start development on a project, say start development on clapart confirm.",
-        "run_next_backlog": "To dispatch the next backlog item to FirstMate, say run next backlog confirm.",
-        "fleet_stop": "To stop the FirstMate fleet loop, say stop fleet confirm.",
-    }
-    return prompts.get(action, "Confirm yes on voice to proceed with this fleet action.")
+    from advoi.guardian.confirmation import fleet_confirmation_prompt
+
+    return fleet_confirmation_prompt(action)
 
 
 async def invoke_fleet_trigger(
@@ -219,12 +207,20 @@ async def fleet_trigger_from_voice(
     *,
     confirmed: bool = False,
 ) -> dict[str, Any]:
-    if not confirmed and fleet_action_needs_confirm(transcript):
+    from advoi.guardian.confirmation import evaluate_fleet_confirmation
+
+    gate = evaluate_fleet_confirmation(
+        action,
+        confirmed=confirmed,
+        transcript=transcript,
+    )
+    if not gate["proceed"]:
         return {
             "ok": False,
             "status": "confirmation_required",
             "action": action,
-            "prompt": fleet_confirm_prompt(action),
+            "prompt": gate.get("prompt", fleet_confirm_prompt(action)),
+            "guardian": True,
         }
 
     project = extract_project_slug(transcript) or resolve_active_project()

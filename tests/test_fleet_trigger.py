@@ -97,12 +97,22 @@ async def test_fleet_trigger_api_mock(client, monkeypatch):
     assert data["action"] == "wake_firstmate"
 
 
-def test_fleet_action_needs_confirm_respects_env(monkeypatch):
-    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "false")
-    assert fleet_action_needs_confirm("wake firstmate") is False
-    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+def test_fleet_action_needs_confirm_respects_transcript():
     assert fleet_action_needs_confirm("wake firstmate") is True
     assert fleet_action_needs_confirm("wake firstmate confirm") is False
+    assert fleet_action_needs_confirm("yes") is False
+
+
+@pytest.mark.asyncio
+async def test_start_development_guardian_gate(monkeypatch):
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+    result = await fleet_trigger_from_voice(
+        "start_development",
+        transcript="start development on clapart",
+        confirmed=False,
+    )
+    assert result["status"] == "confirmation_required"
+    assert result.get("guardian") is True
 
 
 def test_resolve_fleet_exec_prefers_bridge_script(monkeypatch, tmp_path):

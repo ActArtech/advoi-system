@@ -13,7 +13,11 @@ from advoi.diagnostics.probes import (
     memory_health_snapshot,
     quick_latency_ms,
 )
-from advoi.guardian.confirmation import frame_needs_confirmation, global_confirmation_enabled
+from advoi.guardian.confirmation import (
+    frame_needs_confirmation,
+    global_confirmation_enabled,
+    high_risk_fleet_actions,
+)
 
 
 def _guardian_log_tail(limit: int = 5) -> list[dict[str, Any]]:
@@ -67,19 +71,24 @@ async def run_latency_check() -> tuple[str, dict[str, Any], str]:
 
 
 async def run_guardian_status() -> tuple[str, dict[str, Any], str]:
-    high_risk = [fid for fid in ("queue_deep_review",) if frame_needs_confirmation(fid)]
+    high_risk_frames = [
+        fid for fid in ("queue_deep_review",) if frame_needs_confirmation(fid)
+    ]
+    high_risk_ops = high_risk_fleet_actions()
     events = _guardian_log_tail()
     recent_failures = sum(
         1 for e in events if e.get("event_type") == "agent_tick_failed"
     )
     spoken = plain_copy(
         f"Guardian: confirmation {'on' if global_confirmation_enabled() else 'off'}. "
-        f"{len(high_risk)} high-risk frame(s). "
+        f"{len(high_risk_frames)} high-risk frame(s). "
+        f"{len(high_risk_ops)} high-risk fleet action(s) including start development. "
         f"{recent_failures} recent agent failure event(s) in log."
     )
     return spoken, {
         "confirmation_enabled": global_confirmation_enabled(),
-        "high_risk_frames": high_risk,
+        "high_risk_frames": high_risk_frames,
+        "high_risk_fleet_actions": high_risk_ops,
         "recent_events": len(events),
         "recent_failures": recent_failures,
     }, "ok"

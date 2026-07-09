@@ -70,14 +70,24 @@ async def dispatch_item_dev(
     if item.status == "failed":
         return {"ok": False, "status": "failed", "error": item.error, "item_id": item_id}
 
-    if not confirmed:
+    from advoi.guardian.confirmation import evaluate_fleet_confirmation
+
+    guardian_action = "start_development" if mode == "start_development" else "run_next_backlog"
+    gate = evaluate_fleet_confirmation(guardian_action, confirmed=confirmed)
+    if not gate["proceed"]:
         return {
             "ok": False,
             "status": "confirmation_required",
             "item_id": item_id,
             "project_slug": item.project_slug,
             "task_hint": item.task_hint,
-            "spoken": "Confirm yes to dispatch this ingestion item to FirstMate development.",
+            "guardian": True,
+            "spoken": str(
+                gate.get(
+                    "prompt",
+                    "Confirm yes to dispatch this ingestion item to FirstMate development.",
+                )
+            ),
         }
 
     project = item.project_slug or "clapart"

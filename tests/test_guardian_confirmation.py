@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from advoi.guardian.confirmation import (
+    evaluate_fleet_confirmation,
     evaluate_frame_confirmation,
+    fleet_action_needs_confirmation,
     frame_needs_confirmation,
     global_confirmation_enabled,
+    high_risk_fleet_actions,
 )
 
 
@@ -36,4 +39,35 @@ def test_evaluate_accepts_yes_phrase(monkeypatch):
         confirmed=False,
         transcript="yes go ahead",
     )
+    assert result["proceed"] is True
+
+
+def test_start_development_needs_guardian_confirm(monkeypatch):
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+    assert fleet_action_needs_confirmation("start_development") is True
+    assert "start_development" in high_risk_fleet_actions()
+
+
+def test_fleet_confirm_blocks_without_approval(monkeypatch):
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+    result = evaluate_fleet_confirmation("start_development", confirmed=False)
+    assert result["proceed"] is False
+    assert result["awaiting_confirmation"] is True
+    assert "start development" in str(result.get("prompt", "")).lower()
+
+
+def test_fleet_confirm_accepts_confirm_phrase(monkeypatch):
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+    result = evaluate_fleet_confirmation(
+        "start_development",
+        confirmed=False,
+        transcript="start development on clapart confirm",
+    )
+    assert result["proceed"] is True
+
+
+def test_fleet_confirm_disabled_when_global_off(monkeypatch):
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "false")
+    assert fleet_action_needs_confirmation("start_development") is False
+    result = evaluate_fleet_confirmation("start_development", confirmed=False)
     assert result["proceed"] is True
