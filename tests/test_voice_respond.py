@@ -10,7 +10,8 @@ from advoi.voice.respond import warm_spoken_reply  # noqa: E402
 
 @pytest.mark.asyncio
 async def test_empty_transcript():
-    assert "did not catch" in (await warm_spoken_reply("")).lower()
+    reply = await warm_spoken_reply("")
+    assert "did not catch" in reply.spoken.lower()
 
 
 @pytest.mark.asyncio
@@ -35,5 +36,6 @@ async def test_mocked_llm(monkeypatch):
     import httpx
 
     monkeypatch.setattr(httpx, "AsyncClient", lambda **k: FakeClient())
-    spoken = await warm_spoken_reply("What is open?", recent_phrases=["open"])
-    assert "quick take" in spoken.lower()
+    reply = await warm_spoken_reply("What is open?", recent_phrases=["open"])
+    assert "quick take" in reply.spoken.lower()
+    assert reply.action == "chat"

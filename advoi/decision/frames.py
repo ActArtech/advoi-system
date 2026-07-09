@@ -5,7 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-FrameId = Literal["fleet_status", "open_briefs", "queue_deep_review"]
+FrameId = Literal[
+    "fleet_status",
+    "open_briefs",
+    "queue_deep_review",
+    "systems_pulse",
+    "memory_health",
+    "guardian_status",
+]
 
 
 @dataclass(frozen=True)
@@ -36,6 +43,24 @@ FRAMES: tuple[DecisionFrame, ...] = (
         agent_id="review-queue",
         voice_prompt="Queue a deep review for the top priority item.",
         requires_confirmation=True,
+    ),
+    DecisionFrame(
+        id="systems_pulse",
+        label="Option D: Systems pulse",
+        agent_id="systems-pulse",
+        voice_prompt="Give me a full systems pulse across fleet and briefs.",
+    ),
+    DecisionFrame(
+        id="memory_health",
+        label="Option E: Memory health",
+        agent_id="memory-scout",
+        voice_prompt="How is the memory stack doing?",
+    ),
+    DecisionFrame(
+        id="guardian_status",
+        label="Option F: Guardian status",
+        agent_id="guardian-sentinel",
+        voice_prompt="What is the guardian and safety status?",
     ),
 )
 

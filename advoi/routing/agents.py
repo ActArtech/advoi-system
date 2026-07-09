@@ -32,4 +32,22 @@ AGENTS: dict[str, SpecialistAgent] = {
         role="Queue async deep review for desktop follow-up, not live execution",
         speaks_first="I can queue a deep review. I'll need your confirmation first.",
     ),
+    "systems-pulse": SpecialistAgent(
+        id="systems-pulse",
+        name="Systems Pulse",
+        role="Orchestrate fleet, briefs, and agent cache in one parallel pass",
+        speaks_first="Running a systems pulse across fleet and memory now.",
+    ),
+    "memory-scout": SpecialistAgent(
+        id="memory-scout",
+        name="Memory Scout",
+        role="Probe Hindsight bridge, Redis, Postgres, and operational store health",
+        speaks_first="Checking the memory stack now.",
+    ),
+    "guardian-sentinel": SpecialistAgent(
+        id="guardian-sentinel",
+        name="Guardian Sentinel",
+        role="Surface confirmation policy and recent guardian events",
+        speaks_first="Reviewing guardian and safety posture.",
+    ),
 }

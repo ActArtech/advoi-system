@@ -22,7 +22,12 @@ def get_redis() -> redis.Redis | None:
         import redis as redis_lib
 
         url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        _client = redis_lib.from_url(url, decode_responses=True)
+        _client = redis_lib.from_url(
+            url,
+            decode_responses=True,
+            socket_connect_timeout=0.5,
+            socket_timeout=0.5,
+        )
         _client.ping()
         _available = True
     except Exception:

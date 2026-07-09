@@ -9,6 +9,14 @@ from advoi.decision.frames import FRAMES_BY_ID, FrameId, get_frame
 
 # Phrase patterns checked first (most specific wins).
 _PHRASE_PATTERNS: tuple[tuple[str, FrameId], ...] = (
+    ("systems pulse", "systems_pulse"),
+    ("system pulse", "systems_pulse"),
+    ("systems status", "systems_pulse"),
+    ("portfolio pulse", "systems_pulse"),
+    ("memory health", "memory_health"),
+    ("memory status", "memory_health"),
+    ("guardian status", "guardian_status"),
+    ("safety check", "guardian_status"),
     ("deep review", "queue_deep_review"),
     ("queue review", "queue_deep_review"),
     ("queue a review", "queue_deep_review"),
@@ -23,8 +31,10 @@ _PHRASE_PATTERNS: tuple[tuple[str, FrameId], ...] = (
     ("fleet scout", "fleet_status"),
 )
 
-# Single-word fallbacks when no phrase matched (avoid lone "review" / "scout").
 _KEYWORD_FRAMES: tuple[tuple[tuple[str, ...], FrameId], ...] = (
+    (("pulse",), "systems_pulse"),
+    (("guardian",), "guardian_status"),
+    (("memory",), "memory_health"),
     (("brief", "briefs"), "open_briefs"),
     (("fleet",), "fleet_status"),
 )

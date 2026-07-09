@@ -42,8 +42,15 @@ curl -sf "${BASE}/api/health" >/dev/null || { echo "FAIL: API down"; exit 1; }
 check_post "fleet" "${BASE}/api/frames/fleet_status/run"
 check_post "briefs" "${BASE}/api/frames/open_briefs/run"
 check_post "review" "${BASE}/api/frames/queue_deep_review/run" '{"confirmed":true}'
+check_post "systems pulse" "${BASE}/api/frames/systems_pulse/run"
+check_post "voice respond" "${BASE}/api/voice/respond" '{"transcript":"systems pulse"}'
+echo -n "==> voice speak (validation) ... "
+code="$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d '{"text":"  "}' "${BASE}/api/voice/speak")"
+if [[ "${code}" == "400" ]]; then echo OK; else echo "FAIL (got ${code})"; FAIL=1; fi
+curl -sf "${BASE}/api/diagnostics/guardian" | grep -q confirmation_enabled || { echo "FAIL: guardian"; FAIL=1; }
 expect_agent fleet-scout
 expect_agent brief-curator
 expect_agent review-queue
+expect_agent systems-pulse
 [[ "${FAIL}" -eq 0 ]] && echo "All passed." && exit 0
 echo "Some failed."; exit 1

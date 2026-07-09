@@ -1,18 +1,8 @@
 """Keyword intent routing tests."""
 
-import os
-
 import pytest
-from fastapi.testclient import TestClient
 
-os.environ.setdefault("ADVOI_FRAME_MOCK", "true")
-os.environ.setdefault("LIVEKIT_URL", "wss://example.livekit.cloud")
-os.environ.setdefault("LIVEKIT_API_KEY", "testkey")
-os.environ.setdefault("LIVEKIT_API_SECRET", "testsecret")
-os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-unit-tests-only")
-
-from advoi.api.app import app  # noqa: E402
-from advoi.routing.intent import (  # noqa: E402
+from advoi.routing.intent import (
     classify_transcript,
     is_confirm_phrase,
     resolve_voice_action,
@@ -22,12 +12,7 @@ from advoi.voice.intent_processor import (  # noqa: E402
     get_pending_frame,
     maybe_handle_frame_intent,
 )
-from advoi.voice.respond import warm_spoken_reply  # noqa: E402
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
+from advoi.voice.respond import warm_spoken_reply
 
 
 @pytest.mark.parametrize(
@@ -53,6 +38,9 @@ def client():
         ("project status update", None),
         ("scout the area", None),
         ("please queue it", "queue_deep_review"),
+        ("systems pulse please", "systems_pulse"),
+        ("memory health", "memory_health"),
+        ("guardian status", "guardian_status"),
     ],
 )
 def test_classify_transcript(transcript, expected):
@@ -104,20 +92,30 @@ def test_is_confirm_phrase(transcript, expected):
 
 @pytest.mark.asyncio
 async def test_warm_spoken_reply_routes_fleet_frame():
-    spoken = await warm_spoken_reply("Give me a fleet status update")
-    assert "fleet" in spoken.lower()
+    reply = await warm_spoken_reply("Give me a fleet status update")
+    assert "fleet" in reply.spoken.lower()
+    assert reply.action == "frame"
+    assert reply.agent_id == "fleet-scout"
 
 
 @pytest.mark.asyncio
 async def test_warm_spoken_reply_routes_briefs_frame():
-    spoken = await warm_spoken_reply("What open briefs do we have?")
-    assert "brief" in spoken.lower()
+    reply = await warm_spoken_reply("What open briefs do we have?")
+    assert "brief" in reply.spoken.lower()
+    assert reply.agent_id == "brief-curator"
+
+
+@pytest.mark.asyncio
+async def test_warm_spoken_reply_routes_systems_pulse():
+    reply = await warm_spoken_reply("systems pulse")
+    assert reply.action == "frame"
+    assert reply.agent_id == "systems-pulse"
 
 
 @pytest.mark.asyncio
 async def test_warm_spoken_reply_review_asks_confirmation():
-    spoken = await warm_spoken_reply("queue deep review")
-    assert "confirm" in spoken.lower() or "confirmation" in spoken.lower()
+    reply = await warm_spoken_reply("queue deep review")
+    assert "confirm" in reply.spoken.lower() or "confirmation" in reply.spoken.lower()
 
 
 @pytest.mark.asyncio
@@ -142,8 +140,10 @@ async def test_warm_spoken_reply_still_uses_llm_for_chat(monkeypatch):
     import httpx
 
     monkeypatch.setattr(httpx, "AsyncClient", lambda **k: FakeClient())
-    spoken = await warm_spoken_reply("What is open?", recent_phrases=["open"])
-    assert "quick take" in spoken.lower()
+    reply = await warm_spoken_reply("What is open?", recent_phrases=["open"])
+    assert "quick take" in reply.spoken.lower()
+    assert reply.action == "chat"
+    assert reply.agent_id == "advoi-core"
 
 
 def test_voice_intent_endpoint_classifies_frame(client):
@@ -264,3 +264,28 @@ def test_voice_intent_endpoint_preview(client):
     assert data["frame_id"] == "open_briefs"
     assert data["preview"]["agent_id"] == "brief-curator"
     assert data["preview"]["spoken_summary"]
+
+
+def test_voice_respond_includes_agent_metadata(client):
+    resp = client.post(
+        "/api/voice/respond",
+        json={"transcript": "systems pulse"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["action"] == "frame"
+    assert data["agent_id"] == "systems-pulse"
+    assert "fleet-scout" in data["agents_used"]
+
+
+def test_agents_orchestrate_parallel(client):
+    resp = client.post(
+        "/api/agents/orchestrate",
+        json={"frame_ids": ["fleet_status", "open_briefs"]},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["results"]) == 2
+    assert "fleet-scout" in data["agents_used"]
+    assert "brief-curator" in data["agents_used"]
+    assert data["spoken_summary"]

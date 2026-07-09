@@ -21,4 +21,4 @@ async def test_tick_agent_fleet_mock():
 @pytest.mark.asyncio
 async def test_prewarm_all_parallel():
     results = await prewarm_all_agents()
-    assert len(results) == 3
+    assert len(results) == 6

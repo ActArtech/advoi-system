@@ -1,26 +1,12 @@
 """Review queue persistence and API tests."""
 
-import os
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
-os.environ.setdefault("ADVOI_FRAME_MOCK", "true")
-os.environ.setdefault("LIVEKIT_URL", "wss://example.livekit.cloud")
-os.environ.setdefault("LIVEKIT_API_KEY", "testkey")
-os.environ.setdefault("LIVEKIT_API_SECRET", "testsecret")
-os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-unit-tests-only")
-
-from advoi.api.app import app  # noqa: E402
-from advoi.memory import review_queue  # noqa: E402
-from advoi.routing.frame_runner import run_frame  # noqa: E402
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
+from advoi.memory import review_queue
+from advoi.routing.frame_runner import run_frame
 
 
 def test_desktop_brief_url_default(monkeypatch):

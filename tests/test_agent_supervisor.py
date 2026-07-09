@@ -6,4 +6,4 @@ from advoi.routing.agents import AGENTS
 
 def test_supervisor_covers_all_specialists():
     assert set(DEFAULT_AGENT_IDS) == set(AGENTS.keys())
-    assert len(DEFAULT_AGENT_IDS) == 3
+    assert len(DEFAULT_AGENT_IDS) == 6

@@ -27,6 +27,12 @@ voice = [
     "pipecat-ai[livekit,openai,silero]>=0.0.80",
     "loguru>=0.7",
 ]
+observability = [
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.27",
+    "opentelemetry-instrumentation-fastapi>=0.48",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -38,6 +44,7 @@ advoi = "advoi.cli:main"
 advoi-api = "advoi.api.main:main"
 advoi-voice = "advoi.voice.agent:main"
 advoi-supervisor = "advoi.routing.agent_supervisor:main"
+advoi-orchestrate = "advoi.routing.orchestrate_cli:main"
 
 [build-system]
 requires = ["hatchling"]

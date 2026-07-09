@@ -7,6 +7,7 @@ import logging
 import time
 
 from advoi.cache.agent_cache import write_agent_cache
+from advoi.memory.write_targets import MemoryEventType
 from advoi.routing.agent_config import AGENT_FRAMES
 from advoi.routing.frame_runner import run_frame
 
@@ -14,8 +15,13 @@ logger = logging.getLogger("advoi.bootstrap")
 
 
 def _agent_refresh_policy(agent_id: str) -> bool:
-    """Fleet needs live disk read; briefs/review warm from stores on first pass only."""
-    return agent_id == "fleet-scout"
+    """Live probes refresh on tick; curators warm from stores on first pass."""
+    return agent_id in {
+        "fleet-scout",
+        "systems-pulse",
+        "memory-scout",
+        "guardian-sentinel",
+    }
 
 
 async def tick_agent(agent_id: str, *, refresh: bool | None = None) -> dict | None:
@@ -35,6 +41,23 @@ async def tick_agent(agent_id: str, *, refresh: bool | None = None) -> dict | No
     if not write_agent_cache(agent_id, payload):
         if result.status not in ("ok", "confirmation_required"):
             logger.debug("No cache for %s status=%s", agent_id, result.status)
+
+    if result.status in ("ok", "confirmation_required"):
+        try:
+            from advoi.memory.router import MemoryRouter
+
+            await MemoryRouter().retain(
+                MemoryEventType.SQUAD_LESSON,
+                {
+                    "summary": result.spoken_summary[:500],
+                    "agent_id": agent_id,
+                    "frame_id": frame_id,
+                    "status": result.status,
+                },
+            )
+        except Exception as exc:
+            logger.debug("operational retain skipped for %s: %s", agent_id, exc)
+
     return payload
 
 

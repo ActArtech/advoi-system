@@ -16,11 +16,17 @@ from advoi.voice.frame_dispatch import handle_frame_message  # noqa: E402
 
 
 @pytest.mark.asyncio
-async def test_frame_catalog_has_three_agents():
-    assert len(FRAMES) == 3
-    assert get_frame("fleet_status")
-    assert get_frame("open_briefs")
-    assert get_frame("queue_deep_review")
+async def test_frame_catalog_has_six_agents():
+    assert len(FRAMES) == 6
+    for fid in (
+        "fleet_status",
+        "open_briefs",
+        "queue_deep_review",
+        "systems_pulse",
+        "memory_health",
+        "guardian_status",
+    ):
+        assert get_frame(fid)
 
 
 @pytest.mark.asyncio
@@ -47,6 +53,25 @@ async def test_review_requires_confirmation():
     confirmed = await run_frame("queue_deep_review", confirmed=True)
     assert confirmed.status == "ok"
     assert confirmed.detail.get("queued") is True
+
+
+@pytest.mark.asyncio
+async def test_run_systems_pulse_mock():
+    result = await run_frame("systems_pulse")
+    assert result.agent_id == "systems-pulse"
+    assert result.status == "ok"
+    assert "fleet-scout" in result.detail.get("agents_used", [])
+
+
+@pytest.mark.asyncio
+async def test_run_platform_frames_mock():
+    memory = await run_frame("memory_health")
+    assert memory.agent_id == "memory-scout"
+    assert memory.status == "ok"
+
+    guardian = await run_frame("guardian_status")
+    assert guardian.agent_id == "guardian-sentinel"
+    assert guardian.status == "ok"
 
 
 @pytest.mark.asyncio

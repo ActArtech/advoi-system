@@ -121,6 +121,16 @@
   background: rgba(56, 189, 248, 0.1);
 }
 
+.opBtnDanger {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+}
+
+.opBtnDanger:hover:not(:disabled) {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+}
+
 .actions {
   margin-top: 1.25rem;
 }
