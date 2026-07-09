@@ -27,6 +27,12 @@ async def test_orchestrate_six_mode():
 
 
 @pytest.mark.asyncio
+async def test_orchestrate_six_squads_mode():
+    code = await _run("six-squads", refresh=True, dispatch_squads=True)
+    assert code == 0
+
+
+@pytest.mark.asyncio
 async def test_orchestrate_prewarm_only():
     code = await _run("prewarm", refresh=False)
     assert code == 0

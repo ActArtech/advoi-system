@@ -1,8 +1,9 @@
 # Run all 6 specialist agents in parallel (no HTTP server required)
 param(
-    [ValidateSet("prewarm", "parallel", "pulse", "six", "all", "json")]
+    [ValidateSet("prewarm", "parallel", "pulse", "six", "six-squads", "all", "json")]
     [string]$Mode = "all",
-    [switch]$Refresh
+    [switch]$Refresh,
+    [switch]$DispatchSquads
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,4 +12,5 @@ Set-Location $Root
 $env:ADVOI_FRAME_MOCK = "true"
 $args = @("run", "advoi-orchestrate", $Mode)
 if ($Refresh) { $args += "--refresh" }
+if ($DispatchSquads) { $args += "--dispatch-squads" }
 uv @args
