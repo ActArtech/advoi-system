@@ -39,13 +39,26 @@ export function playSpeechSynthesisFallback(text: string): Promise<void> {
   });
 }
 
-export async function startMicCapture(onChunk: (pcm: Float32Array) => void) {
+export async function startMicCapture(
+  onChunk: (pcm: Float32Array) => void,
+  onLevel?: (rms: number) => void,
+) {
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      channelCount: 1,
+    },
   });
-  const ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+  const ctx = new AudioContext();
+  if (ctx.state === "suspended") {
+    await ctx.resume();
+  }
   const source = ctx.createMediaStreamSource(stream);
   const processor = ctx.createScriptProcessor(4096, 1, 1);
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
   let carry = new Float32Array(0);
 
   processor.onaudioprocess = (ev) => {
@@ -55,17 +68,21 @@ export async function startMicCapture(onChunk: (pcm: Float32Array) => void) {
     merged.set(pcm16, carry.length);
     let offset = 0;
     while (offset + CHUNK_SAMPLES <= merged.length) {
-      onChunk(merged.subarray(offset, offset + CHUNK_SAMPLES));
+      const chunk = merged.subarray(offset, offset + CHUNK_SAMPLES);
+      onLevel?.(rmsEnergy(chunk));
+      onChunk(chunk);
       offset += CHUNK_SAMPLES;
     }
     carry = merged.subarray(offset);
   };
 
   source.connect(processor);
-  processor.connect(ctx.destination);
+  processor.connect(silent);
+  silent.connect(ctx.destination);
 
   return () => {
     processor.disconnect();
+    silent.disconnect();
     source.disconnect();
     stream.getTracks().forEach((t) => t.stop());
     void ctx.close();
