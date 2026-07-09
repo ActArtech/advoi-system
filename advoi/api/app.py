@@ -387,6 +387,7 @@ class VoiceRespondResponse(BaseModel):
     agent_id: str | None = None
     agent_name: str | None = None
     frame_id: str | None = None
+    pending_operator: str | None = None
     agents_used: list[str] = Field(default_factory=list)
     systems: list[str] = Field(default_factory=list)
 
@@ -506,6 +507,7 @@ async def voice_respond(body: VoiceRespondRequest) -> VoiceRespondResponse:
         agent_id=reply.agent_id,
         agent_name=reply.agent_name,
         frame_id=reply.frame_id,
+        pending_operator=reply.pending_operator,
         agents_used=reply.agents_used,
         systems=reply.systems,
     )

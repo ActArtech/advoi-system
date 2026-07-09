@@ -7,6 +7,8 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md ./
 COPY advoi/ ./advoi/
+COPY scripts/fm-bridge.sh ./scripts/fm-bridge.sh
+RUN chmod +x ./scripts/fm-bridge.sh
 
 RUN pip install --no-cache-dir .
 

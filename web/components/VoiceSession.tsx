@@ -73,6 +73,15 @@ type CapabilitiesPayload = {
   };
 };
 
+type FleetAction = "wake_firstmate" | "start_development" | "run_next_backlog" | "fleet_stop";
+
+const FLEET_LABELS: Record<FleetAction, string> = {
+  wake_firstmate: "Wake FirstMate",
+  start_development: "Start dev",
+  run_next_backlog: "Next backlog",
+  fleet_stop: "Stop fleet",
+};
+
 const tokenEndpoint =
   process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "/api/livekit/token";
 const apiBase = process.env.NEXT_PUBLIC_ADVOI_API_URL?.replace(/\/$/, "") || "/api";
@@ -137,6 +146,8 @@ export function VoiceSession() {
   const [typedLine, setTypedLine] = useState("");
   const [capabilities, setCapabilities] = useState<CapabilitiesPayload | null>(null);
   const [operatorBusy, setOperatorBusy] = useState(false);
+  const [pendingFleet, setPendingFleet] = useState<FleetAction | null>(null);
+  const [voiceSessionId] = useState(() => `pwa-${Date.now()}`);
   const room = useMemo(
     () =>
       new Room({
@@ -374,10 +385,16 @@ export function VoiceSession() {
         const resp = await fetch(`${apiBase}/voice/respond`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript: text }),
+          body: JSON.stringify({ transcript: text, session_id: voiceSessionId }),
         });
         if (resp.ok) {
-          const spoken = stripEmDash(String((await resp.json()).spoken || ""));
+          const data = await resp.json();
+          const spoken = stripEmDash(String(data.spoken || ""));
+          if (data.action === "confirmation_required" && data.pending_operator) {
+            setPendingFleet(data.pending_operator as FleetAction);
+          } else {
+            setPendingFleet(null);
+          }
           setStatus(spoken);
           await publishSpeak(spoken);
         }
@@ -386,7 +403,53 @@ export function VoiceSession() {
         setStatus(message);
       }
     },
-    [publishSpeak, runFrame],
+    [publishSpeak, runFrame, voiceSessionId],
+  );
+
+  const runFleetOperator = useCallback(
+    async (action: FleetAction, confirmed = false) => {
+      if (operatorBusy) return;
+      setOperatorBusy(true);
+      const project = capabilities?.systems_access?.firstmate_fleet?.active_slug;
+      const label = FLEET_LABELS[action];
+      setStatus(confirmed ? `${label}...` : `Confirm ${label.toLowerCase()}...`);
+      try {
+        const transcript =
+          action === "start_development"
+            ? `start development${project ? ` on ${project}` : ""}${confirmed ? " confirm" : ""}`
+            : `${action.replace(/_/g, " ")}${confirmed ? " confirm" : ""}`;
+        const resp = await fetch(`${apiBase}/fleet/trigger`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            confirmed,
+            project,
+            transcript,
+          }),
+        });
+        if (!resp.ok) throw new Error(`Fleet trigger returned ${resp.status}`);
+        const data = await resp.json();
+        if (data.status === "confirmation_required") {
+          setPendingFleet(action);
+          const spoken = stripEmDash(String(data.prompt || data.spoken || "Say yes to confirm."));
+          setStatus(spoken);
+          await publishSpeak(spoken);
+          return;
+        }
+        setPendingFleet(null);
+        const spoken = stripEmDash(String(data.spoken || `${label} completed.`));
+        setStatus(spoken);
+        await publishSpeak(spoken);
+        loadAgents();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Fleet action failed";
+        setStatus(message);
+      } finally {
+        setOperatorBusy(false);
+      }
+    },
+    [apiBase, capabilities, loadAgents, operatorBusy, publishSpeak],
   );
 
   const submitTypedLine = useCallback(() => {
@@ -623,8 +686,9 @@ export function VoiceSession() {
           <span className={`${styles.micBadge} ${micOn ? styles.micOn : styles.micOff}`}>
             Mic {micOn ? "on" : "off"}
           </span>
-          {" "}Voice: fleet status, open briefs, systems pulse, memory health, guardian status, queue review,
-          run all agents, stop agents confirm, restart agents, what can you do. Type below if mic fails.
+          {" "}Voice: fleet status, wake firstmate confirm, start development confirm, run next backlog confirm,
+          stop fleet confirm, systems pulse, memory health, guardian status, run all agents, what can you do.
+          Say yes after a confirm prompt. Type below if mic fails.
         </p>
       ) : null}
 
@@ -685,6 +749,51 @@ export function VoiceSession() {
         >
           Restart agents
         </button>
+        {fleetAccess?.configured ? (
+          <>
+            <button
+              type="button"
+              className={`${styles.opBtn} ${pendingFleet === "wake_firstmate" ? styles.opBtnPending : ""}`}
+              disabled={operatorBusy}
+              onClick={() =>
+                void runFleetOperator("wake_firstmate", pendingFleet === "wake_firstmate")
+              }
+            >
+              {pendingFleet === "wake_firstmate" ? "Confirm wake" : "Wake FirstMate"}
+            </button>
+            <button
+              type="button"
+              className={`${styles.opBtn} ${pendingFleet === "start_development" ? styles.opBtnPending : ""}`}
+              disabled={operatorBusy}
+              onClick={() =>
+                void runFleetOperator(
+                  "start_development",
+                  pendingFleet === "start_development",
+                )
+              }
+            >
+              {pendingFleet === "start_development" ? "Confirm dev" : "Start dev"}
+            </button>
+            <button
+              type="button"
+              className={`${styles.opBtn} ${pendingFleet === "run_next_backlog" ? styles.opBtnPending : ""}`}
+              disabled={operatorBusy}
+              onClick={() =>
+                void runFleetOperator("run_next_backlog", pendingFleet === "run_next_backlog")
+              }
+            >
+              {pendingFleet === "run_next_backlog" ? "Confirm backlog" : "Next backlog"}
+            </button>
+            <button
+              type="button"
+              className={`${styles.opBtn} ${styles.opBtnDanger} ${pendingFleet === "fleet_stop" ? styles.opBtnPending : ""}`}
+              disabled={operatorBusy}
+              onClick={() => void runFleetOperator("fleet_stop", pendingFleet === "fleet_stop")}
+            >
+              {pendingFleet === "fleet_stop" ? "Confirm stop" : "Stop fleet"}
+            </button>
+          </>
+        ) : null}
       </div>
 
       <div className={styles.speakRow}>

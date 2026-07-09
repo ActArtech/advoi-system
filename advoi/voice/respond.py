@@ -41,6 +41,7 @@ class VoiceReply:
     agent_id: str | None = None
     agent_name: str | None = None
     frame_id: str | None = None
+    pending_operator: str | None = None
     agents_used: list[str] = field(default_factory=list)
     systems: list[str] = field(default_factory=list)
 
@@ -238,6 +239,26 @@ async def warm_spoken_reply(
             action="chat",
         )
 
+    from advoi.fleet.session import (
+        clear_pending_fleet,
+        get_pending_fleet,
+        set_pending_fleet,
+    )
+    from advoi.routing.intent import is_confirm_phrase
+
+    pending_fleet = get_pending_fleet(session_id)
+    if pending_fleet and is_confirm_phrase(text):
+        action, prior = pending_fleet
+        clear_pending_fleet(session_id)
+        reply = await _reply_operator_intent(action, transcript=f"{prior} confirm")
+        if reply:
+            try:
+                await retain_turn(session_id=session_id, role="user", text=text)
+                await retain_turn(session_id=session_id, role="assistant", text=reply.spoken)
+            except Exception as exc:
+                _LOGGER.debug("voice fleet confirm retain skip: %s", exc)
+            return reply
+
     op = classify_operator_intent(text)
     if op == "stop_agents" and _stop_agents_needs_confirm(text):
         return VoiceReply(
@@ -251,9 +272,11 @@ async def warm_spoken_reply(
         from advoi.fleet.trigger import fleet_action_needs_confirm, fleet_confirm_prompt
 
         if fleet_action_needs_confirm(text):
+            set_pending_fleet(session_id, op, text)
             return VoiceReply(
                 spoken=fleet_confirm_prompt(op),
                 action="confirmation_required",
+                pending_operator=op,
                 agent_id="advoi-core",
                 agent_name="ADVoi Core",
                 systems=["firstmate"],

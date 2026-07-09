@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from advoi.copy_style import plain_copy
+from advoi.fleet.bridge import resolve_fleet_exec
 from advoi.routing.frame_runner import (
     _fleet_backlog_snapshot,
     _fleet_profile_snapshot,
@@ -29,15 +30,6 @@ _PROJECT_RE = re.compile(
     r"\b(?:on|for|project)\s+([a-z][a-z0-9_-]+)\b",
     re.IGNORECASE,
 )
-
-
-def _trigger_script() -> Path:
-    return Path(
-        os.getenv(
-            "FIRSTMATE_TRIGGER_SCRIPT",
-            "/opt/firstmate-fleet/scripts/fm-hermes-trigger.sh",
-        )
-    )
 
 
 def _fleet_mock() -> bool:
@@ -101,6 +93,8 @@ def classify_fleet_voice_intent(transcript: str) -> FleetVoiceAction | None:
             "work next item",
             "dispatch next",
             "run the next backlog",
+            "run the next backlog item",
+            "run next backlog item",
             "next queued item",
             "pick up next task",
         )
@@ -147,7 +141,11 @@ def fleet_action_needs_confirm(transcript: str) -> bool:
         "yes",
     }:
         return False
+    from advoi.routing.intent import is_confirm_phrase
+
     lowered = (transcript or "").lower()
+    if is_confirm_phrase(lowered):
+        return False
     return not any(w in lowered for w in ("confirm", "confirmed", "yes go ahead"))
 
 
@@ -166,24 +164,27 @@ async def invoke_fleet_trigger(
     *,
     project: str | None = None,
 ) -> dict[str, Any]:
-    script = _trigger_script()
     slug = resolve_active_project(project)
+    msg = message.strip()
+    exec_argv = resolve_fleet_exec()
 
     if _fleet_mock():
         return {
             "ok": True,
             "status": "mock",
-            "message": message.strip(),
+            "message": msg,
             "project": slug,
-            "output": f"OK: mock fleet trigger — {message.strip()} @ {slug}",
+            "bridge": exec_argv[1],
+            "output": f"OK: mock fleet trigger — {msg} @ {slug}",
         }
 
-    if not script.is_file():
+    script_path = Path(exec_argv[1])
+    if not script_path.is_file():
         return {
             "ok": False,
-            "status": "trigger_script_missing",
-            "path": str(script),
-            "message": message.strip(),
+            "status": "bridge_script_missing",
+            "path": str(script_path),
+            "message": msg,
             "project": slug,
         }
 
@@ -192,9 +193,8 @@ async def invoke_fleet_trigger(
     env.setdefault("FIRSTMATE_CONTAINER", "firstmate-fleet")
 
     proc = await asyncio.create_subprocess_exec(
-        "bash",
-        str(script),
-        *message.split(),
+        *exec_argv,
+        msg,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         env=env,
@@ -207,8 +207,9 @@ async def invoke_fleet_trigger(
         "status": "dispatched" if ok else "failed",
         "exit_code": proc.returncode,
         "output": output,
-        "message": message.strip(),
+        "message": msg,
         "project": slug,
+        "bridge": exec_argv[1],
     }
 
 
