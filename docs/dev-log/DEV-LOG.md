@@ -5,6 +5,94 @@
 
 ---
 
+## [2026-07-10] — 6-agent control plane + operators + squads + dashboard
+
+**Version:** v0.4.0  
+**Type:** Feature + Docs  
+**Status:** Complete (staging redeploy open)
+
+### Summary
+
+Shipped unified multi-agent orchestration across CLI, API, voice, PWA, and dashboard. Added operator control layer, daemon stop/restart, squad dispatch bridge, platform diagnostics, and sprint documentation.
+
+### Changes
+
+- [x] `run_all_specialist_frames()` — 6 parallel frames, condensed spoken summary
+- [x] `advoi-orchestrate` modes: `six`, `six-squads`, `json`, `--dispatch-squads`
+- [x] `scripts/run-six-agents.ps1` — unified entry (CLI or API)
+- [x] Operator voice: capabilities, run all, dispatch squads, stop/restart daemons
+- [x] `GET /api/capabilities`, agent control stop/restart APIs
+- [x] Squad bridge: 4 squads, `dispatch-all`, wired to run-six
+- [x] `GET /api/diagnostics/platform`, `run_six_ms` in latency probe
+- [x] `/dashboard` — squad/agent graph MVP
+- [x] Aether portfolio APIs (from `5c5f36d`)
+- [x] Docs: `WHAT-WE-DID-2026-07-10.md`, `DEVELOPMENT-MILESTONES.md`, SYSTEM-STATUS refresh
+- [x] **190 pytest** all passing
+
+### Commits
+
+`25af012` `2c48b5b` `ae753b0` `402f8d3` `fe0d982` `dbd4c25` `5c5f36d`
+
+### Next
+
+- M1: `staging-redeploy.sh` on VPS (BUG-005)
+- M2: Human E2E sign-off (15 min)
+- M4: `LETTA_ENABLED` + `OTEL_ENABLED` on VPS
+- M5: Live squad webhooks (`ADVOI_SQUAD_MOCK=false`)
+
+---
+
+## [2026-07-08] — System status doc + 4-agent Docker + orchestrate CLI
+
+**Version:** v0.3.3  
+**Type:** Docs + Infra + Feature  
+**Status:** Complete
+
+### Summary
+
+Ran all 4 agents in parallel (`advoi-orchestrate json`). Added authoritative `SYSTEM-STATUS.md`, refreshed gaps/inventory docs, fourth Docker agent service, and orchestrate tests.
+
+### Changes
+
+- [x] `docs/current-state/SYSTEM-STATUS.md` — executive what-we-have / gaps matrix
+- [x] `what-we-have.md`, `gaps-and-blockers.md`, `README.md` — aligned to 4 agents, 18 routes, 125 tests
+- [x] `docker-compose.yml` — `advoi-agent-systems` (systems-pulse daemon)
+- [x] `advoi-orchestrate` CLI + `scripts/orchestrate-agents.ps1`
+- [x] `tests/test_orchestrate_cli.py`
+
+### Next
+
+- Phase 4.1 Letta; deploy 4-agent stack to staging VPS
+- Human tests when convenient — MANUAL-TEST-TRACKER
+
+---
+
+## [2026-07-08] — Manual test tracker + Phase 4 kickoff
+
+**Version:** v0.3.2  
+**Type:** Docs + Feature  
+**Status:** Complete
+
+### Summary
+
+Decoupled human E2E from development gates. Added `MANUAL-TEST-TRACKER.md` (tested / not tested / bugs). Shipped server voice path docs, request trace middleware, guardian confirmation module, and 4-agent smoke tests.
+
+### Changes
+
+- [x] `docs/operations/MANUAL-TEST-TRACKER.md` — full matrix Path A/B/C + known bugs
+- [x] `advoi/observability/request_trace.py` — `x-request-id`, `x-response-time-ms`
+- [x] `advoi/guardian/confirmation.py` + `GET /api/diagnostics/guardian`
+- [x] `scripts/agents-smoke-test.*` — 4 agents, systems_pulse, voice/speak validation
+- [x] Roadmap/gaps updated: human E2E tracked, not blocking Phase 4
+
+### Next Steps
+
+- Phase 4.1 Letta operational memory writes
+- Phase 4.2 Guardian error recovery + two-phase notifications
+- Human: 15-min Path C session on `/voice-server` when convenient
+
+---
+
 ## How to Use This Log
 
 ### Entry Template

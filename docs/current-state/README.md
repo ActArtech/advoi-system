@@ -2,9 +2,8 @@
 
 Honest snapshot of ADVoi before planning next work.
 
-**Last updated:** 2026-07-08  
-**Commit:** `48e7645`  
-**Stage:** Build 1.5 (voice + PWA + multi-agent)
+**Last updated:** 2026-07-10  
+**Stage:** Build 1.5+ (voice + PWA + **6 agents** + operators + squads + dashboard)
 
 ---
 
@@ -12,17 +11,22 @@ Honest snapshot of ADVoi before planning next work.
 
 | Doc | Read when you want to know... |
 |-----|-------------------------------|
-| **[BUILD-1.5-FINAL.md](BUILD-1.5-FINAL.md)** | **Gap table answered** — done vs open, your 15-min checklist |
-| **[path-to-full-system.md](path-to-full-system.md)** | How close we are to done and what to do next |
-| [what-we-have.md](what-we-have.md) | Everything that is built and tested |
-| [gaps-and-blockers.md](gaps-and-blockers.md) | What still blocks production validation |
+| **[SYSTEM-STATUS.md](SYSTEM-STATUS.md)** | **Authoritative** — what we have, gaps, commands |
+| **[WHAT-WE-DID-2026-07-10.md](WHAT-WE-DID-2026-07-10.md)** | Sprint changelog (multi-agent platform) |
+| **[DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md)** | Prioritized milestones M0-M7 |
+| [what-we-have.md](what-we-have.md) | Module-level inventory |
+| [gaps-and-blockers.md](gaps-and-blockers.md) | Prioritized open work (dev not blocked) |
 | [improvement-roadmap.md](improvement-roadmap.md) | Phased plan (Phases 1-4) |
+| [MANUAL-TEST-TRACKER.md](../operations/MANUAL-TEST-TRACKER.md) | Human tests: tested / not tested / bugs |
+| [BUILD-1.5-FINAL.md](BUILD-1.5-FINAL.md) | Build exit criteria |
+| [path-to-full-system.md](path-to-full-system.md) | Path to full system |
+| [../reviews/EXTERNAL-ENGINEERING-ARCHITECTURE-REVIEW.md](../reviews/EXTERNAL-ENGINEERING-ARCHITECTURE-REVIEW.md) | External engineering/architecture review pack |
 
 ---
 
 ## One-line status
 
-**Built and staging-ready. Not human-validated.** Open `https://advoi.keyteller.com`, connect voice, confirm you hear TTS — then record in [E2E-SIGNOFF.md](../operations/E2E-SIGNOFF.md).
+**6 agents + 4 squads built and orchestrable. Staging redeploy pending. Human E2E tracked, not blocking dev.** Run `.\scripts\run-six-agents.ps1 -Refresh` locally.
 
 ---
 
@@ -37,22 +41,26 @@ Honest snapshot of ADVoi before planning next work.
 
 | Area | Level |
 |------|-------|
-| API + 3 frames + 3 agents | Built |
+| API + 6 frames + 6 agents + squads | Built |
 | LiveKit voice pipeline | Built |
 | PWA (Path A) | Built |
-| Client voice (Path B) | Built (not device-validated) |
+| Client voice (Path B) | Built (auto fallback to server) |
+| Server voice (Path C) | Built |
 | Staging infra (Traefik, env) | Staging-ready |
 | Human voice E2E | **Not validated** |
-| Letta / Guardian / Aether | Vision |
+| Operators + dashboard | Built |
+| Aether / Guardian / squads (code) | Built (VPS enablement open) |
+| Letta / OTel on VPS | Partial |
 
 ---
 
 ## Live staging snapshot (2026-07-08)
 
 ```
-https://advoi.keyteller.com/api/health     → 200, agents 3/3
+https://advoi.keyteller.com/api/health     → 200 (redeploy for agents 4/4)
 https://advoi.keyteller.com/api/diagnostics/voice → ok: true
-pytest local                               → 105 passed
+pytest local                               → 190 collected
+uv run advoi-orchestrate six-squads --refresh → 6 agents + 4 squads OK
 VPS containers                             → all Up
 ADVOI_AGENT_INTERVAL_SECS                  → 15 (staging)
 ```

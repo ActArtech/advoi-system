@@ -72,7 +72,10 @@ advoi-system/
 | Section | Purpose |
 |---------|---------|
 | [docs/architecture/](docs/architecture/README.md) | System design, voice paths, multi-agent, deployment |
-| [docs/current-state/](docs/current-state/README.md) | What we have, gaps, improvement roadmap |
+| [docs/current-state/SYSTEM-STATUS.md](docs/current-state/SYSTEM-STATUS.md) | **Authoritative** what we have + gaps |
+| [docs/current-state/WHAT-WE-DID-2026-07-10.md](docs/current-state/WHAT-WE-DID-2026-07-10.md) | Multi-agent sprint changelog |
+| [docs/current-state/DEVELOPMENT-MILESTONES.md](docs/current-state/DEVELOPMENT-MILESTONES.md) | Prioritized milestones |
+| [docs/current-state/](docs/current-state/README.md) | Inventory, roadmap, manual test tracker |
 | [docs/operations/](docs/operations/README.md) | Local testing and staging runbook |
 | [docs/insights/](docs/insights/README.md) | Research distillations |
 | [docs/decision-log/](docs/decision-log/DECISION-LOG.md) | ADRs |

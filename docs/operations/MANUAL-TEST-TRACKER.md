@@ -2,7 +2,7 @@
 
 **Purpose:** Record what humans still need to verify. **Does not block development** — agents continue Phase 4+ while items here stay open.
 
-**Last updated:** 2026-07-08  
+**Last updated:** 2026-07-10
 **Staging:** https://advoi.keyteller.com  
 **Local:** http://localhost:3000 (web) + http://127.0.0.1:8010 (API)
 
@@ -41,8 +41,9 @@ These run in CI or via scripts. Re-run after every deploy.
 
 | Check | Command | Last known |
 |-------|---------|------------|
-| Full pytest | `uv run pytest tests/ -q` | 117+ passed (incl. `test_server_tts.py`) |
-| Agents smoke | `.\scripts\agents-smoke-test.ps1` | 4 agents + 4 frames |
+| Full pytest | `uv run pytest tests/ -q` | **190** passed |
+| Agents smoke | `.\scripts\agents-smoke-test.ps1` | 6 agents + run-six + squads + platform |
+| Run six script | `.\scripts\run-six-agents.ps1 -Refresh` | 6 frames CLI |
 | Voice smoke | `.\scripts\voice-smoke-test.ps1` or `.sh` | Staging `ok: true` |
 | Staging precheck | `.\scripts\staging-signoff-precheck.ps1` | Pass @ `c14c38d` |
 | Web build | `cd web && npm run build` | Pass when no port contention |
@@ -68,7 +69,9 @@ These run in CI or via scripts. Re-run after every deploy.
 | do you use firstmate | Read-only fleet path + active slug |
 | do you have access to github | advoi-system + fleet github_repo |
 
-**PWA operator buttons:** Run all 6 · Systems pulse · Prewarm · What can you do · Stop agents · Restart agents
+**PWA operator buttons:** Run all 6 · Dispatch squads · Systems pulse · Prewarm · What can you do · Stop agents · Restart agents
+
+**Dashboard (`/dashboard`):** Squad graph · Run all 6 · Dispatch squads · Platform metrics
 
 | # | Test | Steps | Status | Tester / date |
 |---|------|-------|--------|---------------|
@@ -151,13 +154,14 @@ Development continues per [improvement-roadmap.md](../current-state/improvement-
 
 | Phase | Work | Status |
 |-------|------|--------|
-| 3.6 | Server voice path (`/voice-server`, `/api/voice/speak`) | **Done** |
-| 4.0 | Request trace middleware + guardian confirmation module | **In progress** |
-| 4.1 | Letta operational memory | Not started |
-| 4.2 | Guardian error recovery + notifications | Not started |
-| 4.3 | Aether venture routing | Not started |
-| 4.4 | Squad execution via FirstMate | Not started |
-| 4.5 | React Flow decision dashboard | Not started |
+| 3.6 | Server voice path | **Done** |
+| 4.0 | Request trace + guardian confirmation | **Done** |
+| 4.1 | Letta operational memory (code) | **Done** — VPS enable open |
+| 4.2 | Guardian error recovery + notifications | **Done** |
+| 4.3 | Aether venture routing | **Done** — redeploy open |
+| 4.4 | Squad dispatch bridge | **Done** (mock) — live webhook open |
+| 4.5 | Dashboard MVP (`/dashboard`) | **Done** — React Flow open |
+| 4.6 | 6-agent orchestration + operators | **Done** (2026-07-10) |
 
 ---
 
