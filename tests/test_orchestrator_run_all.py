@@ -53,5 +53,5 @@ def test_synthesize_run_all_summary_includes_diagnostics():
         ),
     ]
     spoken = synthesize_run_all_summary(results)
-    assert "Memory:" in spoken
-    assert "Guardian:" in spoken
+    assert "Memory scout online" in spoken
+    assert "Guardian online" in spoken
