@@ -90,7 +90,11 @@ async def maybe_handle_frame_intent(
     if pending_fleet and is_confirm_phrase(text):
         action, prior = pending_fleet
         clear_pending_fleet(session_id)
-        reply = await _reply_operator_intent(action, transcript=f"{prior} confirm")
+        reply = await _reply_operator_intent(
+            action,
+            transcript=f"{prior} confirm",
+            confirmed=True,
+        )
         if reply:
             try:
                 await retain_turn(session_id=session_id, role="user", text=text)
@@ -111,7 +115,15 @@ async def maybe_handle_frame_intent(
             await speak(str(gate.get("prompt", "Confirm yes to proceed.")))
             return True
     if op:
-        reply = await _reply_operator_intent(op, transcript=text)
+        fleet_confirmed = True
+        if op in _FLEET_WRITE_INTENTS:
+            gate = evaluate_fleet_confirmation(op, confirmed=False, transcript=text)
+            fleet_confirmed = bool(gate["proceed"])
+        reply = await _reply_operator_intent(
+            op,
+            transcript=text,
+            confirmed=fleet_confirmed,
+        )
         if reply:
             try:
                 await retain_turn(session_id=session_id, role="user", text=text)

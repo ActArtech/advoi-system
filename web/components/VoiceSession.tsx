@@ -363,6 +363,32 @@ export function VoiceSession() {
         });
         if (intentResp.ok) {
           const data = await intentResp.json();
+          const opPreview = data.operator_preview as
+            | {
+                spoken?: string;
+                action?: string;
+                pending_operator?: string;
+                agents_used?: string[];
+              }
+            | undefined;
+          if (opPreview?.spoken) {
+            const spoken = stripEmDash(opPreview.spoken);
+            if (opPreview.action === "confirmation_required" && opPreview.pending_operator) {
+              setPendingFleet(opPreview.pending_operator as FleetAction);
+            } else {
+              setPendingFleet(null);
+            }
+            if (opPreview.action === "run_all" || opPreview.action === "dispatch_squads") {
+              void loadAgents();
+            }
+            const agentNote =
+              opPreview.agents_used && opPreview.agents_used.length > 0
+                ? ` (${opPreview.agents_used.length} agents)`
+                : "";
+            setStatus(spoken + agentNote);
+            await publishSpeak(spoken);
+            return;
+          }
           const preview = data.preview?.spoken_summary as string | undefined;
           const frameId = data.frame_id as string | undefined;
           if (preview) {
@@ -395,7 +421,13 @@ export function VoiceSession() {
           } else {
             setPendingFleet(null);
           }
-          setStatus(spoken);
+          if (data.action === "run_all" || data.action === "dispatch_squads") {
+            void loadAgents();
+          }
+          const agentsUsed = data.agents_used as string[] | undefined;
+          const agentNote =
+            agentsUsed && agentsUsed.length > 0 ? ` (${agentsUsed.length} agents)` : "";
+          setStatus(spoken + agentNote);
           await publishSpeak(spoken);
         }
       } catch (err) {
@@ -403,7 +435,7 @@ export function VoiceSession() {
         setStatus(message);
       }
     },
-    [publishSpeak, runFrame, voiceSessionId],
+    [loadAgents, publishSpeak, runFrame, voiceSessionId],
   );
 
   const runFleetOperator = useCallback(

@@ -86,7 +86,12 @@ def _agent_roster_context() -> str:
     return "\n".join(lines)
 
 
-async def _reply_operator_intent(intent: str, *, transcript: str = "") -> VoiceReply | None:
+async def _reply_operator_intent(
+    intent: str,
+    *,
+    transcript: str = "",
+    confirmed: bool = False,
+) -> VoiceReply | None:
     if intent == "capabilities":
         spoken = spoken_capabilities_summary()
         return VoiceReply(
@@ -173,22 +178,23 @@ async def _reply_operator_intent(intent: str, *, transcript: str = "") -> VoiceR
         result = await fleet_trigger_from_voice(
             intent,
             transcript=transcript,
-            confirmed=True,
+            confirmed=confirmed,
         )
         if result.get("status") == "confirmation_required":
             return VoiceReply(
                 spoken=result.get("prompt", "Confirm yes to proceed."),
                 action="confirmation_required",
+                pending_operator=intent,
                 agent_id="advoi-core",
                 agent_name="ADVoi Core",
-                systems=["firstmate"],
+                systems=["firstmate", "guardian"],
             )
         return VoiceReply(
             spoken=result.get("spoken", "Fleet action completed."),
             action=intent,
             agent_id="fleet-scout",
             agent_name="Fleet Scout",
-            systems=["firstmate"],
+            systems=["firstmate", "guardian"],
         )
     return None
 
@@ -250,7 +256,11 @@ async def warm_spoken_reply(
     if pending_fleet and is_confirm_phrase(text):
         action, prior = pending_fleet
         clear_pending_fleet(session_id)
-        reply = await _reply_operator_intent(action, transcript=f"{prior} confirm")
+        reply = await _reply_operator_intent(
+            action,
+            transcript=f"{prior} confirm",
+            confirmed=True,
+        )
         if reply:
             try:
                 await retain_turn(session_id=session_id, role="user", text=text)
@@ -283,7 +293,18 @@ async def warm_spoken_reply(
                 systems=["firstmate", "guardian"],
             )
     if op:
-        reply = await _reply_operator_intent(op, transcript=text)
+        fleet_confirmed = True
+        if op in _FLEET_WRITE_INTENTS:
+            from advoi.guardian.confirmation import evaluate_fleet_confirmation
+
+            fleet_confirmed = bool(
+                evaluate_fleet_confirmation(op, confirmed=False, transcript=text)["proceed"]
+            )
+        reply = await _reply_operator_intent(
+            op,
+            transcript=text,
+            confirmed=fleet_confirmed,
+        )
         if reply:
             try:
                 await retain_turn(session_id=session_id, role="user", text=text)

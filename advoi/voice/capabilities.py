@@ -74,6 +74,10 @@ def classify_operator_intent(transcript: str) -> OperatorIntent | None:
         p in text
         for p in (
             "run all agents",
+            "run all six",
+            "run all 6",
+            "run six agents",
+            "run the six agents",
             "run all frames",
             "run everything",
             "full systems check",

@@ -266,6 +266,34 @@ def test_voice_intent_endpoint_preview(client):
     assert data["preview"]["spoken_summary"]
 
 
+def test_voice_intent_operator_run_all_preview(client):
+    resp = client.post(
+        "/api/voice/intent",
+        json={"transcript": "run all agents", "preview": True},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["action"] == "run_all"
+    op = data["operator_preview"]
+    assert op is not None
+    assert op["action"] == "run_all"
+    assert len(op["agents_used"]) >= 6
+    assert op["spoken"]
+
+
+def test_voice_intent_operator_fleet_confirm_preview(client):
+    resp = client.post(
+        "/api/voice/intent",
+        json={"transcript": "wake firstmate", "preview": True},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["action"] == "wake_firstmate"
+    op = data["operator_preview"]
+    assert op["action"] == "confirmation_required"
+    assert op["pending_operator"] == "wake_firstmate"
+
+
 def test_voice_respond_includes_agent_metadata(client):
     resp = client.post(
         "/api/voice/respond",

@@ -427,6 +427,17 @@ class VoiceIntentRequest(BaseModel):
     preview: bool = False
 
 
+class VoiceOperatorPreview(BaseModel):
+    spoken: str
+    action: str = "chat"
+    agent_id: str | None = None
+    agent_name: str | None = None
+    frame_id: str | None = None
+    pending_operator: str | None = None
+    agents_used: list[str] = Field(default_factory=list)
+    systems: list[str] = Field(default_factory=list)
+
+
 class VoiceIntentResponse(BaseModel):
     transcript: str
     action: str
@@ -434,6 +445,7 @@ class VoiceIntentResponse(BaseModel):
     frame_label: str | None = None
     confirmed: bool | None = None
     preview: FrameRunResponse | None = None
+    operator_preview: VoiceOperatorPreview | None = None
 
 
 @app.get("/api/capabilities")
@@ -446,9 +458,24 @@ async def capabilities_catalog() -> dict[str, Any]:
 @app.post("/api/voice/intent", response_model=VoiceIntentResponse)
 async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
     from advoi.voice.capabilities import classify_operator_intent
+    from advoi.voice.respond import _reply_operator_intent
 
     op = classify_operator_intent(body.transcript)
     if op:
+        operator_preview: VoiceOperatorPreview | None = None
+        if body.preview:
+            reply = await _reply_operator_intent(op, transcript=body.transcript)
+            if reply:
+                operator_preview = VoiceOperatorPreview(
+                    spoken=reply.spoken,
+                    action=reply.action,
+                    agent_id=reply.agent_id,
+                    agent_name=reply.agent_name,
+                    frame_id=reply.frame_id,
+                    pending_operator=reply.pending_operator,
+                    agents_used=reply.agents_used,
+                    systems=reply.systems,
+                )
         return VoiceIntentResponse(
             transcript=body.transcript,
             action=op,
@@ -456,6 +483,7 @@ async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
             frame_label=None,
             confirmed=None,
             preview=None,
+            operator_preview=operator_preview,
         )
 
     action = resolve_voice_action(body.transcript)
