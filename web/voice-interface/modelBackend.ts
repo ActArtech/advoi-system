@@ -1,17 +1,40 @@
-/** Pick ONNX runtime backend; Windows WebGPU is flaky for ORT (crbug.com/369219127). */
+/** Pick ONNX runtime backend; WASM-first for reliability (WebGPU often blocked in Chrome). */
+
+import { isStorageFullError } from "./storageProbe";
 
 export type ModelBackend = "webgpu" | "wasm";
+
+type WebGpuNavigator = Navigator & {
+  gpu?: { requestAdapter: () => Promise<unknown> };
+};
 
 export function isWindows(): boolean {
   if (typeof navigator === "undefined") return false;
   return /Windows/i.test(navigator.userAgent);
 }
 
-/** Prefer WASM on Windows; WebGPU elsewhere when available. */
+let webGpuProbe: Promise<boolean> | null = null;
+
+/** True only when requestAdapter succeeds (not just navigator.gpu present). */
+export async function webGpuAdapterAvailable(): Promise<boolean> {
+  if (typeof navigator === "undefined") return false;
+  const nav = navigator as WebGpuNavigator;
+  if (!nav.gpu) return false;
+  if (!webGpuProbe) {
+    webGpuProbe = (async () => {
+      try {
+        const adapter = await nav.gpu!.requestAdapter();
+        return adapter != null;
+      } catch {
+        return false;
+      }
+    })();
+  }
+  return webGpuProbe;
+}
+
+/** Always WASM first — WebGPU requires flags/adapters many browsers lack. */
 export function preferredModelBackend(): ModelBackend {
-  if (typeof navigator === "undefined") return "wasm";
-  if (isWindows()) return "wasm";
-  if ("gpu" in navigator) return "webgpu";
   return "wasm";
 }
 
@@ -22,18 +45,18 @@ export function backendLabel(backend: ModelBackend): string {
 export async function withBackendFallback<T>(
   run: (backend: ModelBackend) => Promise<T>,
 ): Promise<{ value: T; backend: ModelBackend }> {
-  const preferred = preferredModelBackend();
   try {
-    const value = await run(preferred);
-    return { value, backend: preferred };
-  } catch (first) {
-    const fallback: ModelBackend = preferred === "webgpu" ? "wasm" : "webgpu";
-    if (fallback === preferred) throw first;
-    try {
-      const value = await run(fallback);
-      return { value, backend: fallback };
-    } catch {
-      throw first;
+    const value = await run("wasm");
+    return { value, backend: "wasm" };
+  } catch (wasmErr) {
+    if (!isStorageFullError(wasmErr) && (await webGpuAdapterAvailable())) {
+      try {
+        const value = await run("webgpu");
+        return { value, backend: "webgpu" };
+      } catch {
+        /* fall through */
+      }
     }
+    throw wasmErr;
   }
 }

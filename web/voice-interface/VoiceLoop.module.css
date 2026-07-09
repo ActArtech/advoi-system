@@ -32,7 +32,74 @@
 .dot.error { background: var(--danger); }
 
 .status { margin: 0; line-height: 1.5; }
+.warn {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+.storageActions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 .transcript { margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--muted); min-height: 2rem; }
+.micLevel { margin: 0.5rem 0 0; font-size: 0.82rem; color: var(--accent); }
+.agentBadge { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--muted); }
+
+.agentRoster {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.agentRosterTitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.agentList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.agentListItem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.agentName { color: inherit; }
+.agentMeta { color: var(--muted); }
+
+.typeRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.typeInput {
+  flex: 1;
+  min-width: 0;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: inherit;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+}
 
 .controls {
   display: flex;

@@ -5,6 +5,7 @@ import type { VoiceId } from "./types";
 import { playSpeechSynthesisFallback } from "./audio";
 import { warmTextForTTS } from "./warmth";
 import { withBackendFallback, type ModelBackend } from "./modelBackend";
+import { formatModelLoadError } from "./storageProbe";
 
 const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 const ttsCache = new Map<ModelBackend, Promise<import("kokoro-js").KokoroTTS>>();
@@ -47,6 +48,7 @@ export function useVoiceTTS({
   onError,
   onBackendReady,
   onFallback,
+  reportPreloadErrors = true,
 }: {
   voice?: VoiceId;
   speed?: number;
@@ -54,6 +56,8 @@ export function useVoiceTTS({
   onError?: (msg: string) => void;
   onBackendReady?: (backend: ModelBackend) => void;
   onFallback?: () => void;
+  /** When false, preload throws without calling onError (auto server fallback). */
+  reportPreloadErrors?: boolean;
 } = {}) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -70,9 +74,11 @@ export function useVoiceTTS({
       setIsReady(true);
       setUsingBrowserVoice(false);
     } catch (e) {
-      onError?.(e instanceof Error ? e.message : "Kokoro preload failed");
+      const msg = formatModelLoadError(e);
+      if (reportPreloadErrors) onError?.(msg);
+      throw e instanceof Error ? e : new Error(msg);
     }
-  }, [onError, onBackendReady]);
+  }, [onError, onBackendReady, reportPreloadErrors]);
 
   const speak = useCallback(
     async (text: string) => {
@@ -97,7 +103,7 @@ export function useVoiceTTS({
         splitter.close();
         await playback;
       } catch (e) {
-        onError?.(e instanceof Error ? e.message : "TTS failed");
+        onError?.(formatModelLoadError(e));
         setUsingBrowserVoice(true);
         onFallback?.();
         await playSpeechSynthesisFallback(text);
