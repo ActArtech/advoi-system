@@ -3,29 +3,90 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 
 import httpx
 
+from advoi.cache.agent_cache import agents_status_summary, read_all_agent_caches
 from advoi.copy_style import plain_copy
 from advoi.llm.openrouter import resolve_llm_credentials
 from advoi.memory import MemoryRouter
+from advoi.routing.agents import AGENTS
 from advoi.routing.frame_runner import run_frame
 from advoi.routing.intent import resolve_voice_action
+from advoi.routing.orchestrator import systems_for_frame
 from advoi.voice.memory_hooks import retain_turn
 from advoi.voice.prompts import LOCAL_VOICE_SESSION, build_warm_system_instruction
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
+class VoiceReply:
+    spoken: str
+    action: str = "chat"
+    agent_id: str | None = None
+    agent_name: str | None = None
+    frame_id: str | None = None
+    agents_used: list[str] = field(default_factory=list)
+    systems: list[str] = field(default_factory=list)
+
+
+def _agent_roster_context() -> str:
+    lines = ["Specialist agents you can route to by voice:"]
+    for agent in AGENTS.values():
+        lines.append(f"- {agent.name} ({agent.id}): {agent.role}")
+    summary = agents_status_summary()
+    lines.append(
+        f"Agent cache: {summary.get('ready', 0)}/{summary.get('total', 0)} warm."
+    )
+    try:
+        caches = read_all_agent_caches()
+    except Exception:
+        caches = {}
+    for agent_id, payload in caches.items():
+        agent = AGENTS.get(agent_id)
+        if not agent:
+            continue
+        spoken = str(payload.get("spoken_summary", ""))[:140]
+        if spoken:
+            lines.append(f"  Latest {agent.name}: {spoken}")
+    lines.append(
+        'For a full cross-system read, suggest "systems pulse" or Option D.'
+    )
+    return "\n".join(lines)
+
+
+def _reply_from_frame(result) -> VoiceReply:
+    agent = AGENTS.get(result.agent_id)
+    return VoiceReply(
+        spoken=plain_copy(result.spoken_summary),
+        action="frame",
+        agent_id=result.agent_id,
+        agent_name=agent.name if agent else None,
+        frame_id=result.frame_id,
+        agents_used=list(result.detail.get("agents_used") or [result.agent_id]),
+        systems=systems_for_frame(result.frame_id),
+    )
+
+
 async def _memory_context(*, session_id: str, query: str) -> str:
+    from advoi.aether.architect import recall_portfolio_context
+
     router = MemoryRouter()
     recall = await router.recall(session_id=session_id, query=query)
     chunks: list[str] = []
+    try:
+        aether_block = await recall_portfolio_context(query=query)
+        if aether_block:
+            chunks.append(aether_block)
+    except Exception as exc:
+        _LOGGER.debug("aether context skip: %s", exc)
     for item in recall.strategic + recall.operational + recall.ephemeral:
         text = item.get("text") or item.get("content") or item.get("summary")
         if text:
             chunks.append(str(text))
-    return "\n".join(chunks[:6])
+    return "\n".join(chunks[:8])
 
 
 async def warm_spoken_reply(
@@ -34,10 +95,13 @@ async def warm_spoken_reply(
     recent_phrases: list[str] | None = None,
     session_id: str = LOCAL_VOICE_SESSION,
     temperature: float = 0.8,
-) -> str:
+) -> VoiceReply:
     text = (transcript or "").strip()
     if not text:
-        return "I did not catch that. Try again when you are ready."
+        return VoiceReply(
+            spoken="I did not catch that. Try again when you are ready.",
+            action="chat",
+        )
 
     action = resolve_voice_action(text)
     if action["action"] == "frame":
@@ -45,13 +109,13 @@ async def warm_spoken_reply(
             action["frame_id"],
             confirmed=action["confirmed"],
         )
-        spoken = plain_copy(result.spoken_summary)
+        reply = _reply_from_frame(result)
         try:
             await retain_turn(session_id=session_id, role="user", text=text)
-            await retain_turn(session_id=session_id, role="assistant", text=spoken)
+            await retain_turn(session_id=session_id, role="assistant", text=reply.spoken)
         except Exception as exc:
             _LOGGER.debug("voice-local frame retain skip: %s", exc)
-        return spoken
+        return reply
 
     memory_context = ""
     try:
@@ -63,7 +127,11 @@ async def warm_spoken_reply(
     base_url = (creds.base_url or "https://api.openai.com/v1").rstrip("/")
 
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": build_warm_system_instruction(memory_context=memory_context)},
+        {
+            "role": "system",
+            "content": build_warm_system_instruction(memory_context=memory_context),
+        },
+        {"role": "system", "content": _agent_roster_context()},
     ]
     if recent_phrases:
         mirror = ", ".join(p for p in recent_phrases if p.strip())[:120]
@@ -103,4 +171,10 @@ async def warm_spoken_reply(
     except Exception as exc:
         _LOGGER.debug("voice-local retain skip: %s", exc)
 
-    return spoken
+    return VoiceReply(
+        spoken=spoken,
+        action="chat",
+        agent_id="advoi-core",
+        agent_name="ADVoi Core",
+        systems=["llm", "memory"],
+    )

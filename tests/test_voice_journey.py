@@ -1,22 +1,6 @@
 """Voice PWA journey matrix — API paths for staging smoke gates."""
 
-import os
-
 import pytest
-from fastapi.testclient import TestClient
-
-os.environ.setdefault("ADVOI_FRAME_MOCK", "true")
-os.environ.setdefault("LIVEKIT_URL", "wss://example.livekit.cloud")
-os.environ.setdefault("LIVEKIT_API_KEY", "testkey")
-os.environ.setdefault("LIVEKIT_API_SECRET", "testsecret")
-os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-unit-tests-only")
-
-from advoi.api.app import app  # noqa: E402
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def test_journey_health(client):
@@ -37,8 +21,8 @@ def test_journey_session_lists_frames_and_agents(client):
     resp = client.get("/api/session")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["frames"]) == 3
-    assert len(data["agents"]) == 3
+    assert len(data["frames"]) == 6
+    assert len(data["agents"]) == 6
 
 
 def test_journey_diagnostics(client):
@@ -46,7 +30,7 @@ def test_journey_diagnostics(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["ok"] is True
-    assert data["checks"]["frames"] == 3
+    assert data["checks"]["frames"] == 6
     assert data["checks"]["llm_key"] is True
     assert "advoi-voice" in data["voice_agent_hint"]
     assert data["reason"] is None
@@ -95,6 +79,9 @@ def test_journey_diagnostics_missing_llm_key(client, monkeypatch):
         ("fleet_status", "fleet-scout"),
         ("open_briefs", "brief-curator"),
         ("queue_deep_review", "review-queue"),
+        ("systems_pulse", "systems-pulse"),
+        ("memory_health", "memory-scout"),
+        ("guardian_status", "guardian-sentinel"),
     ],
 )
 def test_journey_frame_run_mock(client, frame_id, agent_id):
@@ -121,10 +108,17 @@ def test_journey_voice_respond_empty(client):
 
 
 def test_journey_voice_respond_mocked(monkeypatch, client):
+    from advoi.voice.respond import VoiceReply
+
     async def fake_reply(transcript, **kwargs):
         assert transcript == "hello portfolio"
         assert kwargs.get("session_id") == "voice-local"
-        return "Quick take on your portfolio."
+        return VoiceReply(
+            spoken="Quick take on your portfolio.",
+            action="chat",
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+        )
 
     monkeypatch.setattr("advoi.api.app.warm_spoken_reply", fake_reply)
     resp = client.post(

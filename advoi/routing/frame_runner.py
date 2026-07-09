@@ -17,6 +17,9 @@ from advoi.copy_style import format_briefs_spoken, normalize_brief_title, plain_
 from advoi.decision.frames import DecisionFrame, get_frame
 from advoi.memory import MemoryRouter
 from advoi.routing.agents import AGENTS
+from advoi.routing.diagnostic_frames import run_guardian_status, run_memory_health
+from advoi.routing.orchestrator import run_systems_pulse
+
 
 
 @dataclass
@@ -156,16 +159,16 @@ def _fleet_state_snapshot(state_dir: Path) -> dict[str, Any]:
 
 
 def _aether_snapshot(data_dir: Path) -> dict[str, Any]:
-    gate_path = data_dir / "aether-gate-latest.md"
-    text = _read_text(gate_path, max_bytes=4_096)
-    if not text:
+    from advoi.aether.gate import load_gate_snapshot
+
+    snap = load_gate_snapshot(fleet_root=data_dir)
+    if not snap.found:
         return {"aether_found": False}
-    verdict = None
-    for line in text.splitlines():
-        if line.startswith("**Verdict:**"):
-            verdict = line.split(":", 1)[1].strip()
-            break
-    return {"aether_found": True, "verdict": verdict}
+    return {
+        "aether_found": True,
+        "verdict": snap.verdict if snap.verdict != "unknown" else None,
+        "active_slug": snap.active_slug,
+    }
 
 
 def _summarize_fleet_snapshot(
@@ -407,11 +410,13 @@ async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
 
 
 async def _run_review_queue(*, confirmed: bool) -> tuple[str, dict[str, Any]]:
+    from advoi.guardian.confirmation import evaluate_frame_confirmation
     from advoi.memory.review_queue import desktop_brief_url, enqueue_review
 
-    if not confirmed and os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() == "true":
+    gate = evaluate_frame_confirmation("queue_deep_review", confirmed=confirmed)
+    if not gate["proceed"]:
         return (
-            "To queue a deep review, confirm yes on voice or tap again after reviewing.",
+            str(gate.get("prompt") or "To queue a deep review, confirm yes on voice or tap again."),
             {"awaiting_confirmation": True},
         )
 
@@ -505,6 +510,16 @@ async def run_frame(
     elif frame.id == "queue_deep_review":
         spoken, detail = await _run_review_queue(confirmed=confirmed)
         status = "confirmation_required" if detail.get("awaiting_confirmation") else "ok"
+    elif frame.id == "systems_pulse":
+        result = await run_systems_pulse(refresh=refresh)
+        from advoi.aether.architect import post_frame_aether
+
+        await post_frame_aether(result)
+        return result
+    elif frame.id == "memory_health":
+        spoken, detail, status = await run_memory_health()
+    elif frame.id == "guardian_status":
+        spoken, detail, status = await run_guardian_status()
     else:
         spoken, detail = "That frame is not wired yet.", {}
         status = "unsupported"
@@ -515,13 +530,17 @@ async def run_frame(
         preamble = agent.speaks_first
         full_spoken = plain_copy(f"{preamble} {spoken}".strip())
 
-    return FrameResult(
+    result = FrameResult(
         frame_id=frame.id,
         agent_id=agent.id,
         status=status,
         spoken_summary=full_spoken,
         detail=detail,
     )
+    from advoi.aether.architect import post_frame_aether
+
+    await post_frame_aether(result)
+    return result
 
 
 def frame_to_dict(frame: DecisionFrame) -> dict[str, Any]:

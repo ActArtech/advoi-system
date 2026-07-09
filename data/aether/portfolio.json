@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "ventures": [
+    {
+      "id": "advoi-system",
+      "name": "ADVoi System",
+      "status": "active",
+      "repo_path": "/opt/advoi",
+      "primary_frames": ["fleet_status", "systems_pulse", "guardian_status", "memory_health"],
+      "squads": ["platform-squad", "review-squad"],
+      "tags": ["voice", "infrastructure"],
+      "bets": [
+        {
+          "id": "build-1.5",
+          "name": "Voice + PWA + Multi-agent",
+          "status": "building",
+          "appetite_days": 5,
+          "stage": "Build 1.5"
+        }
+      ]
+    },
+    {
+      "id": "firstmate-fleet",
+      "name": "FirstMate Fleet",
+      "status": "active",
+      "repo_path": "/opt/firstmate-fleet",
+      "primary_frames": ["fleet_status", "open_briefs", "queue_deep_review"],
+      "squads": ["fleet-squad", "briefs-squad"],
+      "tags": ["orchestration", "execution"],
+      "bets": [
+        {
+          "id": "afk-loop",
+          "name": "AFK captain loop",
+          "status": "shipped",
+          "stage": "production"
+        }
+      ]
+    },
+    {
+      "id": "hermes-beacon",
+      "name": "Hermes Beacon",
+      "status": "active",
+      "repo_path": "/opt/hermes",
+      "primary_frames": ["open_briefs", "memory_health"],
+      "squads": ["briefs-squad", "platform-squad"],
+      "tags": ["memory", "editorial"],
+      "bets": [
+        {
+          "id": "hindsight-bridge",
+          "name": "Hindsight memory bridge",
+          "status": "shipped",
+          "stage": "production"
+        }
+      ]
+    },
+    {
+      "id": "gem-dev-shop",
+      "name": "Gem Dev Shop",
+      "status": "active",
+      "repo_path": "/opt/hermes/projects/gem-dev-shop",
+      "primary_frames": ["open_briefs", "queue_deep_review"],
+      "squads": ["venture-squad"],
+      "tags": ["venture", "aether-active"],
+      "bets": [
+        {
+          "id": "venture-pipeline",
+          "name": "Venture command pipeline",
+          "status": "building",
+          "stage": "Build"
+        }
+      ]
+    }
+  ]
+}

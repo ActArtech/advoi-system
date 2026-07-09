@@ -11,18 +11,21 @@ from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
-GUARDIAN_LOG = Path(os.getenv("GUARDIAN_LOG_PATH", "docs/error-log/guardian-events.jsonl"))
+
+def _guardian_log_path() -> Path:
+    return Path(os.getenv("GUARDIAN_LOG_PATH", "docs/error-log/guardian-events.jsonl"))
 
 
 async def append_guardian_event(event_type: str, payload: dict[str, Any]) -> bool:
     try:
-        GUARDIAN_LOG.parent.mkdir(parents=True, exist_ok=True)
+        log_path = _guardian_log_path()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
             "payload": payload,
         }
-        with GUARDIAN_LOG.open("a", encoding="utf-8") as f:
+        with log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
         return True
     except Exception as exc:

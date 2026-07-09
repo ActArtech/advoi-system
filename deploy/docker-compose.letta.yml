@@ -1,0 +1,23 @@
+# Optional overlay — join advoi services to external Letta network (scripts/memory-setup-letta.sh).
+# Usage: docker compose -f docker-compose.yml -f deploy/docker-compose.staging.yml -f deploy/docker-compose.letta.yml ...
+
+services:
+  advoi-api:
+    networks:
+      - default
+      - letta
+
+  advoi-voice:
+    networks:
+      - default
+      - letta
+
+  advoi-memory-bridge:
+    networks:
+      - default
+      - letta
+
+networks:
+  letta:
+    external: true
+    name: letta-network

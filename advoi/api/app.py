@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from advoi import __version__
@@ -21,8 +22,14 @@ from advoi.llm.openrouter import resolve_llm_credentials
 from advoi.routing.agents import AGENTS
 from advoi.routing.frame_runner import frame_to_dict, run_frame
 from advoi.routing.intent import frame_intent_label, resolve_voice_action
+from advoi.routing.orchestrator import run_frames_parallel, systems_for_frame
 from advoi.voice.livekit_env import public_livekit_url
+from advoi.guardian.confirmation import frame_needs_confirmation, global_confirmation_enabled
+from advoi.observability.otel_setup import setup_otel
+from advoi.observability.request_trace import RequestTraceMiddleware
+from advoi.aether.service import get_aether_service
 from advoi.voice.respond import warm_spoken_reply
+from advoi.voice.server_tts import synthesize_speech
 from advoi.voice.tokens import default_room_name, mint_room_token
 
 
@@ -41,6 +48,7 @@ async def _lifespan(app: FastAPI):  # noqa: ARG001
 
 
 app = FastAPI(title="ADVoi API", version=__version__, lifespan=_lifespan)
+setup_otel(app, service_name="advoi-api")
 
 _origins = os.getenv("ADVOI_ALLOWED_ORIGINS", "http://localhost:3000")
 app.add_middleware(
@@ -50,6 +58,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestTraceMiddleware)
 
 
 class LiveKitTokenRequest(BaseModel):
@@ -96,15 +105,18 @@ async def livekit_token(body: LiveKitTokenRequest | None = None) -> LiveKitToken
 
 @app.get("/api/session")
 async def session_info() -> dict[str, Any]:
+    aether = get_aether_service()
     return {
         "room": default_room_name(),
         "memory_provider": os.getenv("MEMORY_PROVIDER", "hindsight"),
+        "letta_enabled": os.getenv("LETTA_ENABLED", "false").lower() == "true",
         "confirmation_required": os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() == "true",
         "frames": [frame_to_dict(f) for f in FRAMES],
         "agents": [
             {"id": a.id, "name": a.name, "role": a.role}
             for a in AGENTS.values()
         ],
+        "aether": await aether.portfolio(),
     }
 
 
@@ -116,9 +128,26 @@ class FrameRunRequest(BaseModel):
 class FrameRunResponse(BaseModel):
     frame_id: str
     agent_id: str
+    agent_name: str | None = None
     status: str
     spoken_summary: str
+    agents_used: list[str] = Field(default_factory=list)
+    systems: list[str] = Field(default_factory=list)
     detail: dict[str, Any] = Field(default_factory=dict)
+
+
+def _frame_run_response(result) -> FrameRunResponse:
+    agent = AGENTS.get(result.agent_id)
+    return FrameRunResponse(
+        frame_id=result.frame_id,
+        agent_id=result.agent_id,
+        agent_name=agent.name if agent else None,
+        status=result.status,
+        spoken_summary=result.spoken_summary,
+        agents_used=list(result.detail.get("agents_used") or [result.agent_id]),
+        systems=systems_for_frame(result.frame_id),
+        detail=result.detail,
+    )
 
 
 @app.get("/api/frames")
@@ -164,6 +193,30 @@ class VoiceRespondRequest(BaseModel):
 
 class VoiceRespondResponse(BaseModel):
     spoken: str
+    action: str = "chat"
+    agent_id: str | None = None
+    agent_name: str | None = None
+    frame_id: str | None = None
+    agents_used: list[str] = Field(default_factory=list)
+    systems: list[str] = Field(default_factory=list)
+
+
+class VoiceSpeakRequest(BaseModel):
+    text: str
+    voice: str | None = None
+
+
+class OrchestrateRequest(BaseModel):
+    frame_ids: list[str] = Field(default_factory=list)
+    confirmed: bool = False
+    refresh: bool = False
+
+
+class OrchestrateResponse(BaseModel):
+    results: list[FrameRunResponse]
+    agents_used: list[str] = Field(default_factory=list)
+    systems: list[str] = Field(default_factory=list)
+    spoken_summary: str = ""
 
 
 class VoiceIntentRequest(BaseModel):
@@ -192,13 +245,7 @@ async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
             result = await run_frame(frame_id, confirmed=bool(confirmed))
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        preview = FrameRunResponse(
-            frame_id=result.frame_id,
-            agent_id=result.agent_id,
-            status=result.status,
-            spoken_summary=result.spoken_summary,
-            detail=result.detail,
-        )
+        preview = _frame_run_response(result)
 
     return VoiceIntentResponse(
         transcript=body.transcript,
@@ -210,10 +257,24 @@ async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
     )
 
 
+@app.post("/api/voice/speak")
+async def voice_speak(body: VoiceSpeakRequest) -> Response:
+    """Server-side TTS (OpenAI-compatible). Avoids browser WebGPU/WASM models."""
+    try:
+        audio = await synthesize_speech(body.text, voice=body.voice)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"TTS request failed: {exc}") from exc
+    return Response(content=audio, media_type="audio/mpeg")
+
+
 @app.post("/api/voice/respond", response_model=VoiceRespondResponse)
 async def voice_respond(body: VoiceRespondRequest) -> VoiceRespondResponse:
     try:
-        spoken = await warm_spoken_reply(
+        reply = await warm_spoken_reply(
             body.transcript,
             recent_phrases=body.recent_phrases,
             session_id=body.session_id or "voice-local",
@@ -222,7 +283,81 @@ async def voice_respond(body: VoiceRespondRequest) -> VoiceRespondResponse:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"LLM request failed: {exc}") from exc
-    return VoiceRespondResponse(spoken=spoken)
+    return VoiceRespondResponse(
+        spoken=reply.spoken,
+        action=reply.action,
+        agent_id=reply.agent_id,
+        agent_name=reply.agent_name,
+        frame_id=reply.frame_id,
+        agents_used=reply.agents_used,
+        systems=reply.systems,
+    )
+
+
+@app.post("/api/agents/orchestrate", response_model=OrchestrateResponse)
+async def orchestrate_agents(body: OrchestrateRequest) -> OrchestrateResponse:
+    frame_ids = body.frame_ids or ["fleet_status", "open_briefs"]
+    try:
+        results = await run_frames_parallel(
+            frame_ids,  # type: ignore[arg-type]
+            confirmed=body.confirmed,
+            refresh=body.refresh,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    if not results:
+        raise HTTPException(status_code=400, detail="No valid frame ids provided")
+
+    agents_used: list[str] = []
+    systems: set[str] = set()
+    spoken_parts: list[str] = []
+    rows: list[FrameRunResponse] = []
+    for result in results:
+        agents_used.extend(result.detail.get("agents_used") or [result.agent_id])
+        systems.update(systems_for_frame(result.frame_id))
+        spoken_parts.append(result.spoken_summary)
+        rows.append(_frame_run_response(result))
+
+    deduped_agents = list(dict.fromkeys(agents_used))
+    return OrchestrateResponse(
+        results=rows,
+        agents_used=deduped_agents,
+        systems=sorted(systems),
+        spoken_summary=" ".join(spoken_parts),
+    )
+
+
+@app.post("/api/agents/run-all", response_model=OrchestrateResponse)
+@app.post("/api/agents/run-six", response_model=OrchestrateResponse)
+async def run_all_agents(
+    refresh: bool = False,
+    confirmed: bool = True,
+) -> OrchestrateResponse:
+    """Run all six specialist frames in parallel."""
+    frame_ids = [f.id for f in FRAMES]
+    results = await run_frames_parallel(
+        frame_ids,  # type: ignore[arg-type]
+        confirmed=confirmed,
+        refresh=refresh,
+    )
+    agents_used: list[str] = []
+    systems: set[str] = set()
+    spoken_parts: list[str] = []
+    rows: list[FrameRunResponse] = []
+    for result in results:
+        agents_used.extend(result.detail.get("agents_used") or [result.agent_id])
+        systems.update(systems_for_frame(result.frame_id))
+        spoken_parts.append(result.spoken_summary)
+        rows.append(_frame_run_response(result))
+
+    deduped_agents = list(dict.fromkeys(agents_used))
+    return OrchestrateResponse(
+        results=rows,
+        agents_used=deduped_agents,
+        systems=sorted(systems),
+        spoken_summary=" ".join(spoken_parts),
+    )
 
 
 @app.get("/api/diagnostics/agents")
@@ -230,8 +365,91 @@ async def agents_diagnostics() -> dict[str, Any]:
     summary = agents_status_summary()
     return {
         "ok": summary["all_ready"],
-        "stage": "multi-agent-1",
+        "stage": "multi-agent-6",
         **summary,
+    }
+
+
+@app.get("/api/diagnostics/memory")
+async def memory_diagnostics() -> dict[str, Any]:
+    """Memory stack readiness — Letta, operational store, Redis, Postgres hints."""
+    from advoi.memory.operational_bridge import operational_diagnostics
+    from advoi.memory.router import load_memory_config
+
+    cfg = load_memory_config()
+    store_path = os.getenv("ADVOI_OPERATIONAL_STORE", "data/operational-memory.jsonl")
+    store_exists = os.path.isfile(store_path)
+    op = await operational_diagnostics()
+    return {
+        "ok": True,
+        "provider": cfg.provider,
+        "hindsight_enabled": cfg.hindsight_enabled,
+        "letta_enabled": cfg.letta_enabled,
+        "letta_base_url": bool(cfg.letta_base_url),
+        **op,
+        "operational_store_enabled": os.getenv(
+            "ADVOI_OPERATIONAL_STORE_ENABLED", "true"
+        ).lower()
+        in {"1", "true", "yes"},
+        "operational_store_path": store_path,
+        "operational_store_exists": store_exists,
+        "redis_configured": bool(cfg.redis_url),
+        "postgres_configured": bool(cfg.database_url),
+    }
+
+
+@app.get("/api/aether/portfolio")
+async def aether_portfolio() -> dict[str, Any]:
+    return await get_aether_service().portfolio()
+
+
+@app.get("/api/aether/gate")
+async def aether_gate() -> dict[str, Any]:
+    return await get_aether_service().gate()
+
+
+@app.get("/api/aether/routes")
+async def aether_routes() -> dict[str, Any]:
+    return get_aether_service().routes()
+
+
+@app.get("/api/aether/ventures/{venture_id}")
+async def aether_venture(venture_id: str) -> dict[str, Any]:
+    row = await get_aether_service().venture(venture_id)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Unknown venture: {venture_id}")
+    return row
+
+
+@app.post("/api/aether/reload")
+async def aether_reload_portfolio() -> dict[str, Any]:
+    return get_aether_service().reload()
+
+
+@app.get("/api/aether/status")
+async def aether_status() -> dict[str, Any]:
+    from advoi.memory.operational_bridge import operational_diagnostics
+
+    status = get_aether_service().status()
+    status["memory"] = await operational_diagnostics()
+    return status
+
+
+@app.get("/api/diagnostics/guardian")
+async def guardian_diagnostics() -> dict[str, Any]:
+    """Confirmation policy and frame risk summary."""
+    frames = [
+        {
+            "frame_id": f.id,
+            "requires_confirmation": frame_needs_confirmation(f.id),
+        }
+        for f in FRAMES
+    ]
+    return {
+        "ok": True,
+        "confirmation_enabled": global_confirmation_enabled(),
+        "frames": frames,
+        "high_risk_frames": [row["frame_id"] for row in frames if row["requires_confirmation"]],
     }
 
 
@@ -250,13 +468,7 @@ async def run_decision_frame(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return FrameRunResponse(
-        frame_id=result.frame_id,
-        agent_id=result.agent_id,
-        status=result.status,
-        spoken_summary=result.spoken_summary,
-        detail=result.detail,
-    )
+    return _frame_run_response(result)
 
 
 async def _probe_memory_bridge() -> dict[str, Any]:
@@ -410,11 +622,11 @@ async def _measure_respond_latency_ms() -> dict[str, Any]:
     """Time warm_spoken_reply on a frame-routed transcript (mock-friendly)."""
     try:
         started = time.perf_counter()
-        spoken = await warm_spoken_reply("fleet status please", session_id="latency-probe")
+        reply = await warm_spoken_reply("fleet status please", session_id="latency-probe")
         respond_ms = round((time.perf_counter() - started) * 1000, 1)
         return {
             "respond_ms": respond_ms,
-            "respond_chars": len(spoken or ""),
+            "respond_chars": len(reply.spoken or ""),
         }
     except Exception as exc:
         return {"respond_ms": None, "respond_error": str(exc)}

@@ -81,13 +81,13 @@ class MemoryRouter:
             result.strategic = await recall_strategic(query, hermes_container=self.cfg.hermes_container)
             result.sources.append("hindsight")
 
-        if MemoryTier.OPERATIONAL in want and self.cfg.letta_enabled:
-            from advoi.memory.letta import recall_operational
+        if MemoryTier.OPERATIONAL in want:
+            from advoi.memory.operational_bridge import recall_operational_unified
 
-            result.operational = await recall_operational(
-                query, base_url=self.cfg.letta_base_url, agent_id=self.cfg.letta_agent_id
-            )
-            result.sources.append("letta")
+            rows, source = await recall_operational_unified(query)
+            result.operational = rows
+            if source != "none":
+                result.sources.append(source)
 
         return result
 
@@ -114,15 +114,11 @@ class MemoryRouter:
                 results["hindsight"] = await retain_strategic(
                     event_type.value, payload, hermes_container=self.cfg.hermes_container
                 )
-            elif target == WriteTarget.LETTA and self.cfg.letta_enabled:
-                from advoi.memory.letta import retain_operational
+            elif target == WriteTarget.LETTA:
+                from advoi.memory.operational_bridge import retain_operational_unified
 
-                results["letta"] = await retain_operational(
-                    event_type.value,
-                    payload,
-                    base_url=self.cfg.letta_base_url,
-                    agent_id=self.cfg.letta_agent_id,
-                )
+                bridge = await retain_operational_unified(event_type.value, payload)
+                results.update(bridge)
             elif target == WriteTarget.POSTGRES and self.cfg.database_url:
                 from advoi.memory.postgres_store import retain_structured
 

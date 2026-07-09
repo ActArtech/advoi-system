@@ -80,5 +80,15 @@ if [[ -f "${ADVOI_ENV}" ]]; then
   echo "OK: updated ${ADVOI_ENV}"
 fi
 
+echo "==> Connect ADVoi containers to letta-network (when advoi stack is running)"
+for svc in advoi-api advoi-voice advoi-memory-bridge; do
+  cid="$(docker compose --env-file "${ADVOI_ENV}" -f /opt/advoi/docker-compose.yml \
+    -f /opt/advoi/deploy/docker-compose.staging.yml ps -q "${svc}" 2>/dev/null || true)"
+  if [[ -n "${cid}" ]]; then
+    docker network connect letta-network "${cid}" 2>/dev/null || true
+    echo "OK: ${svc} on letta-network"
+  fi
+done
+
 echo "==> Create Letta agent '${LETTA_AGENT_ID}' via API after server is healthy."
 echo "    See docs/LETTA-OPTIONAL.md for agent bootstrap with git-memory-enabled tag."
