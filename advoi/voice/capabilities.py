@@ -15,6 +15,7 @@ OperatorIntent = Literal[
     "firstmate_info",
     "github_info",
     "run_all",
+    "dispatch_squads",
     "stop_agents",
     "restart_agents",
 ]
@@ -47,6 +48,17 @@ def classify_operator_intent(transcript: str) -> OperatorIntent | None:
         )
     ):
         return "capabilities"
+
+    if any(
+        p in text
+        for p in (
+            "dispatch all squads",
+            "dispatch squads",
+            "run all squads",
+            "queue all squads",
+        )
+    ):
+        return "dispatch_squads"
 
     if any(
         p in text
@@ -130,6 +142,12 @@ def build_capabilities_payload() -> dict[str, Any]:
             "label": "Run all 6 agents",
             "voice_phrases": ["run all agents", "full systems check"],
             "api": "POST /api/agents/run-six?refresh=true",
+        },
+        {
+            "id": "dispatch_squads",
+            "label": "Run 6 agents and dispatch all squads",
+            "voice_phrases": ["dispatch all squads", "dispatch squads"],
+            "api": "POST /api/agents/run-six?refresh=true&dispatch_squads=true",
         },
         {
             "id": "systems_pulse",

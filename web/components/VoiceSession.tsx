@@ -397,7 +397,15 @@ export function VoiceSession() {
   }, [speakFromIntent, typedLine]);
 
   const runOperator = useCallback(
-    async (kind: "run_six" | "prewarm" | "capabilities" | "stop_agents" | "restart_agents") => {
+    async (
+      kind:
+        | "run_six"
+        | "run_six_squads"
+        | "prewarm"
+        | "capabilities"
+        | "stop_agents"
+        | "restart_agents",
+    ) => {
       if (operatorBusy) return;
       setOperatorBusy(true);
       try {
@@ -446,14 +454,28 @@ export function VoiceSession() {
           loadAgents();
           return;
         }
-        setStatus("Running all six specialist agents...");
-        const resp = await fetch(
-          `${apiBase}/agents/run-six?refresh=true&confirmed=true`,
-          { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+        const dispatchSquads = kind === "run_six_squads";
+        setStatus(
+          dispatchSquads
+            ? "Running all six agents and dispatching squads..."
+            : "Running all six specialist agents...",
         );
+        const qs = new URLSearchParams({
+          refresh: "true",
+          confirmed: "true",
+          ...(dispatchSquads ? { dispatch_squads: "true" } : {}),
+        });
+        const resp = await fetch(`${apiBase}/agents/run-six?${qs}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
         if (!resp.ok) throw new Error(`Run-six returned ${resp.status}`);
         const data = await resp.json();
-        const spoken = stripEmDash(String(data.spoken_summary || "All agents finished."));
+        let spoken = stripEmDash(String(data.spoken_summary || "All agents finished."));
+        if (data.squads?.dispatched != null) {
+          spoken += ` Squads ${data.squads.dispatched}/${data.squads.total} dispatched.`;
+        }
         setStatus(spoken);
         await publishSpeak(spoken);
         loadAgents();
@@ -614,6 +636,14 @@ export function VoiceSession() {
           onClick={() => void runOperator("run_six")}
         >
           Run all 6
+        </button>
+        <button
+          type="button"
+          className={styles.opBtn}
+          disabled={operatorBusy}
+          onClick={() => void runOperator("run_six_squads")}
+        >
+          Dispatch squads
         </button>
         <button
           type="button"

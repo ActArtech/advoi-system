@@ -252,6 +252,13 @@ class OrchestrateResponse(BaseModel):
     agents_used: list[str] = Field(default_factory=list)
     systems: list[str] = Field(default_factory=list)
     spoken_summary: str = ""
+    squads: dict[str, Any] | None = None
+
+
+class SquadDispatchRequest(BaseModel):
+    squad_id: str
+    action: str = "manual_dispatch"
+    confirmed: bool = True
 
 
 class VoiceIntentRequest(BaseModel):
@@ -388,16 +395,57 @@ async def orchestrate_agents(body: OrchestrateRequest) -> OrchestrateResponse:
 async def run_all_agents(
     refresh: bool = False,
     confirmed: bool = True,
+    dispatch_squads: bool = False,
 ) -> OrchestrateResponse:
     """Run all six specialist frames in parallel."""
-    bundle = await run_all_specialist_frames(confirmed=confirmed, refresh=refresh)
-    rows = [_frame_run_response(r) for r in bundle.results]
+    from advoi.squads.orchestrate import run_six_with_platform
+
+    payload = await run_six_with_platform(
+        confirmed=confirmed,
+        refresh=refresh,
+        dispatch_squads=dispatch_squads,
+        retain_memory=True,
+    )
+    rows = [_frame_run_response(r) for r in payload["results"]]
     return OrchestrateResponse(
         results=rows,
-        agents_used=bundle.agents_used,
-        systems=bundle.systems,
-        spoken_summary=bundle.spoken_summary,
+        agents_used=payload["agents_used"],
+        systems=payload["systems"],
+        spoken_summary=payload["spoken_summary"],
+        squads=payload.get("squads"),
     )
+
+
+@app.get("/api/squads")
+async def list_squads() -> dict[str, Any]:
+    from advoi.squads.registry import squads_summary
+
+    return squads_summary()
+
+
+@app.post("/api/squads/dispatch")
+async def dispatch_squad(body: SquadDispatchRequest) -> dict[str, Any]:
+    from advoi.squads.dispatch import dispatch_squad_job
+
+    return await dispatch_squad_job(
+        body.squad_id,
+        action=body.action,
+        confirmed=body.confirmed,
+    )
+
+
+@app.post("/api/squads/dispatch-all")
+async def dispatch_all_squads_endpoint(confirmed: bool = True) -> dict[str, Any]:
+    from advoi.squads.orchestrate import dispatch_all_squads
+
+    return await dispatch_all_squads(confirmed=confirmed)
+
+
+@app.get("/api/diagnostics/platform")
+async def platform_diagnostics_endpoint() -> dict[str, Any]:
+    from advoi.diagnostics.platform import platform_diagnostics
+
+    return await platform_diagnostics()
 
 
 @app.get("/api/diagnostics/agents")
@@ -704,6 +752,17 @@ async def latency_diagnostics() -> dict[str, Any]:
 
     respond_latency = await _measure_respond_latency_ms()
     timings_ms["respond_ms"] = respond_latency.get("respond_ms")
+
+    run_six_ms: float | None = None
+    try:
+        started = time.perf_counter()
+        bundle = await run_all_specialist_frames(confirmed=True, refresh=True)
+        run_six_ms = round((time.perf_counter() - started) * 1000, 1)
+        timings_ms["run_six_ms"] = run_six_ms
+        timings_ms["run_six_frames"] = len(bundle.results)
+    except Exception as exc:
+        timings_ms["run_six_ms"] = None
+        timings_ms["run_six_error"] = str(exc)
 
     api_path_ms: float | None = None
     parts = [

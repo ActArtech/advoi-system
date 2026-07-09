@@ -137,6 +137,30 @@ async def _reply_operator_intent(intent: str) -> VoiceReply | None:
             agents_used=bundle.agents_used,
             systems=bundle.systems,
         )
+    if intent == "dispatch_squads":
+        from advoi.squads.orchestrate import run_six_with_platform
+
+        payload = await run_six_with_platform(
+            confirmed=True,
+            refresh=True,
+            dispatch_squads=True,
+            retain_memory=True,
+        )
+        squads = payload.get("squads") or {}
+        dispatched = squads.get("dispatched", 0)
+        total = squads.get("total", 0)
+        spoken = (
+            f"{payload['spoken_summary']} Dispatched {dispatched} of {total} execution squads."
+        )
+        return VoiceReply(
+            spoken=plain_copy(spoken),
+            action="dispatch_squads",
+            agent_id="systems-pulse",
+            agent_name="Systems Pulse",
+            frame_id="systems_pulse",
+            agents_used=payload["agents_used"],
+            systems=payload["systems"],
+        )
     return None
 
 
