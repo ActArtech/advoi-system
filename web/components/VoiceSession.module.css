@@ -81,6 +81,46 @@
   border-color: rgba(248, 113, 113, 0.35);
 }
 
+.deployWarn {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.operatorBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.opBtn {
+  flex: 1 1 auto;
+  min-width: 7rem;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.78rem;
+  background: rgba(15, 23, 42, 0.45);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.opBtn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.opBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+}
+
 .actions {
   margin-top: 1.25rem;
 }
@@ -114,8 +154,15 @@
 
 .frames {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   margin-top: 1.25rem;
+}
+
+@media (max-width: 480px) {
+  .frames {
+    grid-template-columns: 1fr;
+  }
 }
 
 .frameBtn {

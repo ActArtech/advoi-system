@@ -16,7 +16,14 @@ from advoi.routing.frame_runner import run_frame
 from advoi.routing.intent import resolve_voice_action
 from advoi.routing.orchestrator import systems_for_frame
 from advoi.voice.memory_hooks import retain_turn
+from advoi.voice.capabilities import (
+    classify_operator_intent,
+    spoken_capabilities_summary,
+    spoken_firstmate_access,
+    spoken_github_access,
+)
 from advoi.voice.prompts import LOCAL_VOICE_SESSION, build_warm_system_instruction
+from advoi.routing.orchestrator import run_frames_parallel, synthesize_systems_pulse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,10 +58,63 @@ def _agent_roster_context() -> str:
         spoken = str(payload.get("spoken_summary", ""))[:140]
         if spoken:
             lines.append(f"  Latest {agent.name}: {spoken}")
-    lines.append(
-        'For a full cross-system read, suggest "systems pulse" or Option D.'
-    )
+    lines.append('For a full cross-system read, suggest "systems pulse" or "run all agents".')
+    lines.append('For capabilities, user can say "what can you do".')
     return "\n".join(lines)
+
+
+async def _reply_operator_intent(intent: str) -> VoiceReply | None:
+    if intent == "capabilities":
+        spoken = spoken_capabilities_summary()
+        return VoiceReply(
+            spoken=spoken,
+            action="capabilities",
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+            systems=["operators"],
+        )
+    if intent == "firstmate_info":
+        return VoiceReply(
+            spoken=spoken_firstmate_access(),
+            action="firstmate_info",
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+            systems=["firstmate"],
+        )
+    if intent == "github_info":
+        return VoiceReply(
+            spoken=spoken_github_access(),
+            action="github_info",
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+            systems=["github", "firstmate"],
+        )
+    if intent == "run_all":
+        from advoi.decision.frames import FRAMES
+
+        frame_ids = [f.id for f in FRAMES if f.id != "systems_pulse"]
+        parallel = await run_frames_parallel(
+            frame_ids,  # type: ignore[arg-type]
+            confirmed=True,
+            refresh=True,
+        )
+        fleet = next((r for r in parallel if r.frame_id == "fleet_status"), None)
+        briefs = next((r for r in parallel if r.frame_id == "open_briefs"), None)
+        if fleet and briefs:
+            spoken, _ = synthesize_systems_pulse(fleet, briefs)
+        else:
+            spoken = "Ran all specialist agents. Say systems pulse for a merged summary."
+        agents_used = list({r.agent_id for r in parallel})
+        return VoiceReply(
+            spoken=plain_copy(spoken),
+            action="run_all",
+            agent_id="systems-pulse",
+            agent_name="Systems Pulse",
+            frame_id="systems_pulse",
+            agents_used=agents_used,
+            systems=["api", "firstmate", "memory"],
+        )
+    return None
 
 
 def _reply_from_frame(result) -> VoiceReply:
@@ -102,6 +162,17 @@ async def warm_spoken_reply(
             spoken="I did not catch that. Try again when you are ready.",
             action="chat",
         )
+
+    op = classify_operator_intent(text)
+    if op:
+        reply = await _reply_operator_intent(op)
+        if reply:
+            try:
+                await retain_turn(session_id=session_id, role="user", text=text)
+                await retain_turn(session_id=session_id, role="assistant", text=reply.spoken)
+            except Exception as exc:
+                _LOGGER.debug("voice operator retain skip: %s", exc)
+            return reply
 
     action = resolve_voice_action(text)
     if action["action"] == "frame":

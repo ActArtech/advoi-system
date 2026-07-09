@@ -6,7 +6,6 @@ import {
   Room,
   RoomEvent,
   Track,
-  createLocalAudioTrack,
 } from "livekit-client";
 import { stripEmDash } from "@/voice-interface/warmth";
 import styles from "./VoiceSession.module.css";
@@ -63,6 +62,17 @@ type LatencyDiagnostics = {
   };
 };
 
+type CapabilitiesPayload = {
+  specialist_count?: number;
+  frame_count?: number;
+  voice_commands?: { phrase: string; frame_id: string; label: string }[];
+  operators?: { id: string; label: string; voice_phrases?: string[] }[];
+  systems_access?: {
+    firstmate_fleet?: { configured?: boolean; active_slug?: string; github_repo?: string };
+    github?: { fleet_repo?: string; advoi_repo?: string };
+  };
+};
+
 const tokenEndpoint =
   process.env.NEXT_PUBLIC_LIVEKIT_TOKEN_ENDPOINT || "/api/livekit/token";
 const apiBase = process.env.NEXT_PUBLIC_ADVOI_API_URL?.replace(/\/$/, "") || "/api";
@@ -71,6 +81,9 @@ const FRAME_SHORT: Record<string, string> = {
   fleet_status: "fleet",
   open_briefs: "briefs",
   queue_deep_review: "review",
+  systems_pulse: "pulse",
+  memory_health: "memory",
+  guardian_status: "guardian",
 };
 
 function parseTimestamp(ts: number | string): number | null {
@@ -120,7 +133,23 @@ export function VoiceSession() {
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const [voiceDiag, setVoiceDiag] = useState<VoiceDiagnostics | null>(null);
   const [latencyDiag, setLatencyDiag] = useState<LatencyDiagnostics | null>(null);
-  const room = useMemo(() => new Room({ adaptiveStream: true, dynacast: true }), []);
+  const [micOn, setMicOn] = useState(false);
+  const [typedLine, setTypedLine] = useState("");
+  const [capabilities, setCapabilities] = useState<CapabilitiesPayload | null>(null);
+  const [operatorBusy, setOperatorBusy] = useState(false);
+  const room = useMemo(
+    () =>
+      new Room({
+        adaptiveStream: true,
+        dynacast: true,
+        audioCaptureDefaults: {
+          autoGainControl: true,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      }),
+    [],
+  );
 
   const loadReviewQueue = useCallback(() => {
     fetch(`${apiBase}/review-queue`)
@@ -170,6 +199,10 @@ export function VoiceSession() {
       .then((r) => r.json())
       .then((data) => setFrames(data.frames || []))
       .catch(() => setFrames([]));
+    fetch(`${apiBase}/capabilities`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setCapabilities(data as CapabilitiesPayload | null))
+      .catch(() => setCapabilities(null));
     loadAgents();
     loadReviewQueue();
     loadDiagnostics();
@@ -199,11 +232,26 @@ export function VoiceSession() {
       }
     };
 
+    const onMediaError = (error: Error) => {
+      setMicOn(false);
+      setState("error");
+      setStatus(stripEmDash(`Microphone error: ${error.message}. Check browser permissions.`));
+    };
+
     room.on(RoomEvent.ConnectionStateChanged, onState);
     room.on(RoomEvent.TrackSubscribed, attachRemoteAudio);
+    room.on(RoomEvent.MediaDevicesError, onMediaError);
+    room.on(RoomEvent.LocalTrackPublished, (pub) => {
+      if (pub.kind === Track.Kind.Audio) setMicOn(true);
+    });
+    room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+      if (pub.kind === Track.Kind.Audio) setMicOn(false);
+    });
 
     return () => {
       room.off(RoomEvent.ConnectionStateChanged, onState);
+      room.off(RoomEvent.TrackSubscribed, attachRemoteAudio);
+      room.off(RoomEvent.MediaDevicesError, onMediaError);
       room.disconnect();
     };
   }, [room]);
@@ -291,10 +339,116 @@ export function VoiceSession() {
     [apiBase, frames, loadAgents, loadReviewQueue, publishSpeak],
   );
 
+  const speakFromIntent = useCallback(
+    async (transcript: string) => {
+      const text = transcript.trim();
+      if (!text) return;
+      setStatus("Understanding...");
+      try {
+        const intentResp = await fetch(`${apiBase}/voice/intent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: text, preview: true }),
+        });
+        if (intentResp.ok) {
+          const data = await intentResp.json();
+          const preview = data.preview?.spoken_summary as string | undefined;
+          const frameId = data.frame_id as string | undefined;
+          if (preview) {
+            setStatus(stripEmDash(preview));
+            await publishSpeak(preview);
+            if (data.preview?.status === "confirmation_required" && frameId) {
+              setPendingConfirm(frameId);
+            }
+            return;
+          }
+          if (frameId && data.action === "frame") {
+            await runFrame(
+              frameId,
+              Boolean(data.confirmed),
+              frameId === "fleet_status" || frameId === "systems_pulse",
+            );
+            return;
+          }
+        }
+        const resp = await fetch(`${apiBase}/voice/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: text }),
+        });
+        if (resp.ok) {
+          const spoken = stripEmDash(String((await resp.json()).spoken || ""));
+          setStatus(spoken);
+          await publishSpeak(spoken);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Request failed";
+        setStatus(message);
+      }
+    },
+    [publishSpeak, runFrame],
+  );
+
+  const submitTypedLine = useCallback(() => {
+    const line = typedLine.trim();
+    if (!line) return;
+    setTypedLine("");
+    void speakFromIntent(line);
+  }, [speakFromIntent, typedLine]);
+
+  const runOperator = useCallback(
+    async (kind: "run_six" | "prewarm" | "capabilities") => {
+      if (operatorBusy) return;
+      setOperatorBusy(true);
+      try {
+        if (kind === "capabilities") {
+          await speakFromIntent("what can you do");
+          return;
+        }
+        if (kind === "prewarm") {
+          setStatus("Prewarming all specialist agents...");
+          const resp = await fetch(`${apiBase}/agents/prewarm`, { method: "POST" });
+          if (!resp.ok) throw new Error(`Prewarm returned ${resp.status}`);
+          const data = await resp.json();
+          const spoken = stripEmDash(
+            String(data.spoken_summary || "Agents prewarmed. Say systems pulse for a full read."),
+          );
+          setStatus(spoken);
+          await publishSpeak(spoken);
+          loadAgents();
+          return;
+        }
+        setStatus("Running all six specialist agents...");
+        const resp = await fetch(
+          `${apiBase}/agents/run-six?refresh=true&confirmed=true`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+        );
+        if (!resp.ok) throw new Error(`Run-six returned ${resp.status}`);
+        const data = await resp.json();
+        const spoken = stripEmDash(String(data.spoken_summary || "All agents finished."));
+        setStatus(spoken);
+        await publishSpeak(spoken);
+        loadAgents();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Operator action failed";
+        setStatus(message);
+      } finally {
+        setOperatorBusy(false);
+      }
+    },
+    [apiBase, loadAgents, operatorBusy, publishSpeak, speakFromIntent],
+  );
+
   const connect = useCallback(async () => {
     setState("connecting");
-    setStatus("Requesting token...");
+    setStatus("Requesting microphone access...");
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("This browser does not support microphone capture.");
+      }
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      setStatus("Requesting LiveKit token...");
       const resp = await fetch(tokenEndpoint, { method: "POST" });
       if (!resp.ok) {
         const status = resp.status;
@@ -310,19 +464,21 @@ export function VoiceSession() {
       const data = await resp.json();
       setRoomName(data.room_name || "");
 
-      const mic = await createLocalAudioTrack({
-        echoCancellation: true,
-        noiseSuppression: true,
-      });
       await room.connect(data.url, data.token);
       await room.startAudio();
-      await room.localParticipant.publishTrack(mic);
+      const micPub = await room.localParticipant.setMicrophoneEnabled(true);
+      if (!micPub) {
+        throw new Error("Microphone is blocked. Allow mic for this site and tap Connect again.");
+      }
+      setMicOn(true);
       room.remoteParticipants.forEach((participant) => {
         participant.audioTrackPublications.forEach((pub) => {
           if (pub.track) attachRemoteAudio(pub.track);
         });
       });
-      setStatus(`Joined ${data.room_name}. ADVoi should greet you.`);
+      setStatus(
+        `Joined ${data.room_name}. Mic on. Say fleet status, systems pulse, memory health, guardian status, or what can you do.`,
+      );
     } catch (err) {
       let message = err instanceof Error ? err.message : "Connection failed";
       const tokenHint =
@@ -338,8 +494,10 @@ export function VoiceSession() {
   }, [room]);
 
   const disconnect = useCallback(async () => {
+    await room.localParticipant.setMicrophoneEnabled(false);
     await room.disconnect();
     setState("idle");
+    setMicOn(false);
     setStatus("Session ended. Frames still work in text mode.");
     setPendingConfirm(null);
   }, [room]);
@@ -356,6 +514,9 @@ export function VoiceSession() {
   const agentsReady = agents.filter((a) => a.cached).length;
   const agentsTotal = agents.length || voiceDiag?.checks?.agents;
   const frameRunMs = latencyDiag?.timings_ms?.frame_run_ms;
+  const expectedFrames = capabilities?.frame_count ?? 6;
+  const deployStale = frames.length > 0 && frames.length < expectedFrames;
+  const fleetAccess = capabilities?.systems_access?.firstmate_fleet;
 
   return (
     <section className={styles.panel}>
@@ -393,9 +554,81 @@ export function VoiceSession() {
         </div>
       ) : null}
 
-      {state === "connected" ? (
-        <p className={styles.intentHint}>Try: fleet status, open briefs, queue review</p>
+      {deployStale ? (
+        <p className={styles.deployWarn}>
+          API shows {frames.length} of {expectedFrames} decision frames. Redeploy staging (
+          <code>staging-redeploy.sh</code>) for Options D-F and Aether.
+        </p>
       ) : null}
+
+      {fleetAccess?.configured ? (
+        <p className={styles.meta}>
+          FirstMate: {fleetAccess.active_slug || "connected"}
+          {fleetAccess.github_repo ? ` · ${fleetAccess.github_repo}` : ""}
+        </p>
+      ) : null}
+
+      {state === "connected" ? (
+        <p className={styles.intentHint}>
+          <span className={`${styles.micBadge} ${micOn ? styles.micOn : styles.micOff}`}>
+            Mic {micOn ? "on" : "off"}
+          </span>
+          {" "}Voice: fleet status, open briefs, systems pulse, memory health, guardian status, queue review,
+          run all agents, what can you do. Type below if mic fails.
+        </p>
+      ) : null}
+
+      <div className={styles.operatorBar} aria-label="Operator controls">
+        <button
+          type="button"
+          className={styles.opBtn}
+          disabled={operatorBusy}
+          onClick={() => void runOperator("run_six")}
+        >
+          Run all 6
+        </button>
+        <button
+          type="button"
+          className={styles.opBtn}
+          disabled={operatorBusy}
+          onClick={() => void runFrame("systems_pulse", false, true)}
+        >
+          Systems pulse
+        </button>
+        <button
+          type="button"
+          className={styles.opBtn}
+          disabled={operatorBusy}
+          onClick={() => void runOperator("prewarm")}
+        >
+          Prewarm
+        </button>
+        <button
+          type="button"
+          className={styles.opBtn}
+          disabled={operatorBusy}
+          onClick={() => void runOperator("capabilities")}
+        >
+          What can you do
+        </button>
+      </div>
+
+      <div className={styles.speakRow}>
+        <input
+          className={styles.speakInput}
+          type="text"
+          placeholder="Type a command (works without mic)"
+          value={typedLine}
+          onChange={(e) => setTypedLine(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitTypedLine();
+          }}
+          aria-label="Type voice command"
+        />
+        <button className={styles.speakSend} type="button" onClick={submitTypedLine} disabled={!typedLine.trim()}>
+          Send
+        </button>
+      </div>
 
       {agents.length > 0 ? (
         <div className={styles.agentRow} aria-label="Specialist agents">
@@ -484,12 +717,16 @@ export function VoiceSession() {
         })}
       </div>
       <p className={styles.hint}>
-        Three specialist agents run in the background. Tap frames anytime (text mode). Connect voice for TTS.
-        Shift+click fleet for a fresh read.
+        Control layer: six specialists, FirstMate read-only, Hermes memory, Aether portfolio. Tap frames or use
+        operator buttons. Shift+click fleet for a fresh read. Say first mate or github for access details.
       </p>
       <p className={styles.footer}>
+        <a className={styles.footerLink} href="/voice-server">
+          Server voice (no WebGPU)
+        </a>
+        {" · "}
         <a className={styles.footerLink} href="/voice-local">
-          Try client voice loop
+          Client voice loop
         </a>
       </p>
     </section>

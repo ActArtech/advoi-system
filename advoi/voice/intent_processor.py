@@ -9,6 +9,8 @@ from advoi.copy_style import plain_copy
 from advoi.decision.frames import FrameId
 from advoi.routing.frame_runner import run_frame
 from advoi.routing.intent import is_confirm_phrase, resolve_voice_action
+from advoi.voice.capabilities import classify_operator_intent
+from advoi.voice.respond import _reply_operator_intent
 from advoi.voice.memory_hooks import retain_turn
 
 _LOGGER = logging.getLogger(__name__)
@@ -75,6 +77,18 @@ async def maybe_handle_frame_intent(
     text = (transcript or "").strip()
     if not text:
         return False
+
+    op = classify_operator_intent(text)
+    if op:
+        reply = await _reply_operator_intent(op)
+        if reply:
+            try:
+                await retain_turn(session_id=session_id, role="user", text=text)
+                await retain_turn(session_id=session_id, role="assistant", text=reply.spoken)
+            except Exception as exc:
+                _LOGGER.debug("voice operator retain skip: %s", exc)
+            await speak(reply.spoken)
+            return True
 
     pending_frame = get_pending_frame(session_id)
     if pending_frame and is_confirm_phrase(text):

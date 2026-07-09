@@ -233,8 +233,28 @@ class VoiceIntentResponse(BaseModel):
     preview: FrameRunResponse | None = None
 
 
+@app.get("/api/capabilities")
+async def capabilities_catalog() -> dict[str, Any]:
+    from advoi.voice.capabilities import build_capabilities_payload
+
+    return build_capabilities_payload()
+
+
 @app.post("/api/voice/intent", response_model=VoiceIntentResponse)
 async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
+    from advoi.voice.capabilities import classify_operator_intent
+
+    op = classify_operator_intent(body.transcript)
+    if op:
+        return VoiceIntentResponse(
+            transcript=body.transcript,
+            action=op,
+            frame_id=None,
+            frame_label=None,
+            confirmed=None,
+            preview=None,
+        )
+
     action = resolve_voice_action(body.transcript)
     frame_id = action.get("frame_id") if action["action"] == "frame" else None
     confirmed = action.get("confirmed") if action["action"] == "frame" else None

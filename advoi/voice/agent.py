@@ -18,6 +18,7 @@ from advoi.voice.livekit_env import internal_livekit_url  # noqa: E402
 from advoi.voice.frame_dispatch import handle_frame_message  # noqa: E402
 from advoi.voice.intent_processor import build_intent_processor  # noqa: E402
 from advoi.voice.memory_hooks import build_memory_processor  # noqa: E402
+from advoi.voice.capabilities import build_capabilities_payload
 from advoi.voice.prompts import build_system_instruction  # noqa: E402
 from advoi.voice.tokens import default_room_name, mint_room_token  # noqa: E402
 
@@ -34,6 +35,10 @@ async def _memory_context() -> str:
 
 
 async def run_agent() -> None:
+    from advoi.observability.otel_setup import setup_otel
+
+    setup_otel(service_name="advoi-voice")
+
     from pipecat.audio.vad.silero import SileroVADAnalyzer
     from pipecat.frames.frames import TTSSpeakFrame
     from pipecat.pipeline.pipeline import Pipeline
@@ -62,7 +67,20 @@ async def run_agent() -> None:
 
     session_id = os.getenv("ADVOI_VOICE_SESSION_ID", "voice-main")
     memory_context = await _memory_context()
-    system_instruction = build_system_instruction(memory_context=memory_context)
+    cap = build_capabilities_payload()
+    cap_lines = [
+        f"Operator layer: {cap['specialist_count']} specialists, {cap['frame_count']} decision frames.",
+        "Voice: fleet status, open briefs, systems pulse, memory health, guardian status, queue deep review.",
+        "Meta: what can you do, run all agents.",
+    ]
+    fleet_sys = cap.get("systems_access", {}).get("firstmate_fleet", {})
+    if fleet_sys.get("configured"):
+        cap_lines.append(
+            f"FirstMate read-only: active {fleet_sys.get('active_slug')}, github {fleet_sys.get('github_repo')}."
+        )
+    system_instruction = build_system_instruction(
+        memory_context=memory_context + "\n" + "\n".join(cap_lines),
+    )
     memory_in = build_memory_processor(session_id)
     memory_out = build_memory_processor(session_id)
     worker_ref: list[PipelineWorker | None] = [None]
@@ -146,9 +164,11 @@ async def run_agent() -> None:
         greeted_participants.add(participant_id)
         await asyncio.sleep(0.5)
         logger.info("Greeting participant {}", participant_id)
-        await worker.queue_frame(
-            TTSSpeakFrame("Hi, I'm ADVoi. What should we look at in the portfolio today?")
+        greeting = (
+            "Hi, I'm ADVoi, your portfolio control layer. "
+            "Say fleet status, systems pulse, or what can you do."
         )
+        await worker.queue_frame(TTSSpeakFrame(greeting))
 
     @transport.event_handler("on_participant_connected")
     async def on_participant_connected(transport, participant_id):  # noqa: ARG001
