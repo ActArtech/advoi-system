@@ -147,6 +147,38 @@ services:
       redis:
         condition: service_healthy
 
+  advoi-agent-systems:
+    image: advoi/api:local
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: deploy/.env
+    command: ["python", "-m", "advoi.routing.agent_daemon", "systems-pulse"]
+    volumes:
+      - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  advoi-agent-memory:
+    image: advoi/api:local
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: deploy/.env
+    command: ["python", "-m", "advoi.routing.agent_daemon", "memory-scout"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  advoi-agent-guardian:
+    image: advoi/api:local
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: deploy/.env
+    command: ["python", "-m", "advoi.routing.agent_daemon", "guardian-sentinel"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
   # Pipecat + LiveKit voice agent
   advoi-voice:
     image: advoi/voice:local
