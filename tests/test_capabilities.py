@@ -69,6 +69,14 @@ async def test_warm_spoken_reply_github_info():
     assert "github" in reply.spoken.lower()
 
 
+@pytest.mark.asyncio
+async def test_warm_spoken_reply_run_all_agents():
+    reply = await warm_spoken_reply("run all agents")
+    assert reply.action == "run_all"
+    assert len(reply.agents_used or []) >= 6
+    assert "systems" in reply.spoken.lower()
+
+
 def test_capabilities_api(client):
     resp = client.get("/api/capabilities")
     assert resp.status_code == 200

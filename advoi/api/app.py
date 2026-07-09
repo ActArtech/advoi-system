@@ -22,7 +22,11 @@ from advoi.llm.openrouter import resolve_llm_credentials
 from advoi.routing.agents import AGENTS
 from advoi.routing.frame_runner import frame_to_dict, run_frame
 from advoi.routing.intent import frame_intent_label, resolve_voice_action
-from advoi.routing.orchestrator import run_frames_parallel, systems_for_frame
+from advoi.routing.orchestrator import (
+    run_all_specialist_frames,
+    run_frames_parallel,
+    systems_for_frame,
+)
 from advoi.voice.livekit_env import public_livekit_url
 from advoi.guardian.confirmation import frame_needs_confirmation, global_confirmation_enabled
 from advoi.observability.otel_setup import setup_otel
@@ -386,28 +390,13 @@ async def run_all_agents(
     confirmed: bool = True,
 ) -> OrchestrateResponse:
     """Run all six specialist frames in parallel."""
-    frame_ids = [f.id for f in FRAMES]
-    results = await run_frames_parallel(
-        frame_ids,  # type: ignore[arg-type]
-        confirmed=confirmed,
-        refresh=refresh,
-    )
-    agents_used: list[str] = []
-    systems: set[str] = set()
-    spoken_parts: list[str] = []
-    rows: list[FrameRunResponse] = []
-    for result in results:
-        agents_used.extend(result.detail.get("agents_used") or [result.agent_id])
-        systems.update(systems_for_frame(result.frame_id))
-        spoken_parts.append(result.spoken_summary)
-        rows.append(_frame_run_response(result))
-
-    deduped_agents = list(dict.fromkeys(agents_used))
+    bundle = await run_all_specialist_frames(confirmed=confirmed, refresh=refresh)
+    rows = [_frame_run_response(r) for r in bundle.results]
     return OrchestrateResponse(
         results=rows,
-        agents_used=deduped_agents,
-        systems=sorted(systems),
-        spoken_summary=" ".join(spoken_parts),
+        agents_used=bundle.agents_used,
+        systems=bundle.systems,
+        spoken_summary=bundle.spoken_summary,
     )
 
 

@@ -30,7 +30,6 @@ from advoi.routing.agent_control import (
     spoken_stop_agents,
     stop_agent_daemons,
 )
-from advoi.routing.orchestrator import run_frames_parallel, synthesize_systems_pulse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -126,29 +125,17 @@ async def _reply_operator_intent(intent: str) -> VoiceReply | None:
             systems=["redis", "agents"],
         )
     if intent == "run_all":
-        from advoi.decision.frames import FRAMES
+        from advoi.routing.orchestrator import run_all_specialist_frames
 
-        frame_ids = [f.id for f in FRAMES if f.id != "systems_pulse"]
-        parallel = await run_frames_parallel(
-            frame_ids,  # type: ignore[arg-type]
-            confirmed=True,
-            refresh=True,
-        )
-        fleet = next((r for r in parallel if r.frame_id == "fleet_status"), None)
-        briefs = next((r for r in parallel if r.frame_id == "open_briefs"), None)
-        if fleet and briefs:
-            spoken, _ = synthesize_systems_pulse(fleet, briefs)
-        else:
-            spoken = "Ran all specialist agents. Say systems pulse for a merged summary."
-        agents_used = list({r.agent_id for r in parallel})
+        bundle = await run_all_specialist_frames(confirmed=True, refresh=True)
         return VoiceReply(
-            spoken=plain_copy(spoken),
+            spoken=bundle.spoken_summary,
             action="run_all",
             agent_id="systems-pulse",
             agent_name="Systems Pulse",
             frame_id="systems_pulse",
-            agents_used=agents_used,
-            systems=["api", "firstmate", "memory"],
+            agents_used=bundle.agents_used,
+            systems=bundle.systems,
         )
     return None
 
