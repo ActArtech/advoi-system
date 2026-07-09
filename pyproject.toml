@@ -17,6 +17,7 @@ dependencies = [
     "psycopg[binary]>=3.1",
     "hindsight-client>=0.6.1",
     "fastapi>=0.115",
+    "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.32",
     "livekit>=0.17",
     "livekit-api>=0.8",

@@ -1,21 +1,33 @@
 # ingestion/
 
-Large text and document processing engine. Feeds structured knowledge into memory and ontology.
+Upload → parse → route to project → optional FirstMate dev dispatch.
 
-## Purpose
+## API
 
-- **Document intake** — PDF, markdown, transcripts, web captures
-- **Chunking & extraction** — semantic splits with provenance
-- **Embedding pipeline** — prepare vectors for retrieval (future)
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/ingestion/upload` | Multipart file upload + route |
+| GET | `/api/ingestion/items` | List inbox queue |
+| POST | `/api/ingestion/items/{id}/dispatch-dev` | Arm fleet + dispatch task to captain |
+| GET | `/api/ingestion/summary` | Queue counts |
 
-## Boundaries
+## Web UI
 
-| In scope | Out of scope |
-|----------|--------------|
-| Parse, chunk, normalize text | Voice session handling (→ `voice/`) |
-| Source metadata & lineage | Strategic briefs (→ `decision/`) |
-| Batch/async processing | Real-time routing (→ `routing/`) |
+`/ingest` — upload form, project hint, dispatch toggle.
 
-## Output
+## Flow
 
-Structured chunks with `{ source, timestamp, entity_refs[], content }` → `memory/` operational tier.
+```
+File → extract_text → route_document (Aether portfolio + fleet slug)
+     → store inbox → optional dispatch_item_dev → fm-hermes-trigger work
+```
+
+## Env
+
+- `ADVOI_INGESTION_PATH` — default `data/ingestion`
+- `ADVOI_INGEST_MAX_BYTES` — default 5MB
+- `ADVOI_FLEET_MOCK` — mock FirstMate dispatch in tests
+
+## Supported types (MVP)
+
+`.txt`, `.md`, `.json`, `.csv`, `.log`, `.yaml`

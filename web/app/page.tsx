@@ -11,6 +11,7 @@ export default function HomePage() {
       </header>
       <VoiceSession />
       <p style={{ marginTop: "1.25rem", fontSize: "0.9rem", color: "var(--muted)" }}>
+        <a href="/ingest">Upload and route</a> ·{" "}
         <a href="/dashboard">Agent dashboard (run 6)</a> ·{" "}
         <a href="/voice-server">Server voice loop</a> (no WebGPU) ·{" "}
         <a href="/voice-local">Client voice loop</a> (Kokoro + Parakeet)

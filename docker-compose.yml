@@ -46,6 +46,7 @@ services:
     volumes:
       - ${FIRSTMATE_FLEET_PATH:-/opt/firstmate-fleet}:/opt/firstmate-fleet:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
     depends_on:
       postgres:
         condition: service_healthy

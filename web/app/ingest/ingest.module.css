@@ -1,0 +1,155 @@
+.page {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.header {
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.lede {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.nav {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.nav a {
+  color: var(--accent);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.label input[type="text"] {
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #333);
+  background: var(--surface, #111);
+  color: inherit;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.form button {
+  align-self: flex-start;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #0a0a0a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.list h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.75rem;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card {
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border, #333);
+  background: var(--surface, #111);
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.summary {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.card button {
+  margin-top: 0.65rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.card button:disabled {
+  opacity: 0.5;
+}

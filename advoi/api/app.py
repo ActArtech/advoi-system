@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -279,6 +279,100 @@ async def fleet_trigger(body: FleetTriggerRequest) -> dict[str, Any]:
     if body.task:
         return await invoke_fleet_trigger(f"work {body.task}", project=body.project)
     raise HTTPException(status_code=400, detail="task required for custom work dispatch")
+
+
+class IngestDispatchRequest(BaseModel):
+    confirmed: bool = False
+    mode: str = "work"
+
+
+class IngestRerouteRequest(BaseModel):
+    project_hint: str | None = None
+
+
+@app.get("/api/ingestion/summary")
+async def ingestion_status() -> dict[str, Any]:
+    from advoi.ingestion.pipeline import ingestion_summary
+
+    return ingestion_summary()
+
+
+@app.get("/api/ingestion/items")
+async def ingestion_list(status: str | None = None) -> dict[str, Any]:
+    from advoi.ingestion.store import list_items
+
+    items = list_items(status=status)  # type: ignore[arg-type]
+    return {"items": [i.to_dict() for i in items], "count": len(items)}
+
+
+@app.get("/api/ingestion/items/{item_id}")
+async def ingestion_get(item_id: str) -> dict[str, Any]:
+    from advoi.ingestion.store import get_item
+
+    item = get_item(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Ingestion item not found")
+    return item.to_dict()
+
+
+@app.post("/api/ingestion/upload")
+async def ingestion_upload(
+    file: UploadFile = File(...),
+    project_hint: str | None = Form(None),
+    venture_hint: str | None = Form(None),
+    dispatch_dev: bool = Form(False),
+    confirmed: bool = Form(False),
+) -> dict[str, Any]:
+    from advoi.ingestion.pipeline import dispatch_item_dev, ingest_upload
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    item = await ingest_upload(
+        file.filename or "upload.txt",
+        data,
+        mime_type=file.content_type,
+        project_hint=project_hint,
+        venture_hint=venture_hint,
+    )
+    payload: dict[str, Any] = {"ok": item.status != "failed", "item": item.to_dict()}
+    if item.status == "failed":
+        payload["error"] = item.error
+        return payload
+
+    if dispatch_dev and item.dev_recommended:
+        dispatch = await dispatch_item_dev(item.id, confirmed=confirmed)
+        payload["dispatch"] = dispatch
+    return payload
+
+
+@app.post("/api/ingestion/items/{item_id}/route")
+async def ingestion_reroute(item_id: str, body: IngestRerouteRequest | None = None) -> dict[str, Any]:
+    from advoi.ingestion.pipeline import reroute_item
+
+    try:
+        item = await reroute_item(
+            item_id,
+            project_hint=body.project_hint if body else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"ok": True, "item": item.to_dict()}
+
+
+@app.post("/api/ingestion/items/{item_id}/dispatch-dev")
+async def ingestion_dispatch_dev(
+    item_id: str,
+    body: IngestDispatchRequest | None = None,
+) -> dict[str, Any]:
+    from advoi.ingestion.pipeline import dispatch_item_dev
+
+    req = body or IngestDispatchRequest()
+    return await dispatch_item_dev(
+        item_id,
+        confirmed=req.confirmed,
+        mode=req.mode,
+    )
 
 
 class VoiceRespondRequest(BaseModel):
