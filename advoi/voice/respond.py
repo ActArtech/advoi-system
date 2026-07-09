@@ -45,6 +45,11 @@ class VoiceReply:
     systems: list[str] = field(default_factory=list)
 
 
+_FLEET_WRITE_INTENTS = frozenset(
+    {"wake_firstmate", "start_development", "run_next_backlog", "fleet_stop"}
+)
+
+
 def _stop_agents_needs_confirm(transcript: str) -> bool:
     if os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() not in {
         "1",
@@ -80,7 +85,7 @@ def _agent_roster_context() -> str:
     return "\n".join(lines)
 
 
-async def _reply_operator_intent(intent: str) -> VoiceReply | None:
+async def _reply_operator_intent(intent: str, *, transcript: str = "") -> VoiceReply | None:
     if intent == "capabilities":
         spoken = spoken_capabilities_summary()
         return VoiceReply(
@@ -161,6 +166,29 @@ async def _reply_operator_intent(intent: str) -> VoiceReply | None:
             agents_used=payload["agents_used"],
             systems=payload["systems"],
         )
+    if intent in _FLEET_WRITE_INTENTS:
+        from advoi.fleet.trigger import fleet_trigger_from_voice
+
+        result = await fleet_trigger_from_voice(
+            intent,
+            transcript=transcript,
+            confirmed=True,
+        )
+        if result.get("status") == "confirmation_required":
+            return VoiceReply(
+                spoken=result.get("prompt", "Confirm yes to proceed."),
+                action="confirmation_required",
+                agent_id="advoi-core",
+                agent_name="ADVoi Core",
+                systems=["firstmate"],
+            )
+        return VoiceReply(
+            spoken=result.get("spoken", "Fleet action completed."),
+            action=intent,
+            agent_id="fleet-scout",
+            agent_name="Fleet Scout",
+            systems=["firstmate"],
+        )
     return None
 
 
@@ -219,8 +247,19 @@ async def warm_spoken_reply(
             agent_name="ADVoi Core",
             systems=["agents"],
         )
+    if op in _FLEET_WRITE_INTENTS:
+        from advoi.fleet.trigger import fleet_action_needs_confirm, fleet_confirm_prompt
+
+        if fleet_action_needs_confirm(text):
+            return VoiceReply(
+                spoken=fleet_confirm_prompt(op),
+                action="confirmation_required",
+                agent_id="advoi-core",
+                agent_name="ADVoi Core",
+                systems=["firstmate"],
+            )
     if op:
-        reply = await _reply_operator_intent(op)
+        reply = await _reply_operator_intent(op, transcript=text)
         if reply:
             try:
                 await retain_turn(session_id=session_id, role="user", text=text)

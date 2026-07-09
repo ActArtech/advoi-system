@@ -18,6 +18,10 @@ OperatorIntent = Literal[
     "dispatch_squads",
     "stop_agents",
     "restart_agents",
+    "wake_firstmate",
+    "start_development",
+    "run_next_backlog",
+    "fleet_stop",
 ]
 
 
@@ -30,6 +34,12 @@ def classify_operator_intent(transcript: str) -> OperatorIntent | None:
     text = (transcript or "").strip().lower()
     if not text:
         return None
+
+    from advoi.fleet.trigger import classify_fleet_voice_intent
+
+    fleet_op = classify_fleet_voice_intent(transcript)
+    if fleet_op:
+        return fleet_op
 
     if any(
         p in text
@@ -178,12 +188,40 @@ def build_capabilities_payload() -> dict[str, Any]:
             "voice_phrases": ["restart agents", "start agents again", "resume agents"],
             "api": "POST /api/agents/restart",
         },
+        {
+            "id": "wake_firstmate",
+            "label": "Arm FirstMate fleet loop (wake captain)",
+            "voice_phrases": ["wake firstmate", "arm fleet", "wake captain"],
+            "api": "POST /api/fleet/trigger",
+            "requires_confirmation": True,
+        },
+        {
+            "id": "start_development",
+            "label": "Start development on active or named project",
+            "voice_phrases": ["start development", "start development on clapart"],
+            "api": "POST /api/fleet/trigger",
+            "requires_confirmation": True,
+        },
+        {
+            "id": "run_next_backlog",
+            "label": "Dispatch next FirstMate backlog item to captain",
+            "voice_phrases": ["run next backlog", "next backlog item"],
+            "api": "POST /api/fleet/trigger",
+            "requires_confirmation": True,
+        },
+        {
+            "id": "fleet_stop",
+            "label": "Stop FirstMate fleet AFK loop",
+            "voice_phrases": ["stop fleet", "stop firstmate"],
+            "api": "POST /api/fleet/trigger",
+            "requires_confirmation": True,
+        },
     ]
 
     systems_access = {
         "firstmate_fleet": {
             "read": True,
-            "write": False,
+            "write": True,
             "path": str(_fleet_root()),
             "configured": fleet.get("profile_found", False),
             "active_slug": fleet.get("active_slug"),
@@ -236,6 +274,9 @@ def spoken_capabilities_summary() -> str:
         "Say queue deep review to queue desktop follow-up, then confirm yes.",
         "Say run all agents for a full parallel refresh.",
         "Say stop agents to pause background daemons, or restart agents to bring them back.",
+        "Say wake firstmate confirm to arm the FirstMate fleet loop.",
+        "Say start development on clapart confirm to arm fleet and dispatch the next backlog item.",
+        "Say run next backlog confirm to send the top queued task to the captain.",
     ]
     fleet = payload["systems_access"]["firstmate_fleet"]
     if fleet.get("configured"):
@@ -266,8 +307,10 @@ def spoken_firstmate_access() -> str:
     return (
         f"Yes. I have read-only access to FirstMate fleet at {root}. "
         f"Active slug is {slug}, mode {mode}, GitHub {repo}. "
-        "I do not execute crew jobs from voice yet; I surface status and route frames. "
-        "Say fleet status or systems pulse for a live read."
+        "Say wake firstmate confirm to arm the fleet loop, "
+        "start development on a project confirm to dispatch dev work, "
+        "or run next backlog confirm for the top queued item. "
+        "Say fleet status for a read-only snapshot."
     )
 
 

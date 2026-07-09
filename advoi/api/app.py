@@ -220,6 +220,67 @@ async def restart_agents() -> dict[str, Any]:
     return {**result, "spoken_summary": spoken_restart_agents(result)}
 
 
+class FleetTriggerRequest(BaseModel):
+    action: str
+    project: str | None = None
+    task: str | None = None
+    confirmed: bool = False
+    transcript: str | None = None
+
+
+@app.post("/api/fleet/trigger")
+async def fleet_trigger(body: FleetTriggerRequest) -> dict[str, Any]:
+    from advoi.fleet.trigger import (
+        FleetVoiceAction,
+        fleet_trigger_from_voice,
+        invoke_fleet_trigger,
+    )
+
+    allowed: tuple[FleetVoiceAction, ...] = (
+        "wake_firstmate",
+        "start_development",
+        "run_next_backlog",
+        "fleet_stop",
+    )
+    if body.action not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {body.action}")
+
+    transcript = body.transcript or body.action.replace("_", " ")
+    if body.project:
+        transcript = f"{transcript} on {body.project}"
+    if body.task:
+        transcript = f"{transcript} {body.task}"
+
+    if body.action == "wake_firstmate":
+        return await fleet_trigger_from_voice(
+            "wake_firstmate",
+            transcript=transcript,
+            confirmed=body.confirmed,
+        )
+    if body.action == "start_development":
+        return await fleet_trigger_from_voice(
+            "start_development",
+            transcript=transcript,
+            confirmed=body.confirmed,
+        )
+    if body.action == "run_next_backlog":
+        return await fleet_trigger_from_voice(
+            "run_next_backlog",
+            transcript=transcript,
+            confirmed=body.confirmed,
+        )
+    if body.action == "fleet_stop":
+        return await fleet_trigger_from_voice(
+            "fleet_stop",
+            transcript=transcript,
+            confirmed=body.confirmed,
+        )
+
+    if body.task:
+        return await invoke_fleet_trigger(f"work {body.task}", project=body.project)
+    raise HTTPException(status_code=400, detail="task required for custom work dispatch")
+
+
 class VoiceRespondRequest(BaseModel):
     transcript: str
     recent_phrases: list[str] = Field(default_factory=list)

@@ -18,14 +18,17 @@ fi
 _retain() {
   local summary="$1"
   local project="${2:-advoi}"
-  docker exec "${HERMES_CONTAINER}" python "${BRIDGE}" --json "$(cat <<EOF
+  if docker exec "${HERMES_CONTAINER}" python "${BRIDGE}" --json "$(cat <<EOF
 {"action":"retain","event_type":"decision_brief","summary":"${summary}","payload":{"project":"${project}","source":"seed-advoi-briefs"}}
 EOF
-)" >/dev/null
-  echo "  retained: ${summary}"
+)" >/dev/null 2>&1; then
+    echo "  retained: ${summary}"
+  else
+    echo "  WARN: Hindsight retain skipped (${summary})"
+  fi
 }
 
-echo "==> Seeding ADVoi decision briefs into Hindsight"
+echo "==> Seeding ADVoi decision briefs (Hindsight best-effort)"
 _retain "Open brief: ADVoi voice launch — validate PWA connect, frame buttons, and TTS on staging"
 _retain "Open brief: Shelve secrets — push fixed OPENAI_API_KEY to ktteam/advoi/staging"
 _retain "Open brief: Portfolio registration — add advoi row to vps-shared port registry"
