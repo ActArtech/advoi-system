@@ -397,12 +397,40 @@ export function VoiceSession() {
   }, [speakFromIntent, typedLine]);
 
   const runOperator = useCallback(
-    async (kind: "run_six" | "prewarm" | "capabilities") => {
+    async (kind: "run_six" | "prewarm" | "capabilities" | "stop_agents" | "restart_agents") => {
       if (operatorBusy) return;
       setOperatorBusy(true);
       try {
         if (kind === "capabilities") {
           await speakFromIntent("what can you do");
+          return;
+        }
+        if (kind === "stop_agents") {
+          setStatus("Pausing background agent daemons...");
+          const resp = await fetch(`${apiBase}/agents/stop`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ confirmed: true }),
+          });
+          const data = await resp.json();
+          const spoken = stripEmDash(
+            String(data.spoken_summary || "Background agents paused."),
+          );
+          setStatus(spoken);
+          await publishSpeak(spoken);
+          loadAgents();
+          return;
+        }
+        if (kind === "restart_agents") {
+          setStatus("Restarting agent daemons...");
+          const resp = await fetch(`${apiBase}/agents/restart`, { method: "POST" });
+          const data = await resp.json();
+          const spoken = stripEmDash(
+            String(data.spoken_summary || "Agents restarted."),
+          );
+          setStatus(spoken);
+          await publishSpeak(spoken);
+          loadAgents();
           return;
         }
         if (kind === "prewarm") {
@@ -574,7 +602,7 @@ export function VoiceSession() {
             Mic {micOn ? "on" : "off"}
           </span>
           {" "}Voice: fleet status, open briefs, systems pulse, memory health, guardian status, queue review,
-          run all agents, what can you do. Type below if mic fails.
+          run all agents, stop agents confirm, restart agents, what can you do. Type below if mic fails.
         </p>
       ) : null}
 
@@ -610,6 +638,22 @@ export function VoiceSession() {
           onClick={() => void runOperator("capabilities")}
         >
           What can you do
+        </button>
+        <button
+          type="button"
+          className={`${styles.opBtn} ${styles.opBtnDanger}`}
+          disabled={operatorBusy}
+          onClick={() => void runOperator("stop_agents")}
+        >
+          Stop agents
+        </button>
+        <button
+          type="button"
+          className={styles.opBtn}
+          disabled={operatorBusy}
+          onClick={() => void runOperator("restart_agents")}
+        >
+          Restart agents
         </button>
       </div>
 

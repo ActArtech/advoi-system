@@ -15,6 +15,8 @@ OperatorIntent = Literal[
     "firstmate_info",
     "github_info",
     "run_all",
+    "stop_agents",
+    "restart_agents",
 ]
 
 
@@ -58,6 +60,34 @@ def classify_operator_intent(transcript: str) -> OperatorIntent | None:
         )
     ):
         return "run_all"
+
+    if any(
+        p in text
+        for p in (
+            "restart agents",
+            "restart agent",
+            "start agents",
+            "start agent daemons",
+            "resume agents",
+            "bring agents back",
+            "run agents again",
+        )
+    ):
+        return "restart_agents"
+
+    if any(
+        p in text
+        for p in (
+            "stop agents",
+            "stop agent",
+            "pause agents",
+            "pause agent daemons",
+            "stop the system",
+            "stop background agents",
+            "halt agents",
+        )
+    ):
+        return "stop_agents"
 
     if "github" in text or "git hub" in text:
         if any(w in text for w in ("access", "have", "repo", "repository", "read")):
@@ -117,6 +147,19 @@ def build_capabilities_payload() -> dict[str, Any]:
             "label": "List what ADVoi can do",
             "voice_phrases": ["what can you do", "list commands"],
         },
+        {
+            "id": "stop_agents",
+            "label": "Pause background agent daemons",
+            "voice_phrases": ["stop agents", "pause agents", "stop the system"],
+            "api": "POST /api/agents/stop",
+            "requires_confirmation": True,
+        },
+        {
+            "id": "restart_agents",
+            "label": "Restart agent daemons and prewarm",
+            "voice_phrases": ["restart agents", "start agents again", "resume agents"],
+            "api": "POST /api/agents/restart",
+        },
     ]
 
     systems_access = {
@@ -174,6 +217,7 @@ def spoken_capabilities_summary() -> str:
         "Say memory health or guardian status for infrastructure checks.",
         "Say queue deep review to queue desktop follow-up, then confirm yes.",
         "Say run all agents for a full parallel refresh.",
+        "Say stop agents to pause background daemons, or restart agents to bring them back.",
     ]
     fleet = payload["systems_access"]["firstmate_fleet"]
     if fleet.get("configured"):

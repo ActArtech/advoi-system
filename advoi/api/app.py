@@ -185,6 +185,37 @@ async def prewarm_agents() -> dict[str, Any]:
     return {"prewarmed": len(results), **summary}
 
 
+@app.get("/api/agents/control")
+async def agents_control_status() -> dict[str, Any]:
+    from advoi.routing.agent_control import daemon_control_status
+
+    return daemon_control_status()
+
+
+@app.post("/api/agents/stop")
+async def stop_agents(body: FrameRunRequest | None = None) -> dict[str, Any]:
+    from advoi.routing.agent_control import spoken_stop_agents, stop_agent_daemons
+
+    confirmed = True if body is None else body.confirmed
+    if os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() in {"1", "true", "yes"}:
+        if not confirmed:
+            return {
+                "ok": False,
+                "status": "confirmation_required",
+                "spoken_summary": "Say stop agents confirm to pause background daemons.",
+            }
+    result = await stop_agent_daemons()
+    return {**result, "spoken_summary": spoken_stop_agents(result)}
+
+
+@app.post("/api/agents/restart")
+async def restart_agents() -> dict[str, Any]:
+    from advoi.routing.agent_control import restart_agent_daemons, spoken_restart_agents
+
+    result = await restart_agent_daemons()
+    return {**result, "spoken_summary": spoken_restart_agents(result)}
+
+
 class VoiceRespondRequest(BaseModel):
     transcript: str
     recent_phrases: list[str] = Field(default_factory=list)

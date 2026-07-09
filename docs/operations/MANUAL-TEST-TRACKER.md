@@ -63,10 +63,12 @@ These run in CI or via scripts. Re-run after every deploy.
 | systems pulse | Merged fleet + briefs + agent warmth |
 | memory health / guardian status | Infrastructure frames D/E |
 | run all agents | Parallel run-six summary |
+| stop agents confirm | Pause daemons + clear cache (confirmation required) |
+| restart agents | Resume ticks + prewarm all 6 |
 | do you use firstmate | Read-only fleet path + active slug |
 | do you have access to github | advoi-system + fleet github_repo |
 
-**PWA operator buttons:** Run all 6 · Systems pulse · Prewarm · What can you do
+**PWA operator buttons:** Run all 6 · Systems pulse · Prewarm · What can you do · Stop agents · Restart agents
 
 | # | Test | Steps | Status | Tester / date |
 |---|------|-------|--------|---------------|

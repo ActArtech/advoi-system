@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 
 import httpx
@@ -23,6 +24,12 @@ from advoi.voice.capabilities import (
     spoken_github_access,
 )
 from advoi.voice.prompts import LOCAL_VOICE_SESSION, build_warm_system_instruction
+from advoi.routing.agent_control import (
+    restart_agent_daemons,
+    spoken_restart_agents,
+    spoken_stop_agents,
+    stop_agent_daemons,
+)
 from advoi.routing.orchestrator import run_frames_parallel, synthesize_systems_pulse
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +44,17 @@ class VoiceReply:
     frame_id: str | None = None
     agents_used: list[str] = field(default_factory=list)
     systems: list[str] = field(default_factory=list)
+
+
+def _stop_agents_needs_confirm(transcript: str) -> bool:
+    if os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() not in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return False
+    lowered = transcript.lower()
+    return not any(w in lowered for w in ("confirm", "confirmed", "yes go ahead"))
 
 
 def _agent_roster_context() -> str:
@@ -88,6 +106,24 @@ async def _reply_operator_intent(intent: str) -> VoiceReply | None:
             agent_id="advoi-core",
             agent_name="ADVoi Core",
             systems=["github", "firstmate"],
+        )
+    if intent == "stop_agents":
+        result = await stop_agent_daemons(docker=False)
+        return VoiceReply(
+            spoken=spoken_stop_agents(result),
+            action="stop_agents",
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+            systems=["redis", "agents"],
+        )
+    if intent == "restart_agents":
+        result = await restart_agent_daemons(docker=False)
+        return VoiceReply(
+            spoken=spoken_restart_agents(result),
+            action="restart_agents",
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+            systems=["redis", "agents"],
         )
     if intent == "run_all":
         from advoi.decision.frames import FRAMES
@@ -164,6 +200,14 @@ async def warm_spoken_reply(
         )
 
     op = classify_operator_intent(text)
+    if op == "stop_agents" and _stop_agents_needs_confirm(text):
+        return VoiceReply(
+            spoken="To pause background agent daemons, say stop agents confirm.",
+            action="confirmation_required",
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+            systems=["agents"],
+        )
     if op:
         reply = await _reply_operator_intent(op)
         if reply:
