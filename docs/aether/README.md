@@ -14,7 +14,7 @@ Proactive cycle outputs for FirstMate’s `fm-aether-gate.sh` when `FM_ACTIVE_PR
 
 **Python validator:** `advoi.aether.proactive_schema.validate_proactive_payload` / `validate_proactive_file`.
 
-**T0:** `uv run pytest tests/test_aether_proactive_schema.py tests/test_aether_gate_artifacts.py tests/test_aether_feed_cron.py tests/test_aether_publish_atomic.py -q`
+**T0:** `uv run pytest tests/test_aether_proactive_schema.py tests/test_aether_gate_artifacts.py tests/test_aether_feed_cron.py tests/test_aether_publish_atomic.py tests/test_aether_gate_export.py -q`
 
 ## Fleet feed cron (`FM_AETHER_GATE_REQUIRED=1`)
 
@@ -45,3 +45,23 @@ bash scripts/aether-publish-atomic.sh
 
 Pure API: `advoi.aether.publish_atomic.publish_atomic` / `publish_from_paths`.  
 T0: `uv run pytest tests/test_aether_publish_atomic.py -q`
+
+## Gate snapshot export (git + PEL audit)
+
+Entrypoint: `scripts/aether-gate-export.sh` — copies fleet `aether-gate-latest.md` into the advoi tree and/or emits a PEL row so the gate is no longer VPS-only.
+
+| Sink | Default | Notes |
+|------|---------|-------|
+| Repo path | `data/aether/aether-gate-latest.md` | Git-auditable; optional `--git-commit` (no push) |
+| PEL | `governance_decision` / `payload.kind=gate_snapshot` | `source=aether`; needs `DATABASE_URL` or `ADVOI_PEL_MEMORY` |
+
+```bash
+bash scripts/aether-publish-atomic.sh
+bash scripts/aether-gate-export.sh
+# optional local commit of the snapshot file only:
+FM_AETHER_GATE_EXPORT_GIT_COMMIT=1 bash scripts/aether-gate-export.sh
+```
+
+Pure API: `advoi.aether.gate_export.export_gate_snapshot`.  
+Ops runbook: [../operations/README.md](../operations/README.md#aether-gate-snapshot-export-git--pel).  
+T0: `uv run pytest tests/test_aether_gate_export.py -q`

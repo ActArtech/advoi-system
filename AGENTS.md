@@ -33,7 +33,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Write API:** `advoi.analytics.pel.append_event` / `safe_append_event`; enums `EventSource`, `EventType`, `GuardianStatus`.
 - **Migration:** `deploy/migrations/001_portfolio_events.sql` (create + idempotent backfill). Inline `CREATE IF NOT EXISTS` also runs on first append when `DATABASE_URL` is set.
 - **Tests:** set `ADVOI_PEL_MEMORY=true` for in-memory rows (`memory_rows()` / `reset_memory_store()`); T0 `tests/test_portfolio_events.py`.
-- **Emit points:** `run_frame` → `frame_run`; `invoke_fleet_trigger` → `fleet_trigger`; confirmation → `guardian_gate`; voice frame/operator only → `voice_intent` (not Redis turns).
+- **Emit points:** `run_frame` → `frame_run`; `invoke_fleet_trigger` → `fleet_trigger`; confirmation → `guardian_gate`; voice frame/operator only → `voice_intent` (not Redis turns); gate export → `governance_decision` (`payload.kind=gate_snapshot`).
 - **ADR-026:** PEL is not a live Hindsight double-write. Payload excerpts only — no full fleet backlog dumps.
 - **Staging T2:** ROADMAP M10.4 — verify rows after fleet/frame on VPS Postgres.
 
@@ -164,3 +164,12 @@ Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
 - **Semantics:** all-or-nothing (stage under `.aether-publish-staging-*`, backup existing, `os.replace` each; restore on mid-commit failure). Failure leaves prior fleet files intact.
 - **Sources:** gate from `FM_AETHER_GATE_REPORT` (or `/data/aether-gate-latest.md`); proactive + directives from `docs/aether/`.
 - **T0:** `tests/test_aether_publish_atomic.py`.
+
+## Aether gate snapshot export (git + PEL)
+
+- **Why:** fleet `aether-gate-latest.md` was VPS-only (moat gap — no GitHub / PEL audit).
+- **Entrypoint:** `scripts/aether-gate-export.sh` → `advoi.aether.gate_export.export_gate_snapshot`.
+- **Repo sink:** `data/aether/aether-gate-latest.md` (git-auditable; optional `FM_AETHER_GATE_EXPORT_GIT_COMMIT=1` does local commit only, never push).
+- **PEL sink:** `source=aether` `type=governance_decision` `payload.kind=gate_snapshot` (+ `content_sha256`, verdict, active_slug).
+- **Post-gate sequence:** `fm-aether-gate.sh` → `aether-publish-atomic.sh` → `aether-gate-export.sh`.
+- **T0:** `tests/test_aether_gate_export.py`. Ops: `docs/operations/README.md`.

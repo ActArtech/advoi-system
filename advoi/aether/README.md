@@ -30,6 +30,7 @@ Letta (optional) or operational_store.jsonl
 | `service.py` | API facade |
 | `lifecycle.py` | Gate-aligned active venture + frame coverage |
 | `publish_atomic.py` | All-or-nothing write of gate + proactive + directives to fleet tree |
+| `gate_export.py` | Export fleet gate snapshot → repo path + PEL audit |
 | `feed_cron.py` | Gate-required skip policy for fleet feed cron |
 | `proactive_schema.py` | Validate proactive feed JSON Schema |
 
@@ -50,6 +51,8 @@ PWA surfaces `gate.verdict` + `gate.active_slug` from `GET /api/aether/status` o
 
 ```bash
 uv run advoi aether status
+# Export fleet aether-gate-latest.md → data/aether/ + PEL governance_decision
+bash scripts/aether-gate-export.sh
 ```
 
 ## Configuration

@@ -12,3 +12,38 @@ Runbooks for local development and staging validation.
 | [E2E-SIGNOFF.md](E2E-SIGNOFF.md) | Formal Path A sign-off template (incl. home briefs A17) |
 
 See also: [../VPS-SETUP.md](../VPS-SETUP.md) (8-step Aether checklist).
+
+## Aether gate snapshot export (git + PEL)
+
+The fleet runtime file `aether-gate-latest.md` used to be VPS-only (moat gap: no GitHub audit trail). Export it after each gate cycle or on a nightly cron so the artifact is auditable in **git** and/or **`portfolio_events`**.
+
+| Sink | Path / row | When |
+|------|------------|------|
+| Repo file (git) | `data/aether/aether-gate-latest.md` | Default write; commit via ops or `FM_AETHER_GATE_EXPORT_GIT_COMMIT=1` (no push) |
+| PEL | `source=aether`, `type=governance_decision`, `payload.kind=gate_snapshot` | Default when `DATABASE_URL` or `ADVOI_PEL_MEMORY=true` |
+
+**Entrypoint:** `scripts/aether-gate-export.sh` → `advoi.aether.gate_export`.
+
+```bash
+# Post-gate (after publish to fleet)
+FM_ACTIVE_PROJECT=advoi bash /opt/firstmate/scripts/fm-aether-gate.sh
+bash scripts/aether-publish-atomic.sh
+bash scripts/aether-gate-export.sh
+
+# Nightly cron example (fleet host)
+# 30 2 * * * FIRSTMATE_FLEET_PATH=/opt/firstmate-fleet \
+#   bash /data/projects/advoi/scripts/aether-gate-export.sh \
+#   >> /var/log/advoi-aether-gate-export.log 2>&1
+```
+
+| Flag / env | Effect |
+|------------|--------|
+| `--no-repo` / `FM_AETHER_GATE_EXPORT_NO_REPO=1` | PEL only |
+| `--no-pel` / `FM_AETHER_GATE_EXPORT_NO_PEL=1` | Repo file only |
+| `--git-commit` / `FM_AETHER_GATE_EXPORT_GIT_COMMIT=1` | `git add` + `git commit` dest when changed (never push) |
+| `FM_AETHER_GATE_REPORT` / `--source` | Override gate source path |
+| `FM_AETHER_GATE_EXPORT_DEST` / `--dest` | Override in-repo dest |
+
+**Pure API:** `export_gate_snapshot` / `export_gate_snapshot_sync`.  
+**T0:** `uv run pytest tests/test_aether_gate_export.py -q`  
+**Feed details:** [../aether/README.md](../aether/README.md).
