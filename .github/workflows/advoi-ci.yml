@@ -26,6 +26,11 @@ jobs:
       - name: Run pytest
         run: uv run pytest tests/ -q
 
+      - name: T2 smoke fixture parse (offline)
+        run: |
+          bash scripts/t2-staging-smoke.sh --fixture-dir tests/fixtures/t2-smoke
+          uv run pytest tests/test_t2_staging_smoke.py -q
+
   web:
     runs-on: ubuntu-latest
     steps:
@@ -83,6 +88,18 @@ jobs:
           curl -sf -X POST -H "Content-Type: application/json" -d '{}' \
             http://127.0.0.1:8010/api/frames/fleet_status/run
           curl -sf http://127.0.0.1:8010/api/review-queue
+
+  t2-staging-smoke:
+    # Live T2 against advoi-staging after merge to default branch (post-deploy gate).
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
+    env:
+      ADVOI_BASE_URL: https://advoi-staging.keyteller.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: T2 post-deploy curl smoke
+        run: bash scripts/t2-staging-smoke.sh
 
   staging-smoke:
     runs-on: ubuntu-latest

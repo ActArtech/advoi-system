@@ -52,15 +52,23 @@ for i in $(seq 1 30); do
 done
 
 API_HOST="${STOREFRONT_HOST:-advoi.keyteller.com}"
-curl -sf "https://${API_HOST}/api/health" || echo "WARN: health check failed"
-curl -sf -X POST "https://${API_HOST}/api/agents/run-six?refresh=true" -H "Content-Type: application/json" -d '{}' || true
-curl -sf "https://${API_HOST}/api/diagnostics/guardian" || echo "WARN: guardian diagnostics missing"
+# Prefer dedicated staging hostname when present; override with ADVOI_BASE_URL.
+SMOKE_BASE="${ADVOI_BASE_URL:-https://${API_HOST}}"
+curl -sf "${SMOKE_BASE}/api/health" || echo "WARN: health check failed"
+curl -sf -X POST "${SMOKE_BASE}/api/agents/run-six?refresh=true" -H "Content-Type: application/json" -d '{}' || true
+curl -sf "${SMOKE_BASE}/api/diagnostics/guardian" || echo "WARN: guardian diagnostics missing"
 if [[ "$OTEL_ON" == "true" ]]; then
-  curl -sf "https://${API_HOST}/api/diagnostics/platform" | grep -E 'otel_ready|OTEL' \
+  curl -sf "${SMOKE_BASE}/api/diagnostics/platform" | grep -E 'otel_ready|OTEL' \
     || echo "WARN: platform diagnostics / otel_ready check failed (collector or packages)"
 fi
 
-echo "Done. Expect agents_total=6 at https://${API_HOST}/api/health"
-if [[ "$OTEL_ON" == "true" ]]; then
-  echo "OTel: expect otel.enabled=true and otel_ready=true when collector is up"
+echo "==> T2 post-deploy smoke (${SMOKE_BASE})"
+if ADVOI_BASE_URL="${SMOKE_BASE}" bash "${ROOT}/scripts/t2-staging-smoke.sh"; then
+  echo "Done. T2 smoke passed at ${SMOKE_BASE}"
+  if [[ "$OTEL_ON" == "true" ]]; then
+    echo "OTel: expect otel.enabled=true and otel_ready=true when collector is up"
+  fi
+else
+  echo "FAIL: T2 post-deploy smoke failed — see scripts/t2-staging-smoke.sh" >&2
+  exit 1
 fi

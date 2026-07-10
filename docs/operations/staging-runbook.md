@@ -50,22 +50,55 @@ docker compose --profile app up -d --force-recreate advoi-voice
 
 ## Post-deploy smoke
 
+### T2 minimum (required after every app deploy)
+
+Canonical job: **`scripts/t2-staging-smoke.sh`** — curls `/api/health` (expects `agents_ready=6` and `agents_total=6`) and `/api/aether/status` (gate + frame_coverage + memory). **Exits non-zero on failure.**
+
+```bash
+# Default base is https://advoi-staging.keyteller.com
+bash scripts/t2-staging-smoke.sh
+
+# Production-facing staging host (legacy STOREFRONT_HOST)
+ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/t2-staging-smoke.sh
+```
+
+`scripts/staging-redeploy.sh` runs this automatically at the end of deploy.
+
+Offline / CI unit path (fixtures, no network):
+
+```bash
+bash scripts/t2-staging-smoke.sh --fixture-dir tests/fixtures/t2-smoke
+uv run pytest tests/test_t2_staging_smoke.py -q
+```
+
+Cron (optional VPS watch):
+
+```cron
+*/15 * * * * cd /opt/advoi && ADVOI_BASE_URL=https://advoi-staging.keyteller.com \
+  bash scripts/t2-staging-smoke.sh >> /var/log/advoi-t2-smoke.log 2>&1
+```
+
+### Extended smoke
+
 ```bash
 curl https://advoi-staging.keyteller.com/api/health
 bash scripts/voice-smoke-test.sh
 # Or:
 ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/agents-smoke-test.sh
 bash scripts/memory-health.sh
+# Full pre-human sign-off:
+ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/staging-signoff-precheck.sh
 ```
 
 Expected:
 
-- `/api/health` → `"stage": "voice-pwa-2"`
+- `/api/health` → `"stage": "voice-pwa-2"`, `agents_ready=6`, `agents_total=6`
+- `/api/aether/status` → 200 with `gate`, `frame_coverage`, `memory.letta_health`
 - `/api/diagnostics/voice` → `"ok": true` when keys set
 - All three frame POSTs return `spoken_summary`
 - `POST /api/voice/respond` → JSON with `spoken` (requires LLM keys)
 - `GET /api/frames` → each frame has `voice_prompt` (intent catalog)
-- `/api/agents` → three agents with `last_run` after ~45s
+- `/api/agents` → six agents with `last_run` after warmup
 
 ## Human E2E checklist (5 minutes)
 

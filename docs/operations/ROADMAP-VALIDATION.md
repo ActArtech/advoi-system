@@ -35,7 +35,7 @@ Use the **lowest tier that proves the change**. Do not skip tiers when promoting
 |------|------|-------------|------|
 | **T0** | Unit / integration | Every code change, pre-commit | `uv run pytest tests/ -q` — 100% pass |
 | **T1** | Local smoke | After T0, before push | `agents-smoke-test` against local API (`ADVOI_BASE_URL=http://127.0.0.1:8010`) |
-| **T2** | Staging API smoke | After VPS deploy | `staging-signoff-precheck` + targeted curls (see appendix) |
+| **T2** | Staging API smoke | After VPS deploy | `scripts/t2-staging-smoke.sh` (health agents=6 + aether/status); full gate: `staging-signoff-precheck` + appendix curls |
 | **T3** | Human E2E | Before production voice claim | [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) matrix + [E2E-SIGNOFF.md](E2E-SIGNOFF.md) |
 
 ### Tier rules
@@ -300,6 +300,21 @@ ADVOI_BASE_URL=http://127.0.0.1:8010 bash scripts/voice-smoke-test.sh
 
 ### T2 — staging smoke
 
+**Minimum post-deploy job** (non-zero exit on failure; also run by `staging-redeploy.sh`):
+
+```bash
+# Default: https://advoi-staging.keyteller.com
+bash scripts/t2-staging-smoke.sh
+
+ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/t2-staging-smoke.sh
+
+# T0 offline parse check
+bash scripts/t2-staging-smoke.sh --fixture-dir tests/fixtures/t2-smoke
+uv run pytest tests/test_t2_staging_smoke.py -q
+```
+
+Full pre-human gate:
+
 ```bash
 ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/staging-signoff-precheck.sh
 ```
@@ -311,9 +326,9 @@ ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/staging-signoff-
 #### T2 — targeted API checks
 
 ```bash
-BASE=https://advoi-staging.keyteller.com
+BASE="${ADVOI_BASE_URL:-https://advoi-staging.keyteller.com}"
 
-# Health + agents (expect 6 ready)
+# Health + agents (expect 6 ready) — or use scripts/t2-staging-smoke.sh
 curl -sf "$BASE/api/health"
 curl -sf "$BASE/api/agents" | python3 -m json.tool
 
@@ -354,6 +369,9 @@ curl -sf -X POST -H "Content-Type: application/json" \
 ssh deploy@187.77.140.216
 bash /var/www/advoi/promote-to-staging.sh
 # or: bash /var/www/advoi/deploy-staging.sh
+# Minimum T2 (also run by staging-redeploy.sh):
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/t2-staging-smoke.sh
+# Full pre-human gate:
 ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/staging-signoff-precheck.sh
 ```
 
@@ -379,3 +397,4 @@ ssh deploy@187.77.140.216 "cd /var/www/advoi/staging && git pull --ff-only"
 | 2026-07-10 | www staging tier: `advoi-staging.keyteller.com`, `/var/www/advoi/staging`, T2 commands updated. |
 | 2026-07-10 | T2 validation run: precheck pass, M1.4 aether 200, appendix fleet curl fixed; baseline SHA `5d50805`. |
 | 2026-07-10 | M10 PEL schema + emit T0; cross-link T2 M10.4 staging row check (`advoi-analytics-pel-schema-01`). |
+| 2026-07-10 | T2 post-deploy job: `scripts/t2-staging-smoke.sh` + `t2_validate.py` (health agents=6, aether/status); fixture T0 tests; wired into `staging-redeploy.sh`. Default host `advoi-staging.keyteller.com`. |

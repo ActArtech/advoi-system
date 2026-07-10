@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "service": "advoi-api",
+  "version": "0.1.0",
+  "stage": "voice-pwa-2",
+  "agents_ready": 6,
+  "agents_total": 6
+}

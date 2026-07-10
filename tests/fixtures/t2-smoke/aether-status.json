@@ -1,0 +1,27 @@
+{
+  "gate": {
+    "found": true,
+    "verdict": "pass",
+    "active_slug": "advoi"
+  },
+  "active_venture": {
+    "id": "advoi-system",
+    "name": "ADVoi System",
+    "status": "active"
+  },
+  "active_venture_resolved": true,
+  "portfolio_total": 4,
+  "frame_coverage": {
+    "fleet_status": "advoi-system",
+    "systems_pulse": "advoi-system"
+  },
+  "unmapped_frames": [],
+  "letta_enabled": false,
+  "memory": {
+    "letta_enabled": false,
+    "letta_health": {
+      "ok": false,
+      "reason": "disabled"
+    }
+  }
+}

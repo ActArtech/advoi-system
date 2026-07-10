@@ -1,0 +1,6 @@
+{
+  "ok": true,
+  "service": "advoi-api",
+  "agents_ready": 3,
+  "agents_total": 3
+}

@@ -97,3 +97,11 @@ Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
 - **Diagnostics:** `GET /api/diagnostics/platform` → `otel.otel_ready` / top-level `otel_ready` (enabled + packages + TCP collector reachable).
 - **T0:** `tests/test_guardian_trace_id.py`, `tests/test_otel_setup.py`. Staging steps in `docs/operations/MANUAL-TEST-TRACKER.md` (O5 / OT1–OT4).
 - **VPS:** promote/SSH may be parked — land on `develop` first; apply env on VPS when reachable.
+
+## Staging T2 smoke
+
+- Post-deploy minimum gate: `scripts/t2-staging-smoke.sh` (default base `https://advoi-staging.keyteller.com`).
+- Asserts `GET /api/health` with `agents_ready=6` and `agents_total=6`, and `GET /api/aether/status` shape (`gate`, `frame_coverage`, `memory.letta_health`).
+- Exits non-zero on failure; called at end of `scripts/staging-redeploy.sh`.
+- Offline parse tests: `bash scripts/t2-staging-smoke.sh --fixture-dir tests/fixtures/t2-smoke` and `uv run pytest tests/test_t2_staging_smoke.py`.
+- Validators live in `scripts/t2_validate.py` (no network).
