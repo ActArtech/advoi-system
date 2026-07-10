@@ -10,6 +10,10 @@ import {
 import { stripEmDash } from "@/voice-interface/warmth";
 import styles from "./VoiceSession.module.css";
 import {
+  latencyChipModel,
+  type LatencyDiagnostics,
+} from "./latencyChip";
+import {
   INITIAL_UI_SESSION,
   reduceUiSession,
   uiStateLabel,
@@ -55,15 +59,6 @@ type VoiceDiagnostics = {
   checks?: {
     agents?: number;
     frame_run_ms?: number;
-  };
-};
-
-type LatencyDiagnostics = {
-  ok: boolean;
-  sla_ok?: boolean;
-  sla_target_ms?: number;
-  timings_ms?: {
-    frame_run_ms?: number | null;
   };
 };
 
@@ -179,17 +174,32 @@ export function VoiceSession() {
       .catch(() => setReviewQueue([]));
   }, []);
 
+  const loadLatency = useCallback(() => {
+    fetch(`${apiBase}/diagnostics/latency`)
+      .then((r) => {
+        if (!r.ok) {
+          setLatencyDiag({ ok: false, error: `HTTP ${r.status}` });
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (data) setLatencyDiag(data as LatencyDiagnostics);
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "fetch failed";
+        setLatencyDiag({ ok: false, error: message });
+      });
+  }, []);
+
   const loadDiagnostics = useCallback(() => {
     fetch(`${apiBase}/diagnostics/voice`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setVoiceDiag(data as VoiceDiagnostics | null))
       .catch(() => setVoiceDiag(null));
 
-    fetch(`${apiBase}/diagnostics/latency`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setLatencyDiag(data as LatencyDiagnostics | null))
-      .catch(() => setLatencyDiag(null));
-  }, []);
+    loadLatency();
+  }, [loadLatency]);
 
   const loadAgents = useCallback(() => {
     fetch(`${apiBase}/agents`)
@@ -336,6 +346,8 @@ export function VoiceSession() {
         );
         await publishSpeak(spoken);
         loadAgents();
+        // Refresh SLA chip without full page reload (ship #2).
+        loadLatency();
         if (frameId === "queue_deep_review" && data.status === "ok") {
           const detail = data.detail as {
             brief_url?: string;
@@ -367,7 +379,7 @@ export function VoiceSession() {
         setActiveFrame(null);
       }
     },
-    [apiBase, frames, loadAgents, loadReviewQueue, publishSpeak, voiceConnected],
+    [apiBase, frames, loadAgents, loadLatency, loadReviewQueue, publishSpeak, voiceConnected],
   );
 
   const speakFromIntent = useCallback(
@@ -559,6 +571,7 @@ export function VoiceSession() {
           await publishSpeak(spoken);
           dispatchUi({ type: "FRAME_OK" });
           loadAgents();
+          loadLatency();
           return;
         }
         if (kind === "restart_agents") {
@@ -572,6 +585,7 @@ export function VoiceSession() {
           await publishSpeak(spoken);
           dispatchUi({ type: "FRAME_OK" });
           loadAgents();
+          loadLatency();
           return;
         }
         if (kind === "prewarm") {
@@ -586,6 +600,7 @@ export function VoiceSession() {
           await publishSpeak(spoken);
           dispatchUi({ type: "FRAME_OK" });
           loadAgents();
+          loadLatency();
           return;
         }
         const dispatchSquads = kind === "run_six_squads";
@@ -614,6 +629,8 @@ export function VoiceSession() {
         await publishSpeak(spoken);
         dispatchUi({ type: "FRAME_OK" });
         loadAgents();
+        // Run-six / prewarm complete — refresh SLA chip (frame_run_ms + run_six_ms).
+        loadLatency();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Operator action failed";
         dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" });
@@ -622,7 +639,7 @@ export function VoiceSession() {
         setOperatorBusy(false);
       }
     },
-    [apiBase, loadAgents, operatorBusy, publishSpeak, speakFromIntent],
+    [apiBase, loadAgents, loadLatency, operatorBusy, publishSpeak, speakFromIntent],
   );
 
   const connect = useCallback(async () => {
@@ -701,7 +718,7 @@ export function VoiceSession() {
 
   const agentsReady = agents.filter((a) => a.cached).length;
   const agentsTotal = agents.length || voiceDiag?.checks?.agents;
-  const frameRunMs = latencyDiag?.timings_ms?.frame_run_ms;
+  const slaChip = latencyChipModel(latencyDiag);
   const expectedFrames = capabilities?.frame_count ?? 6;
   const deployStale = frames.length > 0 && frames.length < expectedFrames;
   const fleetAccess = capabilities?.systems_access?.firstmate_fleet;
@@ -711,22 +728,43 @@ export function VoiceSession() {
   return (
     <section className={styles.panel} data-ui-state={state}>
       <div className={styles.statusRow}>
-        <span
-          className={`${styles.stateChip} ${styles[state]}`}
-          data-testid="ui-state-chip"
-          data-state={state}
-          title={`UI state: ${state}`}
-        >
-          <span className={`${styles.dot} ${styles[state]}`} aria-hidden />
-          <span className={styles.stateChipLabel}>{stateLabel}</span>
-        </span>
+        <div className={styles.chipGroup}>
+          <span
+            className={`${styles.stateChip} ${styles[state]}`}
+            data-testid="ui-state-chip"
+            data-state={state}
+            title={`UI state: ${state}`}
+          >
+            <span className={`${styles.dot} ${styles[state]}`} aria-hidden />
+            <span className={styles.stateChipLabel}>{stateLabel}</span>
+          </span>
+          <span
+            className={`${styles.latencyChip} ${styles[slaChip.tone]}`}
+            data-testid="sla-latency-chip"
+            data-tone={slaChip.tone}
+            data-available={slaChip.available ? "true" : "false"}
+            data-sla-ok={
+              slaChip.slaOk === null ? "unknown" : slaChip.slaOk ? "true" : "false"
+            }
+            data-frame-ms={
+              slaChip.frameRunMs != null ? String(slaChip.frameRunMs) : ""
+            }
+            data-run-six-ms={
+              slaChip.runSixMs != null ? String(slaChip.runSixMs) : ""
+            }
+            title={slaChip.title}
+            aria-label={slaChip.title}
+          >
+            {slaChip.label}
+          </span>
+        </div>
         <p className={styles.status} role="status" aria-live="polite">
           {status}
         </p>
       </div>
       {roomName ? <p className={styles.meta}>Room: {roomName}</p> : null}
 
-      {voiceDiag || latencyDiag ? (
+      {voiceDiag || agentsTotal != null ? (
         <div className={styles.systemHealth} aria-label="System health">
           {voiceDiag ? (
             <span
@@ -738,17 +776,6 @@ export function VoiceSession() {
           {agentsTotal != null ? (
             <span className={styles.healthItem}>
               Agents: {agents.length > 0 ? `${agentsReady}/${agentsTotal}` : `?/${agentsTotal}`}
-            </span>
-          ) : null}
-          {frameRunMs != null ? (
-            <span className={styles.healthItem}>Frame: {frameRunMs}ms</span>
-          ) : null}
-          {latencyDiag?.sla_ok != null ? (
-            <span
-              className={`${styles.healthBadge} ${latencyDiag.sla_ok ? styles.healthOk : styles.healthWarn}`}
-            >
-              SLA {latencyDiag.sla_ok ? "ok" : "miss"}
-              {latencyDiag.sla_target_ms != null ? ` (${latencyDiag.sla_target_ms}ms)` : ""}
             </span>
           ) : null}
         </div>

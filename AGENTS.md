@@ -48,3 +48,11 @@ Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
 - Visible status chip: `data-testid="ui-state-chip"` / `data-state={state}`.
 - Pure reducer unit-tested via `tests/test_voice_session_state.py` (keep TS + Python in sync).
 - Playwright stub: `web/e2e/voice-session-state.spec.ts` (not CI-wired).
+
+## PWA SLA latency chip (ship #2)
+
+- Chip sits beside the state chip: `data-testid="sla-latency-chip"`.
+- Fed by `GET /api/diagnostics/latency` (`timings_ms.frame_run_ms`, `timings_ms.run_six_ms`, `sla_ok`).
+- Pure model: `web/components/latencyChip.ts` → `latencyChipModel`; Python mirror `tests/test_latency_chip.py`.
+- VoiceSession refreshes latency after successful frame run / operator completion (no full reload).
+- Graceful empty/error: `SLA —` / `SLA err` when diagnostics unavailable.

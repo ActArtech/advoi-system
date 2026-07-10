@@ -103,6 +103,57 @@
   background: var(--muted);
 }
 
+/* SLA latency chip (ship #2) — sits beside the UI state chip */
+.chipGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.latencyChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.55);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.latencyChip.ok {
+  color: var(--ok);
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+.latencyChip.warn {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.latencyChip.empty {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.latencyChip.error {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
 .status {
   margin: 0;
   line-height: 1.5;

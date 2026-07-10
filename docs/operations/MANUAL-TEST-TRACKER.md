@@ -86,6 +86,7 @@ These run in CI or via scripts. Re-run after every deploy.
 | A9 | Review queue panel | Pending items show in PWA | **Not tested** | |
 | A10 | Agent freshness | `last_run` chips update after interval | **Automated** (API) | staging 2026-07-08 |
 | A11 | UI state machine chip | Open `/` — chip shows **Idle**; Connect → **Connecting** → **Connected**; tap a frame → **Frame running**; frame with Guardian confirm (e.g. deep review) → **Confirm pending**; force LiveKit/token fail → **Error**. Labels: idle, connecting, connected, frame_running, confirm_pending, error. Screenshot: `web/e2e/artifacts/ui-state-chip.png` (Playwright stub `web/e2e/voice-session-state.spec.ts`). Unit: `tests/test_voice_session_state.py`. | **Not tested** (automated reducer) | |
+| A12 | SLA latency chip | Open `/` — chip `data-testid="sla-latency-chip"` sits beside the UI state chip. Initial load may show **SLA —** (empty) or populated timings from `GET /api/diagnostics/latency`. After a frame run (or Run all 6), chip updates **without full page reload** with `frame_run_ms` and `run_six_ms` (e.g. `SLA ok · frame 0.4ms · six 42ms`). Kill/block diagnostics → **SLA —** or **SLA err** (no crash). Screenshot: `web/e2e/artifacts/sla-latency-chip.png`. Unit: `tests/test_latency_chip.py`. Stub: `web/e2e/voice-session-latency.spec.ts`. | **Not tested** (automated model) | |
 
 ### Path B — Client voice (`/voice-local`)
 
