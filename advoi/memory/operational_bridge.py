@@ -33,10 +33,15 @@ async def retain_operational_unified(
 
 
 async def operational_diagnostics() -> dict[str, Any]:
+    from advoi.memory.retain_metrics import retain_metrics_snapshot
+
     cfg = load_letta_config()
     health = await probe_health(cfg) if cfg.enabled else {"ok": False, "reason": "disabled"}
+    metrics = retain_metrics_snapshot()
     return {
         "letta_enabled": cfg.enabled,
         "letta_base_url": bool(cfg.base_url),
         "letta_health": health,
+        "retain_failure_count": metrics["retain_failure_count"],
+        "last_retain_failure": metrics["last_retain_failure"],
     }

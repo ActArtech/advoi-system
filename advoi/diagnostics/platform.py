@@ -49,6 +49,7 @@ async def platform_diagnostics() -> dict[str, Any]:
     squads = squads_summary()
     otel = otel_diagnostics()
     letta_on = memory.get("letta_enabled", False)
+    retain_failures = int(memory.get("retain_failure_count") or 0)
     return {
         "ok": True,
         "stage": "platform-m4",
@@ -57,6 +58,7 @@ async def platform_diagnostics() -> dict[str, Any]:
         "memory": memory,
         "letta_enabled": letta_on,
         "operational_bridge": "letta" if letta_on else "operational_store",
+        "retain_failure_count": retain_failures,
         "otel": otel,
         "otel_ready": otel.get("otel_ready", False),
         "squads": squads,

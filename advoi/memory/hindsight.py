@@ -224,10 +224,13 @@ async def retain_strategic(
     """Retain strategic fact in Hindsight.
 
     ADR-026 Never-rule: fleet backlog text is rejected and never persisted.
+    Operational failures (bridge/client) log WARNING and increment retain metrics.
     """
+    from advoi.memory.retain_metrics import record_retain_failure
     from advoi.memory.write_targets import payload_has_fleet_backlog
 
     if payload_has_fleet_backlog(payload):
+        # Policy reject — intentional, not a backend retain failure metric.
         _LOGGER.warning(
             "hindsight retain rejected: fleet backlog text is not strategic memory (event=%s)",
             event_type,
@@ -249,9 +252,25 @@ async def retain_strategic(
                 summary=summary,
                 payload=payload,
             )
-            return bool(isinstance(data, dict) and data.get("ok"))
+            ok = bool(isinstance(data, dict) and data.get("ok"))
+            if not ok:
+                bridge_err = ""
+                if isinstance(data, dict):
+                    bridge_err = str(data.get("error") or data.get("detail") or "")[:200]
+                record_retain_failure(
+                    backend="hindsight",
+                    event_type=event_type,
+                    reason="bridge_not_ok" if data is not None else "bridge_unavailable",
+                    detail=bridge_err,
+                )
+            return ok
 
         return await _retain_direct(event_type, summary, payload)
     except Exception as exc:
-        _LOGGER.debug("hindsight retain unavailable: %s", exc)
+        record_retain_failure(
+            backend="hindsight",
+            event_type=event_type,
+            reason=type(exc).__name__,
+            detail=str(exc)[:200],
+        )
         return False

@@ -94,6 +94,8 @@ async def retain_passage(
     *,
     cfg: LettaConfig | None = None,
 ) -> bool:
+    from advoi.memory.retain_metrics import record_retain_failure
+
     c = cfg or load_letta_config()
     if not c.enabled or not c.base_url:
         return False
@@ -108,7 +110,20 @@ async def retain_passage(
                 f"/v1/agents/{c.agent_id}/archival-memory",
                 json={"text": f"[{event_type}] {summary}"},
             )
-            return resp.status_code in (200, 201)
+            if resp.status_code in (200, 201):
+                return True
+            record_retain_failure(
+                backend="letta",
+                event_type=event_type,
+                reason=f"http_{resp.status_code}",
+                detail=resp.text[:200] if resp.text else "",
+            )
+            return False
     except Exception as exc:
-        _LOGGER.debug("letta retain unavailable: %s", exc)
+        record_retain_failure(
+            backend="letta",
+            event_type=event_type,
+            reason=type(exc).__name__,
+            detail=str(exc)[:200],
+        )
         return False
