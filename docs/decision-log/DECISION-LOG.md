@@ -71,11 +71,13 @@
 | ADR-025 | OpenRouter for Model Routing Experiments | Accepted | 2026-07-07 |
 | ADR-026 | Memory Stack — Hindsight ± Letta | Accepted | 2026-07-07 |
 | ADR-027 | Portfolio Event Log as control-plane event authority | Accepted | 2026-07-10 |
+| ADR-028 | Guardian hard-gate on fm-bridge write path | Accepted | 2026-07-10 |
 
-### Batch notes (no new ADR)
+### Batch notes (no new ADR / ADR refs)
 
 | Date | Batch | Note |
 |------|-------|------|
+| 2026-07-10 | wave 4 Aether/system/arch | **ADR-028** (write-path hard-gate). Aether feed skip + atomic publish + gate export implement ADR-005 / ADR-027 without extra ADRs. Vertical boundaries doc codifies target import/write rules (`06-vertical-boundaries.md`). |
 | 2026-07-10 | wave 3 PWA interaction slice | **No new ADR.** Aether gate chip, confirm parity (voice+tap), install strip + morning pulse CTA, and home briefs/review surface are PWA product implementation under ADR-001/002/012. Thin `GET /api/briefs` reuses Brief Curator PG→Redis (ADR-026). `ANALYTICS-FUNNEL.md` documents PEL beacon stages under ADR-027. Confirm copy parity is UX consistency, not a new confirmation model. |
 | 2026-07-10 | PWA home briefs surface | **No new ADR.** Thin `GET /api/briefs` reuses Brief Curator PG→Redis path (ADR-026); intentional split — home cards never Hindsight-merge; voice `open_briefs` may enrich when empty. Single home review-queue UI (not VoiceSession). Product surface under ADR-001/012. |
 | 2026-07-10 | wave 2 PWA/analytics/aether | **No new ADR.** PWA `POST /api/events` beacon extends ADR-027. OTEL + guardian `trace_id` implements roadmap M4.5–M4.6. fm-bridge 60s idempotency is operational hardening. UI state machine / recovery are PWA product implementation under ADR-001/002. |
@@ -777,6 +779,48 @@ Postgres already has thin `memory_events` rows written via structured retain. Mo
 - [x] Design doc + migration plan
 - [ ] Staging M10.4: ≥1 row after fleet/frame with `DATABASE_URL`
 - [ ] Deprecate/drop `memory_events` after soak (not yet)
+
+---
+
+## ADR-028: Guardian hard-gate on fm-bridge write path
+
+**Date:** 2026-07-10  
+**Status:** Accepted  
+**Deciders:** Architecture audit `advoi-arch-write-path-audit-01` + vertical boundaries  
+**Ship:** `61de279` · evidence [audit.md](../../data/feedback-evidence/advoi-arch-write-path-audit-01/audit.md)  
+**Related:** ADR-006 (Guardian security) · [06-vertical-boundaries.md](../architecture/06-vertical-boundaries.md)
+
+### Context
+
+Fleet live invoke shells to `scripts/fm-bridge.sh` → FirstMate. Vertical-boundary rules require every consequential write to evaluate Guardian first. Audit found `invoke_fleet_trigger` had **no structural hard-gate**: any importer could spawn the bridge when confirmation policy was on, and the HTTP fleet endpoint retained a latent free-form invoke branch. Convention (callers “should” gate) was insufficient for P0 safety.
+
+### Options Considered
+
+1. **Document-only** — review checklist; keep soft convention  
+2. **Hard-gate in `invoke_fleet_trigger`** — require `guardian_allowed` / `guardian_status=allowed` when confirmation on; reject with `guardian_required`  
+3. **Move shell to Guardian package only** — larger refactor; voice/API composition would still need an entry
+
+### Decision
+
+**Option 2.** Enforce at the low-level invoke:
+
+- `_guardian_permits_fleet_invoke` blocks live shell without post-gate tokens when `ADVOI_CONFIRMATION_REQUIRED` is on  
+- Public gated entry: `fleet_trigger_from_voice` (evaluate then invoke with tokens)  
+- Ingestion free-form dispatch must pass explicit tokens after its gate  
+- Remove latent bare free-form API invoke; T0 static + behavioral guards in `tests/test_write_path_audit.py`
+
+### Consequences
+
+- **Positive:** P0 fm-bridge leaks closed; import of low-level invoke cannot bypass Guardian by accident  
+- **Negative:** Call sites must pass tokens after evaluate (ingestion hardened)  
+- **Risks / deferred:** Voice still imports fleet package (V4 P1); aether atomic publish writes fleet *tree* files without fm-bridge (V5 P2 tension with “aether must not write fleet tree”)
+
+### Checklist
+
+- [x] Hard-gate + API cleanup + ingestion tokens @ `61de279`  
+- [x] Audit report + T0 write-path suite  
+- [ ] Staging T2 fleet confirm after promote  
+- [ ] Optional: thin voice→API routing (V4); revisit aether publish vertical rule (V5)
 
 ---
 

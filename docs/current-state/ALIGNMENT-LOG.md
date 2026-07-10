@@ -12,6 +12,7 @@
 
 | Date | Batch | Gate | Staging SHA | Misalignments |
 |------|-------|------|-------------|---------------|
+| 2026-07-10 | wave 4 Aether/system/arch | hold (SSH promote) | `5d50805` (bootstrap) | develop `61de279` ahead; Aether/Guardian T2 + PEL T2 parked |
 | 2026-07-10 | wave 3 PWA interaction | hold (SSH promote) | `5d50805` (bootstrap) | develop `587385d` ahead; PWA A14–A17 T3 + PEL T2 parked |
 | 2026-07-10 | wave 2 PWA/analytics/aether | hold (SSH promote) | `5d50805` (bootstrap) | develop `ce6a8e2` ahead; OTEL/PEL T2 parked |
 | 2026-07-10 | AFK arch wave + PEL | hold (promote open) | `5d50805` (bootstrap) | develop `7682b96` ahead of staging; PEL T2 open |
@@ -39,6 +40,24 @@
 ---
 
 _Add entries below newest first._
+
+## [2026-07-10] — wave 4 Aether / system / arch (batch wrap-up)
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Aether gate | improved (code pipeline) | Feed skip on FAIL (`686fe38`); atomic publish (`8abbadd`); gate export repo+PEL (`e71607f`); PWA chip still wave3 |
+| Fleet `active_slug` | advoi | Write-path hard-gate on fm-bridge (`61de279`, ADR-028) |
+| ROADMAP-VALIDATION milestones | Aether Queued + Guardian audit complete (T0) | **M8** hard-gate; **M10** gate_snapshot emit path; vertical docs; M2 human open |
+| PORTFOLIO-SYSTEM-MOAT R1–R10 | R1 + governance | Gate export → PEL `governance_decision` / gate_snapshot; feed policy gate |
+| BATCH-DOCUMENTATION gate | honored | 5 Queued Done since `ff74a98` + milestones (Aether Queued + write-path audit) → wrap-up before resume |
+| Architecture doc drift | reduced | `06-vertical-boundaries.md` + ARCHITECTURE-DATA-MEMORY-REVIEW landed (`6f29565`) |
+| Staging smoke | hold | Tip not on staging; SSH promote still parked |
+| Drift: develop vs staging | increased | develop `61de279` vs staging `5d50805` |
+
+**Misalignments found:** SSH promote still blocks all staging proof of wave 2–4 code. Aether cron/export and Guardian hard-gate are repo-complete but unproven on VPS. V5 aether fleet-tree publish remains a known tension with strict vertical wording (documented, not fixed).  
+**Follow-up backlog IDs:** OPP-001 (SSH + promote); OPP-002 cron wire; OPP-003 M10.4; OPP-004 human A11–A17; OPP-005/006 audit V4/V5; OPP-007 OTEL.
+
+**Discipline:** ADR-028 recorded. Evidence: `data/feedback-evidence/batch-2026-07-10-wave4/summary.md` · audit link. Status of wrap-up: **Partial** until promote unblocked. **Milestones:** Aether Queued slice complete; Guardian write-path audit complete (P0).
 
 ## [2026-07-10] — wave 3 PWA interaction slice (batch wrap-up)
 

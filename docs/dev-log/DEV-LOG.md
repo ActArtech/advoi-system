@@ -5,6 +5,55 @@
 
 ---
 
+## [2026-07-10] — BATCH-DOCUMENTATION wave 4 — Aether Queued + Guardian write-path @ `61de279`
+
+**Version:** v0.5.4 (wave tip)  
+**Type:** Feature + Arch + Docs  
+**Status:** Partial (code complete on develop; staging VPS promote blocked by SSH host key)  
+**Batch IDs:** advoi-batch-wrapup-wave4-01 (docs); code ships since wave 3 wrap-up `ff74a98`
+
+### Summary
+
+Documented the Aether/system/arch Queued slice since wave 3: gate-required fleet feed skip, atomic publish of gate + proactive + directives, gate snapshot export to repo path and PEL, vertical boundaries architecture doc, and Guardian hard-gate on all fm-bridge write paths (P0 audit). **5 Queued Done** on develop tip `61de279`. Staging remains at bootstrap `5d50805` — promote parked (SSH host key).
+
+### Changes
+
+- [x] Aether feed cron gate-required skip on FAIL (`686fe38`, `FM_AETHER_GATE_REQUIRED=1`)
+- [x] Atomic Aether publish to fleet tree (`8abbadd`)
+- [x] Gate export → `data/aether/aether-gate-latest.md` + PEL gate_snapshot (`e71607f`)
+- [x] Vertical boundaries diagram + import/write rules (`6f29565`)
+- [x] Guardian write-path hard-gate + audit report (`61de279`, P0)
+- [x] Batch wrap-up docs + evidence (`fm/advoi-batch-wrapup-wave4-01`)
+- [ ] Staging promote develop → advoi-staging (SSH host key) — **parked**
+- [ ] M10.4 PEL row proof + gate_export/funnel on staging — **parked**
+- [ ] Human A11–A17 on device — **open**
+- [ ] Write-path V4 (voice→fleet import) / V5 (aether tree publish) — **deferred**
+
+### Decisions
+
+- **ADR-028** — Guardian hard-gate on live `invoke_fleet_trigger` / fm-bridge (Accepted). Structural enforce when confirmation policy is on; no bare invoke from API/ingestion without post-gate tokens.
+- Aether feed skip / atomic publish / gate export extend ADR-005 + ADR-027 (no extra ADRs).
+
+### Evidence
+
+- Develop tip: `61de279` (prior wrap-up baseline `ff74a98` / wave 3 tip `587385d`)
+- Key SHAs: `686fe38` `8abbadd` `e71607f` `6f29565` `61de279`
+- Staging still: `5d50805` @ https://advoi-staging.keyteller.com
+- T0 wave suites: **105 passed** — `data/feedback-evidence/batch-2026-07-10-wave4/`
+- Pytest collection (full tree): **494** tests
+- Write-path audit: `data/feedback-evidence/advoi-arch-write-path-audit-01/audit.md`
+- Prior wave evidence: `data/feedback-evidence/batch-2026-07-10-wave3/summary.md`
+
+### Next
+
+1. Fix SSH host key for `deploy@` staging host; promote develop → staging; redeploy
+2. Prove M10.4 PEL rows + gate_export / funnel stage queries on staging Postgres
+3. Enable aether feed cron + gate export on VPS post-promote
+4. Human E2E Path A (M2) including A11–A17
+5. Resume Queued dispatch after this wrap-up merges to develop
+
+---
+
 ## [2026-07-10] — BATCH-DOCUMENTATION wave 3 — PWA interaction slice complete @ `587385d`
 
 **Version:** v0.5.3 (wave tip)  

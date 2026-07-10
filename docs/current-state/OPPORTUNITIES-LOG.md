@@ -12,6 +12,7 @@
 
 | Date | Batch | OPP count | Promoted |
 |------|-------|-----------|----------|
+| 2026-07-10 | wave 4 Aether/system/arch | 8 | 0 (parked; code complete) |
 | 2026-07-10 | wave 3 PWA interaction | 7 | 0 (parked; code complete) |
 | 2026-07-10 | wave 2 PWA/analytics/aether | 6 | 0 (parked; partial code progress) |
 | 2026-07-10 | AFK arch wave + PEL | 5 | 0 (parked) |
@@ -31,6 +32,21 @@
 ---
 
 _Add entries below newest first._
+
+## [2026-07-10] — wave 4 Aether / system / arch (post-`ff74a98`)
+
+| ID | Opportunity | Lane | Value | Complexity | Source | Promoted to |
+|----|-------------|------|-------|------------|--------|-------------|
+| OPP-001 | Staging promote develop→staging after SSH host-key fix | OPS | 9 | S | wave2–4 blocker | **parked** — staging `5d50805` vs develop `61de279` |
+| OPP-002 | VPS wire aether-feed-cron + gate-export after promote | OPS | 8 | S | `686fe38`/`e71607f` | parked — needs SSH + cron install |
+| OPP-003 | M10.4 PEL rows + gate_snapshot / funnel SQL on staging | VAL | 8 | S | M10 / wave4 | parked — needs promote + traffic |
+| OPP-004 | Human A11–A17 on staging tip | VAL | 8 | S | wave3 | parked — device + SSH promote |
+| OPP-005 | Write-path V4: thin voice→API routing (no direct fleet import) | ARCH | 6 | M | audit V4 | parked — still Guardian-gated via `fleet_trigger_from_voice` |
+| OPP-006 | Write-path V5: resolve aether atomic publish vs “no fleet tree write” rule | ARCH | 5 | M | audit V5 | parked — intentional publish; revisit vertical rules |
+| OPP-007 | `OTEL_ENABLED` + collector T2 — M4.5/M4.6 | OPP | 8 | M | wave2 | code done; VPS apply parked (SSH) |
+| OPP-008 | M7 Phase 2 triage inbox + batch + voice; live squad webhooks M5 | FEAT | 7 | L | roadmap | **unchanged** — not wave4 scope |
+
+**Notes:** Wave 4 closed the Aether Queued slice (feed skip, atomic publish, gate export) and Guardian write-path P0 hard-gate (ADR-028). Hard parked blocker remains SSH promote. Deferred audit V4/V5 are architecture polish, not blockers to resume Queued.
 
 ## [2026-07-10] — wave 3 PWA interaction slice (post-`727f77f`)
 

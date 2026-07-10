@@ -1,0 +1,5 @@
+61de279 arch(fleet): Guardian hard-gate on fm-bridge write path
+6f29565 docs(architecture): vertical boundaries diagram and rules
+e71607f feat(aether): export gate snapshot to git path and/or PEL
+8abbadd feat(aether): atomic publish of gate + proactive + directives to fleet
+686fe38 feat(aether): skip fleet feed when FM_AETHER_GATE_REQUIRED=1 and gate FAIL

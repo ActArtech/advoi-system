@@ -1,8 +1,8 @@
 # ADVoi roadmap with validation tiers
 
 **Purpose:** Single checklist for what to build next and how to prove each milestone before moving on.  
-**Baseline:** 2026-07-10, repo `advoi-system` develop tip `587385d` (wave 3 PWA interaction) · staging still `5d50805`  
-**Last T2 validation:** 2026-07-10 — `staging-signoff-precheck.sh` exit 0 @ bootstrap; **re-promote parked** (SSH host key) — evidence `data/feedback-evidence/batch-2026-07-10-wave3/`  
+**Baseline:** 2026-07-10, repo `advoi-system` develop tip `61de279` (wave 4 Aether/arch + Guardian write-path) · staging still `5d50805`  
+**Last T2 validation:** 2026-07-10 — `staging-signoff-precheck.sh` exit 0 @ bootstrap; **re-promote parked** (SSH host key) — evidence `data/feedback-evidence/batch-2026-07-10-wave4/`  
 **Staging (fleet tier):** https://advoi-staging.keyteller.com (`/var/www/advoi/staging`, compose `advoi-staging`)  
 **Live:** https://advoi.keyteller.com (`/var/www/advoi/live` · legacy `/opt/advoi` until cutover)
 
@@ -31,7 +31,10 @@ Human E2E does **not** block development. Track device tests in [MANUAL-TEST-TRA
 | fm-bridge 60s idempotency | Done (T0) | `70ce1a3` |
 | T2 post-deploy smoke script | Done | `8584da3` `scripts/t2-staging-smoke.sh` |
 | Aether proactive schema | Done (T0) | `ce6a8e2` |
-| Automated tests | Done | **415** pytest collected |
+| Aether Queued slice (feed skip / atomic publish / gate export) | Done (T0) | `686fe38` `8abbadd` `e71607f` — VPS cron parked (SSH) |
+| Vertical boundaries architecture | Done | `6f29565` `docs/architecture/06-vertical-boundaries.md` |
+| Guardian write-path hard-gate (fm-bridge) | Done (T0) | `61de279` ADR-028 · [audit](../../data/feedback-evidence/advoi-arch-write-path-audit-01/audit.md) |
+| Automated tests | Done | **494** pytest collected |
 
 ---
 
@@ -186,6 +189,11 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | M8.4 | Discord reply workflow (ACK / PROMOTE / NEXT) documented | — | [ ] Open |
 | M8.5 | Fleet briefs committed or synced to GitHub | — | [ ] Open |
 | M8.6 | 60s idempotency key on fm-bridge invoke | T0 | [x] Done (`70ce1a3`, `tests/test_fleet_idempotency.py`) |
+| M8.7 | Guardian hard-gate on all live `invoke_fleet_trigger` paths | T0 | [x] Done (`61de279`, ADR-028, `tests/test_write_path_audit.py`) |
+| M8.8 | Aether feed cron skips publish when gate FAIL (`FM_AETHER_GATE_REQUIRED`) | T0 | [x] Done (`686fe38`); VPS cron wire parked |
+| M8.9 | Atomic publish gate + proactive + directives to fleet tree | T0 | [x] Done (`8abbadd`) |
+
+**M8 note (wave 4):** Write-path audit closed P0 bare-invoke leaks. Deferred: voice→fleet import thinning (audit V4), aether fleet-tree publish vs strict vertical rule (V5).
 
 ---
 
@@ -209,15 +217,18 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | M10.1 | Schema migration `deploy/migrations/001_portfolio_events.sql` + `append_event` | T0 | [x] Done (`advoi-analytics-pel-schema-01` @ `7682b96`) |
 | M10.2 | Emit: `frame_run`, `fleet_trigger` (+ confirmation gate), `voice_intent` | T0 | [x] Done — `tests/test_portfolio_events.py` |
 | M10.3 | Do **not** drop `memory_events` yet (deprecation checklist only) | — | [x] Documented in migration-plan |
-| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — develop `587385d` not on staging (`5d50805`); **SSH promote parked** |
+| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — develop `61de279` not on staging (`5d50805`); **SSH promote parked** |
 | M10.5 | `/api/events` ingest + optional query / `last_dispatch_at` from PEL | T0/T2 | [~] **Partial** — PWA thin beacon `POST /api/events` → PEL (`3b7df6c` T0); funnel stage SQL documented (`12b1ad8`); query/read API still open |
 | M10.6 | Analytics funnel doc (connect → frame → confirm → success) | Docs | [x] Done (`docs/operations/ANALYTICS-FUNNEL.md` @ `12b1ad8`) |
+| M10.7 | Aether gate snapshot export → repo path and/or PEL | T0 | [x] Done (`e71607f` — `governance_decision` / `gate_snapshot`); VPS cron + T2 parked |
 
 **PEL note (batch 2026-07-10 wave 1):** Moat R1 code+design landed on develop at `7682b96`. Authority decision recorded as **ADR-027** (see also [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md)).
 
 **PEL / analytics note (wave 2):** Client beacon write path extends ADR-027 at `3b7df6c`. Next gates remain **M10.4** staging row proof + promote, then optional query API. Do not start dual-authority consumers until T2 passes.
 
 **PEL / funnel note (wave 3):** Funnel SQL stages documented for ops/debug; live stage counts still require promote + traffic. Confirm parity ships `confirm_shown` / `confirm_accept` beacons (A15).
+
+**PEL / gate export note (wave 4):** Nightly/post-gate export writes `data/aether/aether-gate-latest.md` and appends PEL gate_snapshot (`e71607f`). Staging proof still requires promote (M10.4).
 
 **Design:** [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md) · [migration-plan](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md) · ADR-027
 
@@ -267,8 +278,10 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 | GAP-010 | P3 | React Flow dashboard | Open |
 | GAP-011 | P3 | Port registry / vps-shared | Open |
 | GAP-012 | P3 | Architecture docs 03/05 (3-agent stale) | Open |
-| GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `587385d` |
+| GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `61de279` |
 | GAP-014 | P1 | PWA human A11–A17 (state / latency / recovery / gate / confirm / install / briefs) | Open — T0 automated wave 2+3; T3 device |
+| GAP-015 | P1 arch | Write-path V4 voice→fleet import thinning | Open — deferred wave 4 audit |
+| GAP-016 | P2 arch | Aether fleet-tree publish vs vertical “no write” wording (audit V5) | Open — intentional publish; revisit rules |
 
 ### Bug cross-reference
 
@@ -283,8 +296,8 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 
 ## Definition of "production voice ready"
 
-1. [x] Code: 6 agents, 3 voice paths, operators, squads, ingestion MVP, fm-bridge, PWA interaction shell (state/latency/recovery/gate/confirm/onboarding/briefs), PEL + beacon + funnel doc
-2. [x] T0: 415 pytest collected; wave3 suites 61 passed (wave2 suites 83 prior)
+1. [x] Code: 6 agents, 3 voice paths, operators, squads, ingestion MVP, fm-bridge (Guardian hard-gate ADR-028), PWA interaction shell, Aether Queued slice (feed/publish/export), PEL + beacon + funnel doc
+2. [x] T0: 494 pytest collected; wave4 suites 105 passed (wave3 61; wave2 83 prior)
 3. [~] T2: bootstrap smoke pass @ `5d50805`; **re-promote + re-smoke parked** (SSH host key) — post-deploy script ready `8584da3`
 4. [ ] T3: Human Path A or C sign-off recorded (include A11–A17)
 5. [ ] T2: Letta/OTel enabled on VPS
@@ -425,3 +438,4 @@ ssh deploy@187.77.140.216 "cd /var/www/advoi/staging && git pull --ff-only"
 | 2026-07-10 | T2 post-deploy job: `scripts/t2-staging-smoke.sh` + `t2_validate.py` (health agents=6, aether/status); fixture T0 tests; wired into `staging-redeploy.sh`. Default host `advoi-staging.keyteller.com`. |
 | 2026-07-10 | **Wave 2 wrap-up:** PWA state/latency/recovery (M3.7–M3.8), OTEL+trace_id code (M4.5–M4.6), beacon POST (M10.5 partial), fm-bridge idempotency (M8.6), aether proactive schema T0; develop `ce6a8e2`; **SSH promote parked** (GAP-013). |
 | 2026-07-10 | **Wave 3 wrap-up:** PWA interaction slice complete — gate chip (M3.9), confirm parity (M3.6 model), onboarding (M3.10), home briefs (M3.11), funnel doc (M10.6); M7 unchanged; develop `587385d`; **SSH promote parked** (GAP-013). |
+| 2026-07-10 | **Wave 4 wrap-up:** Aether Queued complete — feed skip (M8.8), atomic publish (M8.9), gate export (M10.7); Guardian write-path hard-gate (M8.7, ADR-028); vertical boundaries doc; develop `61de279`; **SSH promote parked** (GAP-013). |
