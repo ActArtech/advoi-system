@@ -18,4 +18,4 @@ System design for ADVoi as implemented in `advoi-system/`. These docs describe *
 
 ## Stage
 
-**Current:** Build 1.5 — Voice + PWA + multi-agent frames (ahead of `.aether/STAGE.md` 1.1 checklist; see [../current-state/gaps-and-blockers.md](../current-state/gaps-and-blockers.md)).
+**Current:** Build 1.5+ — Voice + PWA + **6** multi-agent frames (A–F); Aether / Guardian / Squads / Ingestion **Built** (see [01-system-overview.md](01-system-overview.md)). Ahead of `.aether/STAGE.md` 1.1 checklist; see [../current-state/gaps-and-blockers.md](../current-state/gaps-and-blockers.md). Doc sync `fm/advoi-arch-doc-sync-01` closes arch review *Routing/Decision Stale* ([ARCHITECTURE-DATA-MEMORY-REVIEW.md](../reviews/ARCHITECTURE-DATA-MEMORY-REVIEW.md)).

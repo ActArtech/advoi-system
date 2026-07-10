@@ -1,4 +1,8 @@
-"""Specialist agent registry — one agent per decision frame."""
+"""Specialist agent registry — one agent per decision frame.
+
+Six agents (A–F) match FRAMES in advoi/decision/frames.py.
+Architecture docs: docs/architecture/01-system-overview.md, 03-multi-agent.md.
+"""
 
 from __future__ import annotations
 
