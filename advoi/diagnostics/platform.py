@@ -8,11 +8,17 @@ from typing import Any
 from advoi.cache.agent_cache import agents_status_summary
 from advoi.cache.redis_client import redis_available
 from advoi.memory.operational_bridge import operational_diagnostics
+from advoi.observability.otel_setup import otel_enabled, probe_collector_reachable
 from advoi.squads.registry import squads_summary
 
 
 def otel_diagnostics() -> dict[str, Any]:
-    enabled = os.getenv("OTEL_ENABLED", "false").lower() in {"1", "true", "yes"}
+    """OTel readiness for T2 `/api/diagnostics/platform` (moat R6).
+
+    ``otel_ready`` is true only when enabled, SDK packages are installed, and the
+    OTLP collector endpoint accepts a TCP connection.
+    """
+    enabled = otel_enabled()
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:4317")
     packages_ok = False
     if enabled:
@@ -22,11 +28,18 @@ def otel_diagnostics() -> dict[str, Any]:
             packages_ok = True
         except ImportError:
             packages_ok = False
+    collector_reachable = False
+    if enabled:
+        collector_reachable = probe_collector_reachable(endpoint)
+    instrumented = enabled and packages_ok
+    otel_ready = instrumented and collector_reachable
     return {
         "enabled": enabled,
         "endpoint": endpoint,
         "packages_installed": packages_ok,
-        "instrumented": enabled and packages_ok,
+        "instrumented": instrumented,
+        "collector_reachable": collector_reachable,
+        "otel_ready": otel_ready,
     }
 
 
@@ -45,6 +58,7 @@ async def platform_diagnostics() -> dict[str, Any]:
         "letta_enabled": letta_on,
         "operational_bridge": "letta" if letta_on else "operational_store",
         "otel": otel,
+        "otel_ready": otel.get("otel_ready", False),
         "squads": squads,
         "multi_agent": {
             "specialist_count": agents.get("total", 0),

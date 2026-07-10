@@ -10,7 +10,8 @@ COPY advoi/ ./advoi/
 COPY scripts/fm-bridge.sh ./scripts/fm-bridge.sh
 RUN chmod +x ./scripts/fm-bridge.sh
 
-RUN pip install --no-cache-dir .
+# [observability] required for OTEL_ENABLED=true (moat R6 staging)
+RUN pip install --no-cache-dir ".[observability]"
 
 EXPOSE 8000
 CMD ["advoi-api"]

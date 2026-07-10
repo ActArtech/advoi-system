@@ -129,19 +129,13 @@ def _normalize_enum(value: EventSource | EventType | GuardianStatus | str | None
 
 
 def current_trace_id() -> str | None:
-    """Best-effort OTel / request correlation id; None when unavailable."""
-    if os.getenv("OTEL_ENABLED", "false").lower() not in {"1", "true", "yes"}:
-        return None
-    try:
-        from opentelemetry import trace
+    """Best-effort OTel / request correlation id; None when unavailable.
 
-        span = trace.get_current_span()
-        ctx = span.get_span_context() if span is not None else None
-        if ctx is None or not getattr(ctx, "is_valid", False):
-            return None
-        return format(ctx.trace_id, "032x")
-    except Exception:
-        return None
+    Re-exported from observability so PEL callers need not import otel_setup.
+    """
+    from advoi.observability.otel_setup import current_trace_id as _current_trace_id
+
+    return _current_trace_id()
 
 
 def transcript_hash(text: str, *, length: int = 16) -> str:

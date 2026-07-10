@@ -10,7 +10,8 @@ COPY advoi/ ./advoi/
 COPY scripts/fm-bridge.sh ./scripts/fm-bridge.sh
 RUN chmod +x ./scripts/fm-bridge.sh
 
-RUN pip install --no-cache-dir ".[voice]"
+# voice + observability so OTEL_ENABLED works in the voice agent container
+RUN pip install --no-cache-dir ".[voice,observability]"
 
 EXPOSE 8080
 CMD ["advoi-voice"]

@@ -15,6 +15,7 @@ Full path model: [docs/VPS-SETUP.md](../VPS-SETUP.md).
 - [ ] `OPENAI_API_KEY` or `OPENROUTER_API_KEY` set (non-empty)
 - [ ] `HINDSIGHT_BRIDGE_URL=http://advoi-memory-bridge:8095`
 - [ ] `ADVOI_SHELVE_PULL` unset or `false`
+- [ ] OTel (moat R6): `OTEL_ENABLED=true` and `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` (gRPC). Staging redeploy starts collector via `--profile observability`. **VPS apply may be SSH-parked** — verify with `GET /api/diagnostics/platform` → `otel_ready: true` when host is reachable.
 
 ## Deploy
 

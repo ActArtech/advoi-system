@@ -56,3 +56,14 @@ Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
 - Pure model: `web/components/latencyChip.ts` → `latencyChipModel`; Python mirror `tests/test_latency_chip.py`.
 - VoiceSession refreshes latency after successful frame run / operator completion (no full reload).
 - Graceful empty/error: `SLA —` / `SLA err` when diagnostics unavailable.
+
+## OTel staging + Guardian trace_id (moat R6)
+
+- **Switch:** `OTEL_ENABLED=true` in `deploy/.env.staging.example`; local default off in `.env.example`.
+- **Endpoint:** gRPC OTLP on **4317** (`opentelemetry-exporter-otlp-proto-grpc`). Do not use HTTP 4318 for this exporter.
+- **Images:** `Dockerfile.api` / `Dockerfile.voice` install `[observability]` extras.
+- **Collector:** compose profile `observability` → `otel-collector`; `scripts/staging-redeploy.sh` starts it when `OTEL_ENABLED=true`.
+- **Guardian JSONL:** `append_guardian_event` adds top-level `trace_id` when OTEL is on (`advoi/memory/guardian_log.py` + `current_trace_id` in `otel_setup`).
+- **Diagnostics:** `GET /api/diagnostics/platform` → `otel.otel_ready` / top-level `otel_ready` (enabled + packages + TCP collector reachable).
+- **T0:** `tests/test_guardian_trace_id.py`, `tests/test_otel_setup.py`. Staging steps in `docs/operations/MANUAL-TEST-TRACKER.md` (O5 / OT1–OT4).
+- **VPS:** promote/SSH may be parked — land on `develop` first; apply env on VPS when reachable.

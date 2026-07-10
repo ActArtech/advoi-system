@@ -54,6 +54,10 @@ def test_platform_diagnostics_api(client):
     data = resp.json()
     assert data["multi_agent"]["specialist_count"] == 6
     assert "otel" in data
+    assert "otel_ready" in data
+    assert "otel_ready" in data["otel"]
+    assert data["otel_ready"] == data["otel"]["otel_ready"]
+    assert "collector_reachable" in data["otel"]
     assert "squads" in data
 
 

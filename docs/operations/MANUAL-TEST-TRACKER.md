@@ -41,7 +41,7 @@ These run in CI or via scripts. Re-run after every deploy.
 
 | Check | Command | Last known |
 |-------|---------|------------|
-| Full pytest | `uv run pytest tests/ -q` | **190** passed |
+| Full pytest | `uv run pytest tests/ -q` | **312** passed |
 | Agents smoke | `.\scripts\agents-smoke-test.ps1` | 6 agents + run-six + squads + platform |
 | Run six script | `.\scripts\run-six-agents.ps1 -Refresh` | 6 frames CLI |
 | Voice smoke | `.\scripts\voice-smoke-test.ps1` or `.sh` | Staging `ok: true` |
@@ -131,6 +131,30 @@ These run in CI or via scripts. Re-run after every deploy.
 | O2 | Voice container | `advoi-voice` not restart-looping | **Tested** 2026-07-08 |
 | O3 | Traefik routes | `/api/health` 200 on storefront host | **Tested** 2026-07-08 |
 | O4 | LLM keys survive deploy | sync script + voice diagnostics `llm_key: true` | **Tested** 2026-07-08 |
+| O5 | OTel staging (moat R6) | See [OTel staging verification](#otel-staging-verification-moat-r6) | **Not tested** (code ready; VPS SSH/promote parked) |
+
+---
+
+### OTel staging verification (moat R6)
+
+**Blocked on VPS apply:** staging promote is SSH-parked; land code on `develop` first.
+When VPS is reachable, apply env and redeploy:
+
+```bash
+# On VPS deploy tree (legacy /opt/advoi or www staging tree)
+# Ensure deploy/.env has (from deploy/.env.staging.example):
+#   OTEL_ENABLED=true
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+#   OTEL_SERVICE_NAME=advoi
+bash scripts/staging-redeploy.sh   # starts otel-collector when OTEL_ENABLED=true
+```
+
+| # | Check | Command / expect | Status |
+|---|--------|------------------|--------|
+| OT1 | Collector up | `docker compose --profile observability ps otel-collector` → running | **Not tested** |
+| OT2 | Platform `otel_ready` | `curl -sS https://advoi-staging.keyteller.com/api/diagnostics/platform \| jq '.otel, .otel_ready'` → `enabled: true`, `packages_installed: true`, `collector_reachable: true`, `otel_ready: true` | **Not tested** |
+| OT3 | Guardian `trace_id` | Trigger a guardian event (e.g. failed tick / notify path); tail `GUARDIAN_LOG_PATH` JSONL — records written while OTEL is on include top-level `"trace_id"` (hex or null) | **Not tested** |
+| OT4 | T0 regression | `uv run pytest tests/test_guardian_trace_id.py tests/test_otel_setup.py tests/test_squad_orchestrate.py -q` | **Automated** |
 
 ---
 

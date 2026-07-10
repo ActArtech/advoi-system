@@ -109,8 +109,8 @@ Use the **lowest tier that proves the change**. Do not skip tiers when promoting
 | M4.2 | `GET /api/diagnostics/platform` | T2 | [x] Done |
 | M4.3 | Letta client + JSONL fallback | T0 | [x] Done |
 | M4.4 | `LETTA_ENABLED=true` on VPS + verify recall | T2 | [ ] Open |
-| M4.5 | `OTEL_ENABLED=true` + collector sidecar | T2 | [ ] Open |
-| M4.6 | Trace IDs in guardian events | T2 | [ ] Open |
+| M4.5 | `OTEL_ENABLED=true` + collector sidecar | T2 | [~] Code on develop; VPS apply parked — verify `otel_ready` post-redeploy |
+| M4.6 | Trace IDs in guardian events | T0/T2 | [~] T0 JSONL injection done; staging tail of guardian log parked |
 
 ---
 
