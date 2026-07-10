@@ -156,3 +156,11 @@ Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
 - **Skip log (exact):** `aether-feed: skipped — gate FAIL (exit=N) [FM_AETHER_GATE_REQUIRED=1]`
 - **Pure helper:** `advoi.aether.feed_cron` (`should_skip_feed`, `feed_decision`, `skip_log_line`).
 - **T0:** `tests/test_aether_feed_cron.py` (mocked `FM_AETHER_GATE_EXIT` / `FM_AETHER_GATE_CMD`).
+
+## Aether atomic fleet publish (gate + proactive + directives)
+
+- **Entrypoint:** `scripts/aether-publish-atomic.sh` → `advoi.aether.publish_atomic`.
+- **Artifacts (fleet tree):** `aether-gate-latest.md`, `aether-proactive-latest.json`, `AETHER-DIRECTIVES.md`.
+- **Semantics:** all-or-nothing (stage under `.aether-publish-staging-*`, backup existing, `os.replace` each; restore on mid-commit failure). Failure leaves prior fleet files intact.
+- **Sources:** gate from `FM_AETHER_GATE_REPORT` (or `/data/aether-gate-latest.md`); proactive + directives from `docs/aether/`.
+- **T0:** `tests/test_aether_publish_atomic.py`.

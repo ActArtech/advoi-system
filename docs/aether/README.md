@@ -14,7 +14,7 @@ Proactive cycle outputs for FirstMate’s `fm-aether-gate.sh` when `FM_ACTIVE_PR
 
 **Python validator:** `advoi.aether.proactive_schema.validate_proactive_payload` / `validate_proactive_file`.
 
-**T0:** `uv run pytest tests/test_aether_proactive_schema.py tests/test_aether_gate_artifacts.py tests/test_aether_feed_cron.py -q`
+**T0:** `uv run pytest tests/test_aether_proactive_schema.py tests/test_aether_gate_artifacts.py tests/test_aether_feed_cron.py tests/test_aether_publish_atomic.py -q`
 
 ## Fleet feed cron (`FM_AETHER_GATE_REQUIRED=1`)
 
@@ -27,3 +27,21 @@ Entrypoint: `scripts/aether-feed-cron.sh` (defaults `FM_AETHER_GATE_REQUIRED=1` 
 | ≥2 | FAIL | **skip** — log `aether-feed: skipped — gate FAIL (exit=N) [FM_AETHER_GATE_REQUIRED=1]` |
 
 Pure policy: `advoi.aether.feed_cron.should_skip_feed` / `feed_decision`. Test hooks: `FM_AETHER_GATE_EXIT`, `FM_AETHER_GATE_CMD`, `FM_AETHER_FEED_CMD`.
+
+## Atomic fleet publish (gate + proactive + directives)
+
+Entrypoint: `scripts/aether-publish-atomic.sh` — copies the three Aether surface artifacts into `FIRSTMATE_FLEET_PATH` **all-or-nothing** (temp staging + backup + `os.replace`). On failure, prior fleet files are left intact or restored.
+
+| Fleet artifact | Source (default) |
+|----------------|------------------|
+| `aether-gate-latest.md` | `FM_AETHER_GATE_REPORT` or `/data/aether-gate-latest.md` |
+| `aether-proactive-latest.json` | `docs/aether/aether-proactive-latest.json` |
+| `AETHER-DIRECTIVES.md` | `docs/aether/AETHER-DIRECTIVES.md` |
+
+```bash
+FM_ACTIVE_PROJECT=advoi bash /opt/firstmate/scripts/fm-aether-gate.sh
+bash scripts/aether-publish-atomic.sh
+```
+
+Pure API: `advoi.aether.publish_atomic.publish_atomic` / `publish_from_paths`.  
+T0: `uv run pytest tests/test_aether_publish_atomic.py -q`

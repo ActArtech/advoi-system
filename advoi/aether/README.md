@@ -29,6 +29,9 @@ Letta (optional) or operational_store.jsonl
 | `architect.py` | Portfolio context for prompts; post-frame memory retain |
 | `service.py` | API facade |
 | `lifecycle.py` | Gate-aligned active venture + frame coverage |
+| `publish_atomic.py` | All-or-nothing write of gate + proactive + directives to fleet tree |
+| `feed_cron.py` | Gate-required skip policy for fleet feed cron |
+| `proactive_schema.py` | Validate proactive feed JSON Schema |
 
 ## API
 
