@@ -23,11 +23,16 @@ ADVoi on the VPS uses a **develop → staging → live** path model. Staging is 
 
 ### Promote develop → staging
 
-On the VPS (host script; not checked into this repo as of 2026-07-10):
+On the VPS (repo script; optional host install at `/var/www/advoi/promote-to-staging.sh`):
 
 ```bash
-bash /var/www/advoi/promote-to-staging.sh
+bash /data/projects/advoi/scripts/www/promote-to-staging.sh
+# dry-run: bash scripts/www/promote-to-staging.sh --dry-run
 ```
+
+Docs: [scripts/www/README.md](../scripts/www/README.md) · compose overlay: `compose.www.yml`.
+
+**GAP-013 prerequisite:** SSH host-key / `known_hosts` for `deploy@` must work before remote promote.
 
 Smoke after promote:
 
@@ -42,11 +47,6 @@ bash scripts/vps-staging-check.sh
 # Prefer staging hostname when www tier is live:
 # ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/agents-smoke-test.sh
 ```
-
-### Repo gap (docs only)
-
-- **`scripts/www/`** — not present in this repository.
-- **`promote-to-staging.sh`** — lives on the VPS at `/var/www/advoi/promote-to-staging.sh`; not vendored here. Do not invent a repo copy until ops lands one.
 
 ### Legacy path (`/opt/advoi`)
 

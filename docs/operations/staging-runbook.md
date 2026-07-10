@@ -34,14 +34,15 @@ Full path model: [docs/VPS-SETUP.md](../VPS-SETUP.md).
 
 ```bash
 # After changes land on develop checkout (/data/projects/advoi):
-bash /var/www/advoi/promote-to-staging.sh
+bash /data/projects/advoi/scripts/www/promote-to-staging.sh
+# Host install (optional): /var/www/advoi/promote-to-staging.sh
 curl https://advoi-staging.keyteller.com/api/health
 ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/t2-staging-smoke.sh
 ```
 
-Host script `promote-to-staging.sh` is not in this repo (no `scripts/www/` yet).
+Repo scripts + compose overlay: **[scripts/www/README.md](../../scripts/www/README.md)** (`promote-to-staging.sh`, root `compose.www.yml`). Dry-run: `bash scripts/www/promote-to-staging.sh --dry-run`.
 
-**Blocked (GAP-013):** SSH host key verification failed — do not assume a green T2 means tip is live. Unblock `known_hosts` / host key, then promote and re-smoke.
+**Blocked (GAP-013):** SSH host key verification failed — operator prerequisite before remote promote. Do not assume a green T2 means tip is live. Unblock `known_hosts` / host key, then promote and re-smoke.
 
 ### Legacy — compose on `/opt/advoi`
 

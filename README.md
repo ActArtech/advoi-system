@@ -37,9 +37,9 @@ See **[docs/VPS-SETUP.md](docs/VPS-SETUP.md)** for the three-tier www flow:
 | Staging | `/var/www/advoi/staging` | https://advoi-staging.keyteller.com |
 | Live | `/var/www/advoi/live` | https://advoi.keyteller.com |
 
-Promote: `bash /var/www/advoi/promote-to-staging.sh` · smoke: `curl https://advoi-staging.keyteller.com/api/health`
+Promote: `bash scripts/www/promote-to-staging.sh` (or host `/var/www/advoi/promote-to-staging.sh`) · smoke: `curl https://advoi-staging.keyteller.com/api/health`
 
-`/opt/advoi` is the **legacy** single-path stack (deprecating until cutover). Host promote script is not in this repo yet (no `scripts/www/`).
+`/opt/advoi` is the **legacy** single-path stack (deprecating until cutover). www-tier scripts: **[scripts/www/README.md](scripts/www/README.md)** · overlay `compose.www.yml`.
 
 Memory: **[docs/MEMORY-STACK.md](docs/MEMORY-STACK.md)** — start Hindsight via Hermes; Letta optional v0.2.
 

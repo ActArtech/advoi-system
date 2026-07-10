@@ -1,0 +1,48 @@
+# www-tier compose overlay — develop → staging → live path model
+#
+# Use from the staging (or future live) checkout, never as the only file:
+#
+#   export COMPOSE_PROJECT_NAME=advoi-staging   # or advoi-live
+#   export ADVOI_WWW_TIER=staging               # or live
+#   docker compose \
+#     --env-file deploy/.env \
+#     -f docker-compose.yml \
+#     -f deploy/docker-compose.staging.yml \
+#     -f compose.www.yml \
+#     --profile app up -d
+#
+# Patterns follow deploy/docker-compose.staging.yml (Traefik labels, host port
+# reset). Project name isolates volumes/networks from legacy /opt/advoi
+# (compose name: advoi) and from a future live stack.
+#
+# Hostnames still come from deploy/.env:
+#   staging: STOREFRONT_HOST=advoi-staging.keyteller.com
+#   live:    STOREFRONT_HOST=advoi.keyteller.com
+#
+# No live cutover is performed by this file alone. See scripts/www/README.md.
+
+name: ${ADVOI_WWW_PROJECT:-advoi-staging}
+
+networks:
+  default:
+    name: ${ADVOI_WWW_NETWORK:-advoi-${ADVOI_WWW_TIER:-staging}-network}
+
+# Optional label for operators / Traefik metrics — does not change routing.
+# Routers remain PROJECT_SLUG-* from deploy/docker-compose.staging.yml so
+# staging and live must use distinct PROJECT_SLUG values in their env files
+# when both stacks run on the same host.
+services:
+  advoi-web:
+    labels:
+      - advoi.www.tier=${ADVOI_WWW_TIER:-staging}
+      - advoi.www.path=${ADVOI_WWW_PATH:-/var/www/advoi/staging}
+
+  advoi-api:
+    labels:
+      - advoi.www.tier=${ADVOI_WWW_TIER:-staging}
+      - advoi.www.path=${ADVOI_WWW_PATH:-/var/www/advoi/staging}
+
+  advoi-voice:
+    labels:
+      - advoi.www.tier=${ADVOI_WWW_TIER:-staging}
+      - advoi.www.path=${ADVOI_WWW_PATH:-/var/www/advoi/staging}
