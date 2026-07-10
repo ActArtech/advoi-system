@@ -15,6 +15,12 @@ export const HOME_BRIEFS_LIMIT = 5;
 export const OPEN_BRIEFS_FRAME_ID = "open_briefs";
 
 /**
+ * Custom event: home briefs surface reloads open briefs + review queue.
+ * Dispatched after successful queue_deep_review / open_briefs frame runs.
+ */
+export const BRIEFS_REFRESH_EVENT = "advoi:briefs-refresh";
+
+/**
  * Empty-state copy for home open briefs (thin GET /api/briefs = PG→Redis only).
  * Voice open_briefs frame may still Hindsight-enrich when that load is empty.
  */

@@ -39,6 +39,7 @@ import {
   type UiSessionContext,
   type UiSessionEvent,
 } from "./voiceSessionState";
+import { BRIEFS_REFRESH_EVENT } from "./pwaBriefsSurface";
 import { RUN_FRAME_EVENT } from "./pwaOnboarding";
 
 type DecisionFrame = {
@@ -456,6 +457,10 @@ export function VoiceSession() {
         loadAgents();
         // Refresh SLA chip without full page reload (ship #2).
         loadLatency();
+        // Home briefs surface: immediate reload after queue / open-briefs frames.
+        if (frameId === "queue_deep_review" || frameId === "open_briefs") {
+          window.dispatchEvent(new CustomEvent(BRIEFS_REFRESH_EVENT));
+        }
       } catch (err) {
         const classified = classifyApiError(err, { target: frameId });
         setLastFailedFrameId(frameId);

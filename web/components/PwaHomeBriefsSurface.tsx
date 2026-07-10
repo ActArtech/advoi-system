@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RUN_FRAME_EVENT } from "./pwaOnboarding";
 import {
+  BRIEFS_REFRESH_EVENT,
   HOME_BRIEFS_LIMIT,
   homeBriefsSurfaceModel,
   parseOpenBriefsPayload,
@@ -50,6 +51,9 @@ export function PwaHomeBriefsSurface() {
 
   const loadGenRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  /** After first settled load, keep prior cards (stale-while-revalidate). */
+  const openSettledRef = useRef(false);
+  const reviewSettledRef = useRef(false);
 
   const load = useCallback(() => {
     abortRef.current?.abort();
@@ -58,10 +62,8 @@ export function PwaHomeBriefsSurface() {
     const gen = ++loadGenRef.current;
     const stillCurrent = () => gen === loadGenRef.current && !ac.signal.aborted;
 
-    setOpenLoading(true);
-    setReviewLoading(true);
-    setOpenError(false);
-    setReviewError(false);
+    if (!openSettledRef.current) setOpenLoading(true);
+    if (!reviewSettledRef.current) setReviewLoading(true);
 
     fetchJson(`${apiBase}/briefs`, ac.signal)
       .then((data) => {
@@ -73,12 +75,15 @@ export function PwaHomeBriefsSurface() {
       })
       .catch((err) => {
         if (isAbortError(err) || !stillCurrent()) return;
+        // After first settle, keep prior cards (soft-fail revalidation).
+        if (openSettledRef.current) return;
         setOpenBriefs([]);
         setOpenSource(null);
         setOpenError(true);
       })
       .finally(() => {
         if (!stillCurrent()) return;
+        openSettledRef.current = true;
         setOpenLoading(false);
       });
 
@@ -91,11 +96,13 @@ export function PwaHomeBriefsSurface() {
       })
       .catch((err) => {
         if (isAbortError(err) || !stillCurrent()) return;
+        if (reviewSettledRef.current) return;
         setReviewPending([]);
         setReviewError(true);
       })
       .finally(() => {
         if (!stillCurrent()) return;
+        reviewSettledRef.current = true;
         setReviewLoading(false);
       });
   }, []);
@@ -103,8 +110,11 @@ export function PwaHomeBriefsSurface() {
   useEffect(() => {
     load();
     const t = setInterval(load, 30000);
+    const onBriefsRefresh = () => load();
+    window.addEventListener(BRIEFS_REFRESH_EVENT, onBriefsRefresh);
     return () => {
       clearInterval(t);
+      window.removeEventListener(BRIEFS_REFRESH_EVENT, onBriefsRefresh);
       abortRef.current?.abort();
     };
   }, [load]);

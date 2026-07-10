@@ -105,6 +105,7 @@ Home `/` only — `web/components/PwaHomeBriefsSurface.tsx` + pure model `pwaBri
 - **Open briefs** (`data-testid="open-briefs-section"`): `GET /api/briefs` → titles from Brief Curator load path (`_load_open_briefs`: PG → Redis cache-only). Cards + **Hear open briefs** → `advoi:run-frame` `open_briefs`.
 - **Intentional split:** home cards are PG→Redis only (no Hindsight on passive load). The `open_briefs` voice frame still Hindsight-enriches when that load is empty — empty-state copy notes this; do not merge Hindsight into the thin API.
 - **Review queue** (`data-testid="review-queue-section"`): single home UI for the queue — `GET /api/review-queue` → pending cards with link to `brief_url` or `/briefs/{id}`. VoiceSession does **not** render its own review-queue list (avoids double cards / double poll on `/`).
+- **Refresh:** stale-while-revalidate on 30s poll / manual Refresh (loading only on first empty load). After successful `queue_deep_review` or `open_briefs`, VoiceSession dispatches `advoi:briefs-refresh` so home reloads immediately.
 - Thin API: `GET /api/briefs` is read-only (no frame run / PEL). Existing `GET /api/review-queue` unchanged.
 - T0: `tests/test_pwa_briefs_surface.py`. Manual matrix **A17**. Stub: `web/e2e/pwa-briefs-surface.spec.ts`.
 

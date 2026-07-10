@@ -13,6 +13,7 @@ import pytest
 
 HOME_BRIEFS_LIMIT = 5
 OPEN_BRIEFS_FRAME_ID = "open_briefs"
+BRIEFS_REFRESH_EVENT = "advoi:briefs-refresh"
 # Home cards: PG→Redis only; voice open_briefs may still Hindsight-enrich.
 OPEN_BRIEFS_EMPTY_LABEL = (
     "No open briefs in Postgres or cache. Voice may still enrich from Hindsight."
@@ -335,6 +336,7 @@ def test_home_surface_model_both_empty():
 def test_constants_stable():
     assert HOME_BRIEFS_LIMIT == 5
     assert OPEN_BRIEFS_FRAME_ID == "open_briefs"
+    assert BRIEFS_REFRESH_EVENT == "advoi:briefs-refresh"
 
 
 # --- API thin wrapper ---
