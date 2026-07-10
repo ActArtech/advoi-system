@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Seed open briefs locally — Postgres canonical, Redis cache fill only (ADR-026)."""
+
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 
 BRIEFS = [

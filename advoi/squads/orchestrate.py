@@ -34,7 +34,9 @@ async def dispatch_all_squads(*, confirmed: bool = True) -> dict[str, Any]:
     }
 
 
-async def dispatch_squads_for_agents(agent_ids: list[str], *, confirmed: bool = True) -> list[dict[str, Any]]:
+async def dispatch_squads_for_agents(
+    agent_ids: list[str], *, confirmed: bool = True
+) -> list[dict[str, Any]]:
     """Dispatch one job per unique squad covering the given agent ids."""
     seen: set[str] = set()
     tasks: list[Any] = []

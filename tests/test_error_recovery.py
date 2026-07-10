@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-
 PATH_C_HREF = "/voice-server"
 PATH_C_LABEL = "Server voice (Path C)"
 

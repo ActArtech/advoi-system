@@ -2,7 +2,7 @@
 
 import pytest
 
-from advoi.ingestion.parse import extract_text, max_upload_bytes
+from advoi.ingestion.parse import extract_text
 from advoi.ingestion.pipeline import (
     approve_item,
     dispatch_item_dev,
@@ -12,7 +12,7 @@ from advoi.ingestion.pipeline import (
     triage_item,
 )
 from advoi.ingestion.route import route_document
-from advoi.ingestion.store import get_item, ingestion_root, list_items
+from advoi.ingestion.store import get_item, list_items
 
 
 @pytest.fixture

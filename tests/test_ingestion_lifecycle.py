@@ -176,12 +176,14 @@ async def test_lifecycle_api_endpoints(client, ingest_tmp, monkeypatch):
     assert bad.status_code == 409
 
     assert client.post(f"/api/ingestion/items/{item_id}/triage").status_code == 200
-    assert client.post(f"/api/ingestion/items/{item_id}/needs-review").json()["item"][
-        "status"
-    ] == "needs_review"
-    assert client.post(f"/api/ingestion/items/{item_id}/approve").json()["item"][
-        "status"
-    ] == "approved"
+    assert (
+        client.post(f"/api/ingestion/items/{item_id}/needs-review").json()["item"]["status"]
+        == "needs_review"
+    )
+    assert (
+        client.post(f"/api/ingestion/items/{item_id}/approve").json()["item"]["status"]
+        == "approved"
+    )
 
     good = client.post(
         f"/api/ingestion/items/{item_id}/dispatch-dev",

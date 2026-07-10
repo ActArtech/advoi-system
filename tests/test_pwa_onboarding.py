@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 INSTALL_STRIP_DISMISS_KEY = "advoi_install_strip_dismissed"
 MORNING_PULSE_FRAME_ID = "systems_pulse"
 RUN_FRAME_EVENT = "advoi:run-frame"
@@ -109,21 +108,15 @@ def is_install_strip_dismissed(stored: str | None) -> bool:
 
 
 def test_standalone_true_when_display_mode_standalone():
-    assert (
-        is_standalone_display(standalone_media=True, ios_standalone=False) is True
-    )
+    assert is_standalone_display(standalone_media=True, ios_standalone=False) is True
 
 
 def test_standalone_true_on_ios_home_screen():
-    assert (
-        is_standalone_display(standalone_media=False, ios_standalone=True) is True
-    )
+    assert is_standalone_display(standalone_media=False, ios_standalone=True) is True
 
 
 def test_standalone_false_in_browser_tab():
-    assert (
-        is_standalone_display(standalone_media=False, ios_standalone=False) is False
-    )
+    assert is_standalone_display(standalone_media=False, ios_standalone=False) is False
 
 
 def test_install_strip_hidden_when_standalone():
@@ -180,10 +173,7 @@ def test_morning_pulse_cta_aligned_with_portfolio_voice():
 def test_detect_platform_ios_android_desktop():
     assert detect_platform("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)") == "ios"
     assert detect_platform("Mozilla/5.0 (Linux; Android 14)") == "android"
-    assert (
-        detect_platform("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120")
-        == "desktop"
-    )
+    assert detect_platform("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120") == "desktop"
     assert detect_platform(None) == "unknown"
     assert detect_platform("") == "unknown"
 

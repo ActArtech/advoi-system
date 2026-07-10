@@ -15,10 +15,25 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from advoi import __version__
+from advoi.aether.service import get_aether_service
+from advoi.analytics.pel import (
+    PWA_BEACON_EVENT_TYPES,
+    EventSource,
+    GuardianStatus,
+    append_event,
+)
 from advoi.cache.agent_cache import agents_status_summary
-from advoi.routing.agent_bootstrap import prewarm_all_agents
 from advoi.decision.frames import FRAMES
+from advoi.guardian.confirmation import (
+    fleet_action_needs_confirmation,
+    frame_needs_confirmation,
+    global_confirmation_enabled,
+    high_risk_fleet_actions,
+)
 from advoi.llm.openrouter import resolve_llm_credentials
+from advoi.observability.otel_setup import setup_otel
+from advoi.observability.request_trace import RequestTraceMiddleware
+from advoi.routing.agent_bootstrap import prewarm_all_agents
 from advoi.routing.agents import AGENTS
 from advoi.routing.frame_runner import frame_to_dict, run_frame
 from advoi.routing.intent import frame_intent_label, resolve_voice_action
@@ -28,21 +43,6 @@ from advoi.routing.orchestrator import (
     systems_for_frame,
 )
 from advoi.voice.livekit_env import public_livekit_url
-from advoi.guardian.confirmation import (
-    fleet_action_needs_confirmation,
-    frame_needs_confirmation,
-    global_confirmation_enabled,
-    high_risk_fleet_actions,
-)
-from advoi.analytics.pel import (
-    EventSource,
-    GuardianStatus,
-    PWA_BEACON_EVENT_TYPES,
-    append_event,
-)
-from advoi.observability.otel_setup import setup_otel
-from advoi.observability.request_trace import RequestTraceMiddleware
-from advoi.aether.service import get_aether_service
 from advoi.voice.respond import warm_spoken_reply
 from advoi.voice.server_tts import synthesize_speech
 from advoi.voice.tokens import default_room_name, mint_room_token
@@ -92,7 +92,9 @@ class LiveKitTokenResponse(BaseModel):
 class PwaBeaconEvent(BaseModel):
     """Thin PWA analytics beacon → portfolio_events (no third-party SDK)."""
 
-    type: str = Field(..., description="One of pwa_connect, frame_tap, confirm_shown, confirm_accept, error")
+    type: str = Field(
+        ..., description="One of pwa_connect, frame_tap, confirm_shown, confirm_accept, error"
+    )
     venture_id: str = Field(default="advoi", min_length=1, max_length=128)
     payload: dict[str, Any] = Field(default_factory=dict)
     session_id: str | None = Field(default=None, max_length=128)
@@ -188,10 +190,7 @@ async def session_info() -> dict[str, Any]:
         "letta_enabled": os.getenv("LETTA_ENABLED", "false").lower() == "true",
         "confirmation_required": os.getenv("ADVOI_CONFIRMATION_REQUIRED", "true").lower() == "true",
         "frames": [frame_to_dict(f) for f in FRAMES],
-        "agents": [
-            {"id": a.id, "name": a.name, "role": a.role}
-            for a in AGENTS.values()
-        ],
+        "agents": [{"id": a.id, "name": a.name, "role": a.role} for a in AGENTS.values()],
         "aether": await aether.portfolio(),
     }
 
@@ -343,9 +342,7 @@ async def fleet_trigger(
         raise HTTPException(status_code=400, detail=f"Unknown action: {body.action}")
 
     # Header wins over body (standard Idempotency-Key convention).
-    header_key = request.headers.get("Idempotency-Key") or request.headers.get(
-        "idempotency-key"
-    )
+    header_key = request.headers.get("Idempotency-Key") or request.headers.get("idempotency-key")
     idem_key = normalize_idempotency_key(header_key) or normalize_idempotency_key(
         body.idempotency_key
     )
@@ -510,7 +507,9 @@ async def ingestion_approve(item_id: str) -> dict[str, Any]:
 
 
 @app.post("/api/ingestion/items/{item_id}/route")
-async def ingestion_reroute(item_id: str, body: IngestRerouteRequest | None = None) -> dict[str, Any]:
+async def ingestion_reroute(
+    item_id: str, body: IngestRerouteRequest | None = None
+) -> dict[str, Any]:
     from advoi.ingestion.pipeline import reroute_item
 
     try:
@@ -827,9 +826,7 @@ async def memory_diagnostics() -> dict[str, Any]:
         "letta_enabled": cfg.letta_enabled,
         "letta_base_url": bool(cfg.letta_base_url),
         **op,
-        "operational_store_enabled": os.getenv(
-            "ADVOI_OPERATIONAL_STORE_ENABLED", "true"
-        ).lower()
+        "operational_store_enabled": os.getenv("ADVOI_OPERATIONAL_STORE_ENABLED", "true").lower()
         in {"1", "true", "yes"},
         "operational_store_path": store_path,
         "operational_store_exists": store_exists,
@@ -983,7 +980,8 @@ async def _voice_diagnostics_payload() -> dict[str, Any]:
     except RuntimeError:
         checks["llm_key_required"] = True
         warnings.append(
-            "OPENROUTER_API_KEY or OPENAI_API_KEY is required; advoi-voice exits at startup without it."
+            "OPENROUTER_API_KEY or OPENAI_API_KEY is required; "
+            "advoi-voice exits at startup without it."
         )
 
     voice_mode = os.getenv("ADVOI_VOICE_MODE", "livekit").lower()
@@ -1153,7 +1151,9 @@ async def latency_diagnostics() -> dict[str, Any]:
         "timings_ms": timings_ms,
         "sla_target_ms": sla_ms,
         "sla_ok": sla_ok,
-        "sla_scope": "API intent + frame preview only; full mic-STT-TTS round trip not measured here",
+        "sla_scope": (
+            "API intent + frame preview only; full mic-STT-TTS round trip not measured here"
+        ),
         "frame_id": frame_latency.get("frame_id", "fleet_status"),
         "frame_status": frame_latency.get("frame_status"),
         "intent_frame_id": intent_latency.get("intent_frame_id"),

@@ -1,6 +1,6 @@
 """Review queue persistence and API tests."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -101,7 +101,7 @@ async def test_enqueue_review_persists(monkeypatch):
 @pytest.mark.asyncio
 async def test_list_pending_returns_items(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://test")
-    created = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+    created = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
 
     fake_connect, _mock_cur = _mock_postgres_cursor(
         fetchall=[

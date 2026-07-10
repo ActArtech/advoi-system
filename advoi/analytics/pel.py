@@ -10,8 +10,8 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import Enum, StrEnum
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ _CREATE_INDEXES_SQL = (
 )
 
 
-class EventSource(str, Enum):
+class EventSource(StrEnum):
     """Controlled vocabulary for portfolio_events.source."""
 
     VOICE = "voice"
@@ -75,7 +75,7 @@ class EventSource(str, Enum):
     SYSTEM = "system"
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Concrete portfolio_events.type values used by emit points."""
 
     FRAME_RUN = "frame_run"
@@ -114,7 +114,7 @@ PWA_BEACON_EVENT_TYPES: frozenset[str] = frozenset(
 )
 
 
-class GuardianStatus(str, Enum):
+class GuardianStatus(StrEnum):
     """Gate outcome when applicable."""
 
     NOT_REQUIRED = "not_required"
@@ -248,7 +248,7 @@ async def append_event(
     Idempotency: when ``legacy_memory_event_id`` is set, duplicate keys do not
     create a second row (SQL UNIQUE + ON CONFLICT DO NOTHING; memory store match).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts = timestamp or now
     source_s = _normalize_enum(source) or EventSource.SYSTEM.value
     type_s = _normalize_enum(event_type) or "unknown"

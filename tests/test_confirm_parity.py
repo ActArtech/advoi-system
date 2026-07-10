@@ -75,10 +75,7 @@ def test_prefers_prompt_over_spoken_summary():
 
 
 def test_falls_back_spoken_summary_then_spoken():
-    assert (
-        confirm_copy_from_response({"spoken_summary": "Frame gate copy"})
-        == "Frame gate copy"
-    )
+    assert confirm_copy_from_response({"spoken_summary": "Frame gate copy"}) == "Frame gate copy"
     assert confirm_copy_from_response({"spoken": "Voice gate copy"}) == "Voice gate copy"
 
 
@@ -167,7 +164,7 @@ def test_confirm_accept_beacon_types_aligned():
 
 def test_ui_state_confirm_pending_in_session_machine():
     """confirm_pending is part of the existing six-state UI machine."""
-    from tests.test_voice_session_state import UI_SESSION_STATES, reduce, INITIAL
+    from tests.test_voice_session_state import INITIAL, UI_SESSION_STATES, reduce
 
     assert "confirm_pending" in UI_SESSION_STATES
     ctx = reduce(INITIAL, "FRAME_START")

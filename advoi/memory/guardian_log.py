@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +28,7 @@ async def append_guardian_event(event_type: str, payload: dict[str, Any]) -> boo
         log_path = _guardian_log_path()
         log_path.parent.mkdir(parents=True, exist_ok=True)
         record: dict[str, Any] = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "event_type": event_type,
             "payload": payload,
         }

@@ -206,9 +206,7 @@ async def _emit_fleet_gate_event(
             "proceed": proceed,
             "caller": caller,
         },
-        guardian_status=(
-            GuardianStatus.ALLOWED if proceed else GuardianStatus.PENDING
-        ),
+        guardian_status=(GuardianStatus.ALLOWED if proceed else GuardianStatus.PENDING),
     )
 
 

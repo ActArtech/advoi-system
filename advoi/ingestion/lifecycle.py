@@ -49,9 +49,7 @@ class InvalidTransitionError(ValueError):
         self.to_status = to_status
         self.item_id = item_id
         where = f" for item {item_id}" if item_id else ""
-        super().__init__(
-            f"Invalid ingestion transition{where}: {from_status!r} → {to_status!r}"
-        )
+        super().__init__(f"Invalid ingestion transition{where}: {from_status!r} → {to_status!r}")
 
 
 def can_transition(from_status: str, to_status: str) -> bool:

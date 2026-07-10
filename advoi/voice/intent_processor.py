@@ -11,8 +11,8 @@ from advoi.decision.frames import FrameId
 from advoi.routing.frame_runner import run_frame
 from advoi.routing.intent import is_confirm_phrase, resolve_voice_action
 from advoi.voice.capabilities import classify_operator_intent
-from advoi.voice.respond import _reply_operator_intent
 from advoi.voice.memory_hooks import retain_turn
+from advoi.voice.respond import _reply_operator_intent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -135,8 +135,8 @@ async def maybe_handle_frame_intent(
         get_pending_fleet,
         set_pending_fleet,
     )
-    from advoi.voice.respond import _FLEET_WRITE_INTENTS, _stop_agents_needs_confirm
     from advoi.guardian.confirmation import evaluate_fleet_confirmation
+    from advoi.voice.respond import _FLEET_WRITE_INTENTS, _stop_agents_needs_confirm
 
     pending_fleet = get_pending_fleet(session_id)
     if pending_fleet and is_confirm_phrase(text):

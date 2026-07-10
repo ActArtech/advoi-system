@@ -9,8 +9,6 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 HOME_BRIEFS_LIMIT = 5
 OPEN_BRIEFS_FRAME_ID = "open_briefs"
 BRIEFS_REFRESH_EVENT = "advoi:briefs-refresh"

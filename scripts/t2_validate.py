@@ -12,7 +12,6 @@ import json
 import sys
 from typing import Any
 
-
 DEFAULT_EXPECTED_AGENTS = 6
 
 
@@ -32,17 +31,11 @@ def validate_health(
     total = data.get("agents_total")
     ready = data.get("agents_ready")
     if total != expected_agents:
-        errors.append(
-            f"health: agents_total={total!r}, expected {expected_agents}"
-        )
+        errors.append(f"health: agents_total={total!r}, expected {expected_agents}")
     if ready != expected_agents:
-        errors.append(
-            f"health: agents_ready={ready!r}, expected {expected_agents}"
-        )
+        errors.append(f"health: agents_ready={ready!r}, expected {expected_agents}")
     if data.get("service") != "advoi-api":
-        errors.append(
-            f"health: service={data.get('service')!r}, expected 'advoi-api'"
-        )
+        errors.append(f"health: service={data.get('service')!r}, expected 'advoi-api'")
     return errors
 
 
@@ -68,9 +61,7 @@ def validate_aether_status(data: dict[str, Any]) -> list[str]:
     # Active venture may be null on a cold stack, but key should exist when
     # portfolio is loaded. Prefer presence of portfolio_total as readiness signal.
     if "portfolio_total" not in data and "active_venture" not in data:
-        errors.append(
-            "aether/status: missing portfolio_total and active_venture"
-        )
+        errors.append("aether/status: missing portfolio_total and active_venture")
     return errors
 
 

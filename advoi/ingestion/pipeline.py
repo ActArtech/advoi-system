@@ -132,9 +132,7 @@ async def dispatch_item_dev(
         return {
             "ok": False,
             "status": "not_approved",
-            "error": (
-                f"Dispatch requires status 'approved'; current status is {item.status!r}"
-            ),
+            "error": (f"Dispatch requires status 'approved'; current status is {item.status!r}"),
             "item_id": item_id,
             "item": item.to_dict(),
         }
@@ -182,8 +180,7 @@ async def dispatch_item_dev(
         }
         if result["ok"]:
             result["spoken"] = (
-                f"Dispatched ingestion item to FirstMate on {project}. "
-                f"Task: {task[:120]}"
+                f"Dispatched ingestion item to FirstMate on {project}. Task: {task[:120]}"
             )
 
     if result.get("ok"):

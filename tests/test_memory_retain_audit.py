@@ -77,7 +77,10 @@ def test_no_direct_retain_strategic_outside_allowed():
         src = _read(path)
         if re.search(r"from\s+advoi\.memory\.hindsight\s+import\s+.*retain_strategic", src):
             offenders.append(rel)
-        if re.search(r"import\s+advoi\.memory\.hindsight\s+as\s+\w+", src) and "retain_strategic" in src:
+        if (
+            re.search(r"import\s+advoi\.memory\.hindsight\s+as\s+\w+", src)
+            and "retain_strategic" in src
+        ):
             # only flag if retain_strategic is referenced
             if "retain_strategic" in src and rel not in _HINDSIGHT_ALLOWED:
                 offenders.append(rel)

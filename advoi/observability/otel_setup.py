@@ -76,7 +76,8 @@ def setup_otel(app: Any | None = None, *, service_name: str = "advoi") -> bool:
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
     except ImportError:
         _LOGGER.info(
-            "OTEL_ENABLED but opentelemetry packages missing — install optional [observability] deps"
+            "OTEL_ENABLED but opentelemetry packages missing — "
+            "install optional [observability] deps"
         )
         return False
 
@@ -89,7 +90,9 @@ def setup_otel(app: Any | None = None, *, service_name: str = "advoi") -> bool:
         }
     )
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
+    provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True))
+    )
     trace.set_tracer_provider(provider)
 
     if app is not None:

@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 
 from advoi.analytics.pel import (
-    EventType,
     PWA_BEACON_EVENT_TYPES,
+    EventType,
     memory_rows,
     reset_memory_store,
 )

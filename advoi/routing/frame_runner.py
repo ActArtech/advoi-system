@@ -7,7 +7,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +18,6 @@ from advoi.memory import MemoryRouter
 from advoi.routing.agents import AGENTS
 from advoi.routing.diagnostic_frames import run_guardian_status, run_memory_health
 from advoi.routing.orchestrator import run_systems_pulse
-
 
 
 @dataclass
@@ -188,9 +187,7 @@ def _summarize_fleet_snapshot(
     in_flight = backlog.get("in_flight") or []
     queued = backlog.get("queued") or []
     if in_flight:
-        parts.append(
-            f"{len(in_flight)} in flight: {', '.join(in_flight[:2])}."
-        )
+        parts.append(f"{len(in_flight)} in flight: {', '.join(in_flight[:2])}.")
     else:
         parts.append("Nothing in flight.")
 
@@ -274,7 +271,7 @@ def _collect_fleet_snapshot_from_disk(root: Path) -> tuple[str, dict[str, Any]] 
         advanced_text=None,
         aether=aether,
     )
-    detail["snapshot_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    detail["snapshot_at"] = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     return spoken, detail
 
 
@@ -326,7 +323,7 @@ async def _run_fleet_scout() -> tuple[str, dict[str, Any], str]:
             )
             detail.update(refreshed)
             detail["advanced_preview"] = advanced_text[:400]
-    except (asyncio.TimeoutError, FileNotFoundError):
+    except (TimeoutError, FileNotFoundError):
         detail["advanced_error"] = "timeout_or_missing"
 
     if "ERROR:" in spoken or "container" in spoken.lower() and "not running" in spoken.lower():
@@ -509,8 +506,8 @@ async def _emit_frame_run_event(
     from advoi.analytics.pel import EventSource, EventType, safe_append_event
 
     detail = result.detail or {}
-    venture = (
-        str(detail.get("active_slug") or detail.get("venture_id") or detail.get("project") or "advoi")
+    venture = str(
+        detail.get("active_slug") or detail.get("venture_id") or detail.get("project") or "advoi"
     )
     detail_keys = sorted(str(k) for k in detail.keys())[:24]
     await safe_append_event(
@@ -528,11 +525,7 @@ async def _emit_frame_run_event(
             "cached": bool(detail.get("cached")),
         },
         guardian_status=_frame_guardian_status(result.status, confirmed=confirmed),
-        execution_ref=(
-            str(detail["queue_id"])
-            if detail.get("queue_id") is not None
-            else None
-        ),
+        execution_ref=(str(detail["queue_id"]) if detail.get("queue_id") is not None else None),
     )
 
 
