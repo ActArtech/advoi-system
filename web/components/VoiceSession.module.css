@@ -172,6 +172,88 @@
   border: 1px solid rgba(167, 139, 250, 0.35);
 }
 
+/* Error recovery panel (mic denied / LiveKit fail / API 502) — ship recovery paths */
+.errorRecovery {
+  margin: 0.65rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.55rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+}
+
+.errorRecoveryTitle {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #fca5a5;
+}
+
+.errorRecoveryMsg {
+  margin: 0;
+  color: #fecaca;
+  opacity: 0.95;
+}
+
+.errorRecoveryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.65rem;
+}
+
+.errorRetryBtn {
+  border: 0;
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  color: #1f0a0a;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.errorRetryBtn:hover {
+  filter: brightness(1.05);
+}
+
+.errorPathCLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.12);
+  color: #7dd3fc;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.errorPathCLink:hover {
+  border-color: rgba(56, 189, 248, 0.7);
+  background: rgba(14, 165, 233, 0.2);
+}
+
+.errorDismissBtn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.errorDismissBtn:hover {
+  color: var(--text);
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
 .speakRow {
   display: flex;
   gap: 0.5rem;

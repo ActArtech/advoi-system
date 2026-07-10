@@ -65,6 +65,20 @@ Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
 - **PWA wire:** `web/components/pwaBeacon.ts` + `dispatchUi` wrapper in `VoiceSession.tsx` maps UI state-machine events (`CONNECT_OK`→`pwa_connect`, `FRAME_START`→`frame_tap`, `CONFIRMATION_REQUIRED`→`confirm_shown`, `CONNECT_FAIL`/`ERROR`→`error`); confirm taps emit `confirm_accept` explicitly.
 - **T0:** `tests/test_pwa_beacon_events.py` (insert + schema per type).
 
+## PWA error recovery paths
+
+Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
+
+| Kind | Affordance | Path C `/voice-server` |
+|------|------------|------------------------|
+| `mic_denied` | Clear message + Retry connect | No |
+| `livekit_connect` | Retry connect | Yes |
+| `api_frame` (incl. 502) | Retry request (re-runs frame when known) | Yes |
+
+- Pure model: `web/components/errorRecovery.ts` (`classifyConnectError`, `classifyApiError`, `errorRecoveryModel`).
+- Wire: `VoiceSession` surfaces recovery via `CONNECT_FAIL` / `ERROR` + beacon payload `recovery_kind`.
+- T0: `tests/test_error_recovery.py`. Manual matrix A13 in `docs/operations/MANUAL-TEST-TRACKER.md`.
+
 ## OTel staging + Guardian trace_id (moat R6)
 
 - **Switch:** `OTEL_ENABLED=true` in `deploy/.env.staging.example`; local default off in `.env.example`.

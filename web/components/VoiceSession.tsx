@@ -10,6 +10,13 @@ import {
 import { stripEmDash } from "@/voice-interface/warmth";
 import styles from "./VoiceSession.module.css";
 import {
+  classifyApiError,
+  classifyConnectError,
+  errorRecoveryModel,
+  recoveryBeaconPayload,
+  type ErrorRecoveryModel,
+} from "./errorRecovery";
+import {
   latencyChipModel,
   type LatencyDiagnostics,
 } from "./latencyChip";
@@ -157,6 +164,10 @@ export function VoiceSession() {
   const [operatorBusy, setOperatorBusy] = useState(false);
   const [pendingFleet, setPendingFleet] = useState<FleetAction | null>(null);
   const [voiceSessionId] = useState(() => `pwa-${Date.now()}`);
+  /** Recovery panel for UI `error` state (mic / LiveKit / API). */
+  const [errorRecovery, setErrorRecovery] = useState<ErrorRecoveryModel | null>(null);
+  /** Last failed frame id for Retry on api_frame recovery. */
+  const [lastFailedFrameId, setLastFailedFrameId] = useState<string | null>(null);
 
   /** State-machine dispatch with PEL thin-beacon side effects (no third-party SDK). */
   const dispatchUi = useCallback(
@@ -168,6 +179,27 @@ export function VoiceSession() {
       });
     },
     [voiceSessionId],
+  );
+
+  const clearErrorRecovery = useCallback(() => {
+    setErrorRecovery(null);
+    setLastFailedFrameId(null);
+  }, []);
+
+  const surfaceRecovery = useCallback(
+    (
+      model: ErrorRecoveryModel,
+      uiEvent: UiSessionEvent,
+      extra?: Record<string, unknown>,
+    ) => {
+      setErrorRecovery(model);
+      dispatchUi(uiEvent, {
+        ...recoveryBeaconPayload(model),
+        ...(extra || {}),
+      });
+      setStatus(model.message);
+    },
+    [dispatchUi],
   );
 
   const room = useMemo(
@@ -289,8 +321,16 @@ export function VoiceSession() {
 
     const onMediaError = (error: Error) => {
       setMicOn(false);
-      dispatchUi({ type: "ERROR" }, { message: error.message, source: "media" });
-      setStatus(stripEmDash(`Microphone error: ${error.message}. Check browser permissions.`));
+      const model = errorRecoveryModel({
+        kind: "mic_denied",
+        detail: error.message,
+      });
+      setErrorRecovery(model);
+      dispatchUi(
+        { type: "ERROR" },
+        { ...recoveryBeaconPayload(model), source: "media" },
+      );
+      setStatus(model.message);
     };
 
     room.on(RoomEvent.ConnectionStateChanged, onState);
@@ -327,6 +367,7 @@ export function VoiceSession() {
   const runFrame = useCallback(
     async (frameId: string, confirmed = false, refresh = false) => {
       setActiveFrame(frameId);
+      clearErrorRecovery();
       if (confirmed) {
         emitPwaBeacon(apiBase, {
           type: "confirm_accept",
@@ -350,7 +391,18 @@ export function VoiceSession() {
           body: JSON.stringify({ confirmed, refresh }),
         });
         if (!resp.ok) {
-          throw new Error(`Frame returned ${resp.status}`);
+          const err = new Error(`Frame returned ${resp.status}`);
+          const classified = classifyApiError(err, {
+            httpStatus: resp.status,
+            target: frameId,
+          });
+          setLastFailedFrameId(frameId);
+          surfaceRecovery(
+            errorRecoveryModel(classified),
+            { type: "ERROR" },
+            { target: "frame", frame_id: frameId },
+          );
+          return;
         }
         const data = await resp.json();
 
@@ -371,6 +423,7 @@ export function VoiceSession() {
         }
 
         setPendingConfirm(null);
+        clearErrorRecovery();
         dispatchUi({ type: "FRAME_OK" });
         const spoken = stripEmDash(data.spoken_summary as string);
         setStatus(
@@ -404,32 +457,27 @@ export function VoiceSession() {
           loadReviewQueue();
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Frame failed";
-        dispatchUi(
-          { type: "FRAME_FAIL_KEEP_VOICE" },
-          { target: "frame", frame_id: frameId, message },
+        const classified = classifyApiError(err, { target: frameId });
+        setLastFailedFrameId(frameId);
+        surfaceRecovery(
+          errorRecoveryModel(classified),
+          { type: "ERROR" },
+          { target: "frame", frame_id: frameId },
         );
-        // Non-voice-fatal failures still surface as PEL error when transport is down.
-        if (!voiceConnected) {
-          emitPwaBeacon(apiBase, {
-            type: "error",
-            session_id: voiceSessionId,
-            payload: { target: "frame", frame_id: frameId, message },
-          });
-        }
-        setStatus(message);
       } finally {
         setActiveFrame(null);
       }
     },
     [
       apiBase,
+      clearErrorRecovery,
       dispatchUi,
       frames,
       loadAgents,
       loadLatency,
       loadReviewQueue,
       publishSpeak,
+      surfaceRecovery,
       voiceConnected,
       voiceSessionId,
     ],
@@ -439,6 +487,7 @@ export function VoiceSession() {
     async (transcript: string) => {
       const text = transcript.trim();
       if (!text) return;
+      clearErrorRecovery();
       dispatchUi({ type: "FRAME_START" }, { target: "intent" });
       setStatus("Understanding...");
       try {
@@ -529,6 +578,7 @@ export function VoiceSession() {
             );
           } else {
             setPendingFleet(null);
+            clearErrorRecovery();
             dispatchUi({ type: "FRAME_OK" });
           }
           if (data.action === "run_all" || data.action === "dispatch_squads") {
@@ -540,21 +590,33 @@ export function VoiceSession() {
           setStatus(spoken + agentNote);
           await publishSpeak(spoken);
         } else {
-          dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" }, { target: "intent", status: resp.status });
+          const classified = classifyApiError(new Error(`Intent returned ${resp.status}`), {
+            httpStatus: resp.status,
+            target: "intent",
+          });
+          surfaceRecovery(
+            errorRecoveryModel(classified),
+            { type: "ERROR" },
+            { target: "intent" },
+          );
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Request failed";
-        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" }, { target: "intent", message });
-        setStatus(message);
+        const classified = classifyApiError(err, { target: "intent" });
+        surfaceRecovery(
+          errorRecoveryModel(classified),
+          { type: "ERROR" },
+          { target: "intent" },
+        );
       }
     },
-    [dispatchUi, loadAgents, publishSpeak, runFrame, voiceSessionId],
+    [clearErrorRecovery, dispatchUi, loadAgents, publishSpeak, runFrame, surfaceRecovery, voiceSessionId],
   );
 
   const runFleetOperator = useCallback(
     async (action: FleetAction, confirmed = false) => {
       if (operatorBusy) return;
       setOperatorBusy(true);
+      clearErrorRecovery();
       if (confirmed) {
         emitPwaBeacon(apiBase, {
           type: "confirm_accept",
@@ -599,20 +661,34 @@ export function VoiceSession() {
           return;
         }
         setPendingFleet(null);
+        clearErrorRecovery();
         dispatchUi({ type: "FRAME_OK" });
         const spoken = stripEmDash(String(data.spoken || `${label} completed.`));
         setStatus(spoken);
         await publishSpeak(spoken);
         loadAgents();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Fleet action failed";
-        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" }, { target: "fleet", action, message });
-        setStatus(message);
+        const classified = classifyApiError(err, { target: action });
+        surfaceRecovery(
+          errorRecoveryModel(classified),
+          { type: "ERROR" },
+          { target: "fleet", action },
+        );
       } finally {
         setOperatorBusy(false);
       }
     },
-    [apiBase, capabilities, dispatchUi, loadAgents, operatorBusy, publishSpeak, voiceSessionId],
+    [
+      apiBase,
+      capabilities,
+      clearErrorRecovery,
+      dispatchUi,
+      loadAgents,
+      operatorBusy,
+      publishSpeak,
+      surfaceRecovery,
+      voiceSessionId,
+    ],
   );
 
   const submitTypedLine = useCallback(() => {
@@ -634,6 +710,7 @@ export function VoiceSession() {
     ) => {
       if (operatorBusy) return;
       setOperatorBusy(true);
+      clearErrorRecovery();
       try {
         if (kind === "capabilities") {
           await speakFromIntent("what can you do");
@@ -711,22 +788,37 @@ export function VoiceSession() {
         }
         setStatus(spoken);
         await publishSpeak(spoken);
+        clearErrorRecovery();
         dispatchUi({ type: "FRAME_OK" });
         loadAgents();
         // Run-six / prewarm complete — refresh SLA chip (frame_run_ms + run_six_ms).
         loadLatency();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Operator action failed";
-        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" });
-        setStatus(message);
+        const classified = classifyApiError(err, { target: kind });
+        surfaceRecovery(
+          errorRecoveryModel(classified),
+          { type: "ERROR" },
+          { target: "operator", kind },
+        );
       } finally {
         setOperatorBusy(false);
       }
     },
-    [apiBase, dispatchUi, loadAgents, loadLatency, operatorBusy, publishSpeak, speakFromIntent],
+    [
+      apiBase,
+      clearErrorRecovery,
+      dispatchUi,
+      loadAgents,
+      loadLatency,
+      operatorBusy,
+      publishSpeak,
+      speakFromIntent,
+      surfaceRecovery,
+    ],
   );
 
   const connect = useCallback(async () => {
+    clearErrorRecovery();
     dispatchUi({ type: "CONNECT_START" });
     setStatus("Requesting microphone access...");
     try {
@@ -739,14 +831,22 @@ export function VoiceSession() {
       const resp = await fetch(tokenEndpoint, { method: "POST" });
       if (!resp.ok) {
         const status = resp.status;
-        if (status === 401 || status === 403 || status === 503) {
-          throw new Error(
-            stripEmDash(
-              `Token failed (${status}). Check LiveKit API keys and that the advoi-voice container is running.`,
-            ),
-          );
-        }
-        throw new Error(`Token endpoint returned ${status}`);
+        const tokenErr =
+          status === 401 || status === 403 || status === 503
+            ? stripEmDash(
+                `Token failed (${status}). Check LiveKit API keys and that the advoi-voice container is running.`,
+              )
+            : `Token endpoint returned ${status}`;
+        const classified = classifyConnectError(new Error(tokenErr), {
+          httpStatus: status,
+        });
+        // Token failures are LiveKit path, not mic.
+        surfaceRecovery(
+          errorRecoveryModel({ ...classified, kind: "livekit_connect" }),
+          { type: "CONNECT_FAIL" },
+          { source: "token", status },
+        );
+        return;
       }
       const data = await resp.json();
       setRoomName(data.room_name || "");
@@ -755,7 +855,15 @@ export function VoiceSession() {
       await room.startAudio();
       const micPub = await room.localParticipant.setMicrophoneEnabled(true);
       if (!micPub) {
-        throw new Error("Microphone is blocked. Allow mic for this site and tap Connect again.");
+        const classified = classifyConnectError(
+          new Error("Microphone is blocked. Allow mic for this site and tap Connect again."),
+        );
+        surfaceRecovery(
+          errorRecoveryModel(classified),
+          { type: "CONNECT_FAIL" },
+          { source: "mic" },
+        );
+        return;
       }
       setMicOn(true);
       room.remoteParticipants.forEach((participant) => {
@@ -763,33 +871,73 @@ export function VoiceSession() {
           if (pub.track) attachRemoteAudio(pub.track);
         });
       });
+      clearErrorRecovery();
       dispatchUi({ type: "CONNECT_OK" }, { room_name: data.room_name || "" });
       setStatus(
         `Joined ${data.room_name}. Mic on. Say fleet status, systems pulse, memory health, guardian status, or what can you do.`,
       );
     } catch (err) {
-      let message = err instanceof Error ? err.message : "Connection failed";
-      const tokenHint =
-        message.startsWith("Token failed") || message.startsWith("Token endpoint returned");
-      if (!tokenHint) {
-        message = stripEmDash(
-          `${message}. Check LiveKit WSS URL and allow microphone access.`,
-        );
-      }
-      dispatchUi({ type: "CONNECT_FAIL" }, { message });
-      setStatus(message);
+      const classified = classifyConnectError(err);
+      surfaceRecovery(
+        errorRecoveryModel(classified),
+        { type: "CONNECT_FAIL" },
+        { source: classified.kind },
+      );
     }
-  }, [dispatchUi, room]);
+  }, [clearErrorRecovery, dispatchUi, room, surfaceRecovery]);
 
   const disconnect = useCallback(async () => {
     await room.localParticipant.setMicrophoneEnabled(false);
     await room.disconnect();
+    clearErrorRecovery();
     dispatchUi({ type: "DISCONNECT" });
     setMicOn(false);
     setStatus("Session ended. Frames still work in text mode.");
     setPendingConfirm(null);
     setPendingFleet(null);
-  }, [dispatchUi, room]);
+  }, [clearErrorRecovery, dispatchUi, room]);
+
+  const retryFromRecovery = useCallback(() => {
+    const kind = errorRecovery?.kind;
+    // Only re-run frames we tracked via lastFailedFrameId (not fleet/intent/operator).
+    if (kind === "api_frame" && lastFailedFrameId) {
+      const frameId = lastFailedFrameId;
+      clearErrorRecovery();
+      dispatchUi({ type: "RESET_IDLE" });
+      void runFrame(frameId, false, false);
+      return;
+    }
+    if (kind === "mic_denied" || kind === "livekit_connect") {
+      void connect();
+      return;
+    }
+    // Intent/fleet/operator API fail or generic — clear shell so user can act again.
+    clearErrorRecovery();
+    dispatchUi({ type: "RESET_IDLE" });
+    setStatus(
+      voiceConnected
+        ? "Ready again. Tap a frame or speak a command."
+        : "Ready again. Tap Connect voice or a decision frame.",
+    );
+  }, [
+    clearErrorRecovery,
+    connect,
+    dispatchUi,
+    errorRecovery,
+    lastFailedFrameId,
+    runFrame,
+    voiceConnected,
+  ]);
+
+  const dismissRecovery = useCallback(() => {
+    clearErrorRecovery();
+    dispatchUi({ type: "RESET_IDLE" });
+    setStatus(
+      voiceConnected
+        ? "Error dismissed. Speak or tap a decision frame."
+        : "Error dismissed. Frames still work in text mode.",
+    );
+  }, [clearErrorRecovery, dispatchUi, voiceConnected]);
 
   const onFrameClick = (frameId: string, ev: React.MouseEvent) => {
     const refresh = ev.shiftKey || frameId === "fleet_status" && ev.detail === 2;
@@ -894,6 +1042,50 @@ export function VoiceSession() {
         <p className={styles.confirmBanner} role="alert">
           Confirmation required — tap the pending control again or say yes.
         </p>
+      ) : null}
+
+      {state === "error" && errorRecovery ? (
+        <div
+          className={styles.errorRecovery}
+          role="alert"
+          data-testid="error-recovery"
+          data-recovery-kind={errorRecovery.kind}
+          data-recovery-status={
+            errorRecovery.status != null ? String(errorRecovery.status) : ""
+          }
+        >
+          <p className={styles.errorRecoveryTitle}>{errorRecovery.title}</p>
+          <p className={styles.errorRecoveryMsg}>{errorRecovery.message}</p>
+          <div className={styles.errorRecoveryActions}>
+            {errorRecovery.showRetry ? (
+              <button
+                type="button"
+                className={styles.errorRetryBtn}
+                data-testid="error-recovery-retry"
+                onClick={retryFromRecovery}
+              >
+                {errorRecovery.retryLabel}
+              </button>
+            ) : null}
+            {errorRecovery.showPathC ? (
+              <a
+                className={styles.errorPathCLink}
+                href={errorRecovery.pathCHref}
+                data-testid="error-recovery-path-c"
+              >
+                {errorRecovery.pathCLabel}
+              </a>
+            ) : null}
+            <button
+              type="button"
+              className={styles.errorDismissBtn}
+              data-testid="error-recovery-dismiss"
+              onClick={dismissRecovery}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       ) : null}
 
       <div className={styles.operatorBar} aria-label="Operator controls">

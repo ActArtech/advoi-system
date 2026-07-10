@@ -87,6 +87,24 @@ These run in CI or via scripts. Re-run after every deploy.
 | A10 | Agent freshness | `last_run` chips update after interval | **Automated** (API) | staging 2026-07-08 |
 | A11 | UI state machine chip | Open `/` — chip shows **Idle**; Connect → **Connecting** → **Connected**; tap a frame → **Frame running**; frame with Guardian confirm (e.g. deep review) → **Confirm pending**; force LiveKit/token fail → **Error**. Labels: idle, connecting, connected, frame_running, confirm_pending, error. Screenshot: `web/e2e/artifacts/ui-state-chip.png` (Playwright stub `web/e2e/voice-session-state.spec.ts`). Unit: `tests/test_voice_session_state.py`. | **Not tested** (automated reducer) | |
 | A12 | SLA latency chip | Open `/` — chip `data-testid="sla-latency-chip"` sits beside the UI state chip. Initial load may show **SLA —** (empty) or populated timings from `GET /api/diagnostics/latency`. After a frame run (or Run all 6), chip updates **without full page reload** with `frame_run_ms` and `run_six_ms` (e.g. `SLA ok · frame 0.4ms · six 42ms`). Kill/block diagnostics → **SLA —** or **SLA err** (no crash). Screenshot: `web/e2e/artifacts/sla-latency-chip.png`. Unit: `tests/test_latency_chip.py`. Stub: `web/e2e/voice-session-latency.spec.ts`. | **Not tested** (automated model) | |
+| A13 | Error recovery paths | See [PWA error recovery paths](#pwa-error-recovery-paths-a13) below. Three kinds on UI `error` state + PEL beacon `error`: **mic denied**, **LiveKit connect fail**, **API 502 / frame**. Panel `data-testid="error-recovery"`. Unit: `tests/test_error_recovery.py`. Model: `web/components/errorRecovery.ts`. Stub: `web/e2e/voice-session-recovery.spec.ts`. | **Not tested** (automated model) | |
+
+### PWA error recovery paths (A13)
+
+Wired into Path A (`VoiceSession`) when the state chip is **Error**. Beacon: `POST /api/events` type `error` with `payload.recovery_kind`.
+
+| Kind | Trigger | User-visible | Retry | Path C (`/voice-server`) | Beacon |
+|------|---------|--------------|-------|--------------------------|--------|
+| `mic_denied` | Mic permission denied / blocked / no getUserMedia | Clear “Microphone blocked” + how to re-allow | **Retry connect** | No (fix permissions first) | `error` + `recovery_kind=mic_denied` |
+| `livekit_connect` | Token 401/403/503, LiveKit WSS/connect fail | “Voice connect failed” + status hint | **Retry connect** | **Yes** — link to server voice | `error` via `CONNECT_FAIL` |
+| `api_frame` | Frame/API HTTP 502 (or other 5xx/network) | “Service unavailable” / request failed | **Retry request** (re-runs failed frame when known) | **Yes** — Path C fallback | `error` via UI `ERROR` event |
+
+**Manual checks (staging or local):**
+
+1. **Mic denied:** Open `/` → Connect → Deny mic → chip **Error**, panel title Microphone blocked, Retry only (no Path C link). Allow mic → Retry → connects.
+2. **LiveKit fail:** Stop `advoi-voice` or break token → Connect → Error panel with Retry + **Server voice (Path C)** → `/voice-server`.
+3. **API 502:** With API down or proxy 502, tap a decision frame → Error panel + Retry + Path C; dismiss returns to Idle/Connected shell.
+4. Confirm footer still links Path C; recovery panel is the in-flow affordance.
 
 ### Path B — Client voice (`/voice-local`)
 
