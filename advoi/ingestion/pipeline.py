@@ -41,13 +41,19 @@ async def ingest_upload(
     mime_type: str | None = None,
     project_hint: str | None = None,
     venture_hint: str | None = None,
+    paperclip_ticket_id: str | None = None,
 ) -> IngestItem:
     """Create an inbox item and attach route metadata; leave status ``uploaded``.
 
     Does not auto-dispatch. Call :func:`triage_item` / :func:`approve_item` /
     :func:`dispatch_item_dev` for later lifecycle steps.
     """
-    item = create_upload(filename, data, mime_type=mime_type)
+    item = create_upload(
+        filename,
+        data,
+        mime_type=mime_type,
+        paperclip_ticket_id=paperclip_ticket_id,
+    )
     try:
         text = extract_text(filename, data)
         route = route_document(

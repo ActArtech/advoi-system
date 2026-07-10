@@ -65,6 +65,7 @@ def _item_from_dict(raw: dict[str, Any]) -> IngestItem:
         mime_type=raw.get("mime_type"),
         error=raw.get("error"),
         dispatch_result=raw.get("dispatch_result"),
+        paperclip_ticket_id=raw.get("paperclip_ticket_id"),
         created_at=float(raw.get("created_at") or 0),
         updated_at=float(raw.get("updated_at") or 0),
         extra=dict(raw.get("extra") or {}),
@@ -104,6 +105,7 @@ def create_upload(
     data: bytes,
     *,
     mime_type: str | None = None,
+    paperclip_ticket_id: str | None = None,
 ) -> IngestItem:
     _ensure_dirs()
     item_id = uuid.uuid4().hex[:12]
@@ -116,6 +118,7 @@ def create_upload(
         filename=filename,
         size_bytes=len(data),
         mime_type=mime_type,
+        paperclip_ticket_id=paperclip_ticket_id,
         created_at=now,
         updated_at=now,
     )

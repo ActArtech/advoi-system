@@ -37,6 +37,7 @@ class IngestItem:
     mime_type: str | None = None
     error: str | None = None
     dispatch_result: dict[str, Any] | None = None
+    paperclip_ticket_id: str | None = None
     created_at: float = 0.0
     updated_at: float = 0.0
     extra: dict[str, Any] = field(default_factory=dict)

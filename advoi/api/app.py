@@ -419,6 +419,7 @@ async def ingestion_upload(
     file: UploadFile = File(...),
     project_hint: str | None = Form(None),
     venture_hint: str | None = Form(None),
+    paperclip_ticket_id: str | None = Form(None),
 ) -> dict[str, Any]:
     """Upload only — status stays ``uploaded``; no auto-dispatch (M7 lifecycle)."""
     from advoi.ingestion.pipeline import ingest_upload
@@ -432,6 +433,7 @@ async def ingestion_upload(
         mime_type=file.content_type,
         project_hint=project_hint,
         venture_hint=venture_hint,
+        paperclip_ticket_id=paperclip_ticket_id,
     )
     payload: dict[str, Any] = {"ok": item.status != "failed", "item": item.to_dict()}
     if item.status == "failed":
