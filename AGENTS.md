@@ -105,3 +105,10 @@ Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
 - Exits non-zero on failure; called at end of `scripts/staging-redeploy.sh`.
 - Offline parse tests: `bash scripts/t2-staging-smoke.sh --fixture-dir tests/fixtures/t2-smoke` and `uv run pytest tests/test_t2_staging_smoke.py`.
 - Validators live in `scripts/t2_validate.py` (no network).
+
+## Aether proactive feed schema
+
+- **Artifact:** `docs/aether/aether-proactive-latest.json` (FirstMate `fm-aether-gate.sh` input when `FM_ACTIVE_PROJECT=advoi`).
+- **JSON Schema:** `docs/aether/aether-proactive-latest.schema.json` — required `project`, `mode`=`proactive`, non-empty `findings[]` with `agent`/`severity`/`category`/`message`.
+- **Validator:** `advoi.aether.proactive_schema.validate_proactive_payload` / `validate_proactive_file` (stdlib-only Draft subset; no `jsonschema` dep).
+- **T0:** `tests/test_aether_proactive_schema.py` (fixtures under `tests/fixtures/aether-proactive/`) + `tests/test_aether_gate_artifacts.py`.

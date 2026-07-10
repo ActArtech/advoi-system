@@ -1,0 +1,11 @@
+{
+  "mode": "proactive",
+  "findings": [
+    {
+      "agent": "context",
+      "severity": "none",
+      "category": "audit",
+      "message": "no project field"
+    }
+  ]
+}

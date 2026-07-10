@@ -1,0 +1,12 @@
+{
+  "project": "/data/projects/advoi",
+  "mode": "strengthen",
+  "findings": [
+    {
+      "agent": "context",
+      "severity": "none",
+      "category": "audit",
+      "message": "wrong mode"
+    }
+  ]
+}

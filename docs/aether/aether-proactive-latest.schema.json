@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advoi.local/schemas/aether-proactive-latest.schema.json",
+  "title": "Aether proactive feed artifact",
+  "description": "Contract for docs/aether/aether-proactive-latest.json consumed by FirstMate fm-aether-gate.sh. Gate-critical fields: project, mode, findings (non-empty). Optional awareness/governance blocks are typed when present.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["project", "mode", "findings"],
+  "properties": {
+    "project": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Venture path or slug; must include the active project id (e.g. advoi)."
+    },
+    "mode": {
+      "const": "proactive",
+      "description": "Feed mode; proactive cycle only for this artifact name."
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 1,
+      "description": "At least one finding required so the gate has a feed row (audit-only 'no diff to review' is valid).",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "principles_loaded": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "has_critical": { "type": "boolean" },
+    "has_high": { "type": "boolean" },
+    "top_severity": { "$ref": "#/$defs/severity" },
+    "top_summary": { "type": "string" },
+    "finding_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "governance": { "$ref": "#/$defs/governance" },
+    "awareness": { "$ref": "#/$defs/awareness" }
+  },
+  "$defs": {
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "none"]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["agent", "severity", "category", "message"],
+      "properties": {
+        "agent": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "category": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" },
+        "file": { "type": "string" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "decision_count": { "type": "integer", "minimum": 0 },
+        "event_count": { "type": "integer", "minimum": 0 },
+        "principles_version": { "type": "string" }
+      }
+    },
+    "agent_run": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["agent", "status"],
+      "properties": {
+        "agent": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "skipped", "error", "warn"]
+        },
+        "summary": { "type": "string" },
+        "finding_count": { "type": "integer", "minimum": 0 },
+        "output": { "type": "object" }
+      }
+    },
+    "awareness": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "agents": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "agent_runs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/agent_run" }
+        },
+        "venture_context": { "type": "object" },
+        "diff_window": { "type": "string" },
+        "product_review": { "type": "object" },
+        "firstmate": { "type": "object" }
+      }
+    }
+  }
+}

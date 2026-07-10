@@ -1,0 +1,24 @@
+{
+  "project": "/data/projects/advoi",
+  "mode": "proactive",
+  "findings": [
+    {
+      "agent": "context",
+      "severity": "none",
+      "category": "audit",
+      "message": "no diff to review",
+      "file": ""
+    }
+  ],
+  "principles_loaded": ["ai", "architecture", "general", "product"],
+  "has_critical": false,
+  "has_high": false,
+  "top_severity": "none",
+  "top_summary": "no diff to review",
+  "finding_count": 1,
+  "governance": {
+    "decision_count": 0,
+    "event_count": 0,
+    "principles_version": "1.0.0-advoi"
+  }
+}

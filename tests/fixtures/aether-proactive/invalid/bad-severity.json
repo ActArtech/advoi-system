@@ -1,0 +1,12 @@
+{
+  "project": "/data/projects/advoi",
+  "mode": "proactive",
+  "findings": [
+    {
+      "agent": "context",
+      "severity": "urgent",
+      "category": "audit",
+      "message": "invalid severity enum"
+    }
+  ]
+}

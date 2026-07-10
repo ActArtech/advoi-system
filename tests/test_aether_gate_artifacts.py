@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from advoi.aether.proactive_schema import validate_proactive_payload
+
 ROOT = Path(__file__).resolve().parents[1]
 AETHER_DOCS = ROOT / "docs" / "aether"
 PROACTIVE_JSON = AETHER_DOCS / "aether-proactive-latest.json"
+PROACTIVE_SCHEMA = AETHER_DOCS / "aether-proactive-latest.schema.json"
 DIRECTIVES_MD = AETHER_DOCS / "AETHER-DIRECTIVES.md"
 
 
@@ -20,6 +23,9 @@ def test_aether_proactive_latest_json_exists_and_parses():
     findings = payload.get("findings")
     assert isinstance(findings, list), "findings must be a list"
     assert len(findings) >= 1, "findings must be non-empty for gate feed"
+    assert PROACTIVE_SCHEMA.is_file(), f"missing schema {PROACTIVE_SCHEMA}"
+    schema_errors = validate_proactive_payload(payload)
+    assert schema_errors == [], schema_errors
 
 
 def test_aether_directives_md_exists_with_required_markers():
