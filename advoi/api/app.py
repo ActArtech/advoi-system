@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -298,10 +298,23 @@ class FleetTriggerRequest(BaseModel):
     task: str | None = None
     confirmed: bool = False
     transcript: str | None = None
+    # Optional; also accepted via Idempotency-Key header (header wins).
+    # Duplicate key within 60s returns same result without re-running fm-bridge.
+    idempotency_key: str | None = None
 
 
 @app.post("/api/fleet/trigger")
-async def fleet_trigger(body: FleetTriggerRequest) -> dict[str, Any]:
+async def fleet_trigger(
+    body: FleetTriggerRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Dispatch a FirstMate fleet action via fm-bridge.
+
+    Idempotency (optional): send ``Idempotency-Key`` header **or** body field
+    ``idempotency_key``. Same key within 60s replays the prior terminal result
+    without re-executing the bridge (see ``advoi.fleet.idempotency``).
+    """
+    from advoi.fleet.idempotency import normalize_idempotency_key
     from advoi.fleet.trigger import (
         FleetVoiceAction,
         fleet_trigger_from_voice,
@@ -317,6 +330,14 @@ async def fleet_trigger(body: FleetTriggerRequest) -> dict[str, Any]:
     if body.action not in allowed:
         raise HTTPException(status_code=400, detail=f"Unknown action: {body.action}")
 
+    # Header wins over body (standard Idempotency-Key convention).
+    header_key = request.headers.get("Idempotency-Key") or request.headers.get(
+        "idempotency-key"
+    )
+    idem_key = normalize_idempotency_key(header_key) or normalize_idempotency_key(
+        body.idempotency_key
+    )
+
     transcript = body.transcript or body.action.replace("_", " ")
     if body.project:
         transcript = f"{transcript} on {body.project}"
@@ -328,28 +349,36 @@ async def fleet_trigger(body: FleetTriggerRequest) -> dict[str, Any]:
             "wake_firstmate",
             transcript=transcript,
             confirmed=body.confirmed,
+            idempotency_key=idem_key,
         )
     if body.action == "start_development":
         return await fleet_trigger_from_voice(
             "start_development",
             transcript=transcript,
             confirmed=body.confirmed,
+            idempotency_key=idem_key,
         )
     if body.action == "run_next_backlog":
         return await fleet_trigger_from_voice(
             "run_next_backlog",
             transcript=transcript,
             confirmed=body.confirmed,
+            idempotency_key=idem_key,
         )
     if body.action == "fleet_stop":
         return await fleet_trigger_from_voice(
             "fleet_stop",
             transcript=transcript,
             confirmed=body.confirmed,
+            idempotency_key=idem_key,
         )
 
     if body.task:
-        return await invoke_fleet_trigger(f"work {body.task}", project=body.project)
+        return await invoke_fleet_trigger(
+            f"work {body.task}",
+            project=body.project,
+            idempotency_key=idem_key,
+        )
     raise HTTPException(status_code=400, detail="task required for custom work dispatch")
 
 

@@ -219,10 +219,32 @@ async def invoke_fleet_trigger(
     caller: str = "api",
     action: str | None = None,
     guardian_status: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
+    """Invoke fm-bridge once. Optional ``idempotency_key`` dedupes for 60s.
+
+    See ``advoi.fleet.idempotency`` for the header/param contract.
+    """
+    from advoi.fleet.idempotency import (
+        get_idempotent_result,
+        normalize_idempotency_key,
+        store_idempotent_result,
+    )
+
+    key = normalize_idempotency_key(idempotency_key)
+    cached = get_idempotent_result(key)
+    if cached is not None:
+        return cached
+
     slug = resolve_active_project(project)
     msg = message.strip()
     exec_argv = resolve_fleet_exec()
+
+    def _finish(result: dict[str, Any]) -> dict[str, Any]:
+        store_idempotent_result(key, result)
+        if key:
+            return {**result, "idempotency_key": key}
+        return result
 
     if _fleet_mock():
         result = {
@@ -239,7 +261,7 @@ async def invoke_fleet_trigger(
             caller=caller,
             guardian_status=guardian_status or "allowed",
         )
-        return result
+        return _finish(result)
 
     script_path = Path(exec_argv[1])
     if not script_path.is_file():
@@ -256,7 +278,7 @@ async def invoke_fleet_trigger(
             caller=caller,
             guardian_status=guardian_status or "error",
         )
-        return result
+        return _finish(result)
 
     env = os.environ.copy()
     env["FM_HERMES_PROJECT"] = slug
@@ -287,7 +309,7 @@ async def invoke_fleet_trigger(
         caller=caller,
         guardian_status=guardian_status or ("allowed" if ok else "error"),
     )
-    return result
+    return _finish(result)
 
 
 async def fleet_trigger_from_voice(
@@ -295,8 +317,32 @@ async def fleet_trigger_from_voice(
     transcript: str,
     *,
     confirmed: bool = False,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
+    """Voice/API fleet action path with optional request-level idempotency key.
+
+    When ``idempotency_key`` is set, the **whole action result** is cached for
+    60s so multi-step actions (e.g. start_development = arm + work) do not
+    double-dispatch on client retries. Inner ``invoke_fleet_trigger`` calls
+    intentionally omit the key.
+    """
+    from advoi.fleet.idempotency import (
+        get_idempotent_result,
+        normalize_idempotency_key,
+        store_idempotent_result,
+    )
     from advoi.guardian.confirmation import evaluate_fleet_confirmation
+
+    key = normalize_idempotency_key(idempotency_key)
+    cached = get_idempotent_result(key)
+    if cached is not None:
+        return cached
+
+    def _finish(result: dict[str, Any]) -> dict[str, Any]:
+        store_idempotent_result(key, result)
+        if key:
+            return {**result, "idempotency_key": key}
+        return result
 
     project = extract_project_slug(transcript) or resolve_active_project()
     gate = evaluate_fleet_confirmation(
@@ -311,6 +357,7 @@ async def fleet_trigger_from_voice(
             proceed=False,
             caller="voice",
         )
+        # Do not store confirmation_required — client must retry with confirmed.
         return {
             "ok": False,
             "status": "confirmation_required",
@@ -342,7 +389,7 @@ async def fleet_trigger_from_voice(
         )
         result["spoken"] = plain_copy(spoken)
         result["action"] = action
-        return result
+        return _finish(result)
 
     if action == "wake_firstmate":
         result = await invoke_fleet_trigger(
@@ -359,12 +406,12 @@ async def fleet_trigger_from_voice(
         )
         result["spoken"] = plain_copy(spoken)
         result["action"] = action
-        return result
+        return _finish(result)
 
     if action == "run_next_backlog":
         item = next_backlog_item(project)
         if not item:
-            return {
+            empty = {
                 "ok": False,
                 "status": "empty_backlog",
                 "action": action,
@@ -373,6 +420,7 @@ async def fleet_trigger_from_voice(
                     f"No queued backlog items for {project}. Say fleet status to hear the queue."
                 ),
             }
+            return _finish(empty)
         result = await invoke_fleet_trigger(
             f"work {item}",
             project=project,
@@ -388,7 +436,7 @@ async def fleet_trigger_from_voice(
         result["spoken"] = plain_copy(spoken)
         result["action"] = action
         result["task"] = item
-        return result
+        return _finish(result)
 
     if action == "start_development":
         arm = await invoke_fleet_trigger(
@@ -403,7 +451,7 @@ async def fleet_trigger_from_voice(
                 f"Could not arm FirstMate on {project}: {arm.get('output', arm.get('status'))}"
             )
             arm["action"] = action
-            return arm
+            return _finish(arm)
 
         item = next_backlog_item(project)
         if item:
@@ -423,7 +471,7 @@ async def fleet_trigger_from_voice(
                 work["action"] = action
                 work["armed"] = True
                 work["task"] = item
-                return work
+                return _finish(work)
             spoken = (
                 f"Fleet armed on {project} but work dispatch failed: "
                 f"{work.get('output', work.get('status'))}"
@@ -431,7 +479,7 @@ async def fleet_trigger_from_voice(
             arm["spoken"] = plain_copy(spoken)
             arm["action"] = action
             arm["armed"] = True
-            return arm
+            return _finish(arm)
 
         work = await invoke_fleet_trigger(
             f"work continue development on {project}",
@@ -451,6 +499,6 @@ async def fleet_trigger_from_voice(
         work["spoken"] = plain_copy(spoken)
         work["action"] = action
         work["armed"] = True
-        return work
+        return _finish(work)
 
     return {"ok": False, "status": "unknown_action", "action": action}

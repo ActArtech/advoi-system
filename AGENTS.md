@@ -37,6 +37,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **ADR-026:** PEL is not a live Hindsight double-write. Payload excerpts only — no full fleet backlog dumps.
 - **Staging T2:** ROADMAP M10.4 — verify rows after fleet/frame on VPS Postgres.
 
+## fm-bridge invoke idempotency (60s)
+
+- **Module:** `advoi/fleet/idempotency.py` — process-local in-memory cache, default window **60s** (`ADVOI_FLEET_IDEMPOTENCY_WINDOW_SECS`).
+- **Contract:** clients pass opaque key via HTTP header `Idempotency-Key` (wins) **or** JSON `idempotency_key` on `POST /api/fleet/trigger`. Same key within the window returns prior terminal result with `deduped: true` and does **not** re-run `fm-bridge.sh`.
+- **Not cached:** `confirmation_required` (so confirmed retry with same key still dispatches).
+- **Scope:** single API worker; multi-replica needs a future shared store.
+- **T0:** `tests/test_fleet_idempotency.py`.
+
 ## PWA voice UI state machine
 
 Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
