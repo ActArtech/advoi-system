@@ -1,10 +1,11 @@
 # Gaps and blockers
 
-**Last updated:** 2026-07-10 (wave 4 wrap-up)  
+**Last updated:** 2026-07-10 (staging-record @ `19b052d`)  
 **Authoritative snapshot:** [SYSTEM-STATUS.md](SYSTEM-STATUS.md)  
 **Sprint log:** [WHAT-WE-DID-2026-07-10.md](WHAT-WE-DID-2026-07-10.md)  
 **Validation roadmap:** [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md)  
-**Wave4 evidence:** [batch-2026-07-10-wave4/summary.md](../../data/feedback-evidence/batch-2026-07-10-wave4/summary.md)  
+**Alignment (drift):** [ALIGNMENT-LOG.md](ALIGNMENT-LOG.md) — staging-record entry  
+**Wave4 evidence:** [batch-2026-07-10-wave4/summary.md](../../data/feedback-evidence/batch-2026-07-10-wave4/summary.md) · [blockers.md](../../data/feedback-evidence/batch-2026-07-10-wave4/blockers.md)  
 **Write-path audit:** [advoi-arch-write-path-audit-01/audit.md](../../data/feedback-evidence/advoi-arch-write-path-audit-01/audit.md)
 
 ---
@@ -13,7 +14,7 @@
 
 | Priority | Open items | Blocks coding? |
 |----------|------------|----------------|
-| P0 ops | Staging promote (SSH host key); develop `61de279` vs staging `5d50805` | **No** (blocks T2 only) |
+| P0 ops | Staging promote (SSH host key GAP-013); develop `19b052d` vs staging `5d50805` | **No** (blocks tip T2 only; bootstrap T2 **pass**) |
 | P0 validation | Human E2E sign-off (incl. A11–A17 chips / home surfaces) | **No** |
 | P1 functional | Device confirm, Path B/iOS, mic latency human baseline | **No** |
 | P1 arch | Write-path V4 voice→fleet import thinning | **No** |
@@ -21,7 +22,7 @@
 | P2 arch | Aether fleet-tree publish vs vertical wording (audit V5) | **No** |
 | P3 polish | React Flow, full Playwright connect smoke | **No** |
 
-**Bottom line:** Wave 4 **Aether Queued slice** + **Guardian write-path audit (P0)** are complete on develop. Primary gap remains **SSH-blocked staging promote** + human validation.
+**Bottom line:** Wave 4 **Aether Queued slice** + **Guardian write-path audit (P0)** + post-wave **data** ships (authority matrix, SQL migrations @ `19b052d`) are on develop. Primary gap remains **SSH-blocked staging promote** + human validation. Bootstrap staging still smokes green.
 
 ---
 
@@ -29,11 +30,14 @@
 
 ### 1. Staging promote parked (SSH host key) — GAP-013
 
-**Status:** Parked (wave 2 → wave 3 → wave 4).
+**Status:** Parked (wave 2 → wave 3 → wave 4 → staging-record).
 
-Staging remains @ `5d50805`; develop tip `61de279`. SSH host key verification failed on promote/redeploy. Blocks OTEL apply, M10.4 PEL rows, beacon/funnel/gate_export T2, aether feed cron live, and valid A14–A17 human checks on staging tip.
+Staging remains @ `5d50805`; develop tip `19b052d` (wave-4 tip was `61de279`; later data/arch commits advanced tip). SSH host key verification failed on promote/redeploy. Blocks OTEL apply, M10.4 PEL rows, beacon/funnel/gate_export T2, aether feed cron live, migrations/briefs on VPS, and valid A14–A17 human checks on staging tip.
 
-**Action:** Fix host key / `known_hosts`; run promote + `scripts/t2-staging-smoke.sh`.
+**T2 note:** Fleet curl smoke on bootstrap SHA **passes** (`/api/health` 200, 6/6 agents; signoff precheck exit 0) @ https://advoi-staging.keyteller.com — does not clear tip parity.
+
+**Action:** Fix host key / `known_hosts`; run promote + `scripts/t2-staging-smoke.sh`.  
+**Evidence:** `data/feedback-evidence/batch-2026-07-10-wave4/blockers.md`
 
 ### 2. Human E2E voice not signed off
 

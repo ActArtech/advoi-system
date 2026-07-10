@@ -12,6 +12,7 @@
 
 | Date | Batch | Gate | Staging SHA | Misalignments |
 |------|-------|------|-------------|---------------|
+| 2026-07-10 | staging-record (post wave 4 + data) | hold (SSH promote GAP-013) | `5d50805` (bootstrap) | develop `19b052d` ahead; promote parked; T2 smoke **pass** on bootstrap URL |
 | 2026-07-10 | wave 4 Aether/system/arch | hold (SSH promote) | `5d50805` (bootstrap) | develop `61de279` ahead; Aether/Guardian T2 + PEL T2 parked |
 | 2026-07-10 | wave 3 PWA interaction | hold (SSH promote) | `5d50805` (bootstrap) | develop `587385d` ahead; PWA A14–A17 T3 + PEL T2 parked |
 | 2026-07-10 | wave 2 PWA/analytics/aether | hold (SSH promote) | `5d50805` (bootstrap) | develop `ce6a8e2` ahead; OTEL/PEL T2 parked |
@@ -40,6 +41,23 @@
 ---
 
 _Add entries below newest first._
+
+## [2026-07-10] — staging-record: develop ahead of VPS (batch discipline)
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Aether gate | hold on VPS tip | Wave 4 gate/export/hard-gate code on develop; not promoted |
+| Fleet `active_slug` | advoi | Fleet staging-state + backlog record this drift |
+| ROADMAP-VALIDATION milestones | partial | Tip advances data authority + SQL migrations; M1 staging parity **stale** vs tip |
+| PORTFOLIO-SYSTEM-MOAT R1–R10 | hold T2 | M10.4 / OTEL / gate_export T2 still need promote |
+| Staging smoke (T2) | **pass** (bootstrap SHA) | `GET /api/health` 200, 6/6 agents; `staging-signoff-precheck.sh` exit 0 @ https://advoi-staging.keyteller.com |
+| Drift: develop vs staging | **increased** | develop `19b052d` vs staging VPS `5d50805` |
+| Promote | **parked** | GAP-013 SSH host key verification failed |
+
+**Misalignments found:** Develop tip `19b052d` (post wave-4 Aether/arch + data authority matrix + versioned SQL migrations) is **ahead** of staging VPS `5d50805`. SSH promote remains **parked** (GAP-013). Bootstrap-era T2 smoke still **passes** at the staging URL; that does **not** prove wave 2–4 or data-wave code on VPS.  
+**Follow-up backlog IDs:** GAP-013 / OPP-001 (SSH + promote); then re-run T2 on tip; M10.4; OTEL apply; human A11–A17.
+
+**Discipline:** Staging drift recorded for batch documentation continuity (not a full 5-Done wrap-up). Evidence: `data/feedback-evidence/batch-2026-07-10-wave4/blockers.md` · fleet `data/staging-state.md` (firstmate). Status: **Drift** until promote unblocked. **SHAs:** develop `19b052d` · staging `5d50805`.
 
 ## [2026-07-10] — wave 4 Aether / system / arch (batch wrap-up)
 
