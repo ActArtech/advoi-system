@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from advoi.diagnostics.platform import otel_diagnostics
 from advoi.observability.otel_setup import (
+    active_span_context,
+    current_span_id,
     current_trace_id,
     otel_enabled,
     parse_otlp_endpoint,
@@ -28,11 +30,43 @@ def test_otel_disabled_without_packages(monkeypatch):
 def test_current_trace_id_none_when_otel_off(monkeypatch):
     monkeypatch.setenv("OTEL_ENABLED", "false")
     assert current_trace_id() is None
+    assert current_span_id() is None
+    assert active_span_context() is None
 
 
 def test_current_trace_id_none_without_span(monkeypatch):
     monkeypatch.setenv("OTEL_ENABLED", "true")
     assert current_trace_id() is None
+    assert current_span_id() is None
+    assert active_span_context() is None
+
+
+def test_active_span_context_reads_mocked_span(monkeypatch):
+    monkeypatch.setenv("OTEL_ENABLED", "true")
+
+    class FakeCtx:
+        is_valid = True
+        trace_id = int("c" * 32, 16)
+        span_id = int("d" * 16, 16)
+
+    class FakeSpan:
+        def get_span_context(self) -> FakeCtx:
+            return FakeCtx()
+
+    import sys
+    import types
+
+    otel_mod = types.ModuleType("opentelemetry")
+    trace_mod = types.ModuleType("opentelemetry.trace")
+    trace_mod.get_current_span = lambda: FakeSpan()  # type: ignore[attr-defined]
+    otel_mod.trace = trace_mod  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "opentelemetry", otel_mod)
+    monkeypatch.setitem(sys.modules, "opentelemetry.trace", trace_mod)
+
+    ctx = active_span_context()
+    assert ctx is not None
+    assert current_trace_id() == "c" * 32
+    assert current_span_id() == "d" * 16
 
 
 def test_parse_otlp_endpoint_defaults():

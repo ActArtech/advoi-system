@@ -155,7 +155,7 @@ Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
 - **Endpoint:** gRPC OTLP on **4317** (`opentelemetry-exporter-otlp-proto-grpc`). Do not use HTTP 4318 for this exporter.
 - **Images:** `Dockerfile.api` / `Dockerfile.voice` install `[observability]` extras.
 - **Collector:** compose profile `observability` → `otel-collector`; `scripts/staging-redeploy.sh` starts it when `OTEL_ENABLED=true`.
-- **Guardian JSONL:** `append_guardian_event` adds top-level `trace_id` when OTEL is on (`advoi/memory/guardian_log.py` + `current_trace_id` in `otel_setup`).
+- **Guardian JSONL:** `append_guardian_event` adds top-level `trace_id` + `span_id` when OTEL is on (`advoi/memory/guardian_log.py` + `current_trace_id` / `current_span_id` in `otel_setup`).
 - **Diagnostics:** `GET /api/diagnostics/platform` → `otel.otel_ready` / top-level `otel_ready` (enabled + packages + TCP collector reachable).
 - **T0:** `tests/test_guardian_trace_id.py`, `tests/test_otel_setup.py`. Staging steps in `docs/operations/MANUAL-TEST-TRACKER.md` (O5 / OT1–OT4).
 - **VPS:** promote/SSH may be parked — land on `develop` first; apply env on VPS when reachable.

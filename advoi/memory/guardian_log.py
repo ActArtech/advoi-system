@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from advoi.observability.otel_setup import current_trace_id, otel_enabled
+from advoi.observability.otel_setup import current_span_id, current_trace_id, otel_enabled
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,8 +21,9 @@ def _guardian_log_path() -> Path:
 async def append_guardian_event(event_type: str, payload: dict[str, Any]) -> bool:
     """Append one Guardian JSONL record.
 
-    When ``OTEL_ENABLED`` is active, each record includes a top-level ``trace_id``
-    field (str hex or null) for correlation with OTel / PEL.
+    When ``OTEL_ENABLED`` is active, each record includes top-level ``trace_id``
+    and ``span_id`` fields (str hex or null) for correlation with OTel / PEL.
+    When OTel is disabled the fields are omitted so older consumers stay clean.
     """
     try:
         log_path = _guardian_log_path()
@@ -34,6 +35,7 @@ async def append_guardian_event(event_type: str, payload: dict[str, Any]) -> boo
         }
         if otel_enabled():
             record["trace_id"] = current_trace_id()
+            record["span_id"] = current_span_id()
         with log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
         return True

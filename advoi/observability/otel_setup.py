@@ -14,8 +14,8 @@ def otel_enabled() -> bool:
     return os.getenv("OTEL_ENABLED", "false").lower() in {"1", "true", "yes"}
 
 
-def current_trace_id() -> str | None:
-    """Best-effort OTel / request correlation id; None when unavailable."""
+def active_span_context() -> Any | None:
+    """Return the active OTel span context when valid; None if disabled/missing."""
     if not otel_enabled():
         return None
     try:
@@ -25,7 +25,29 @@ def current_trace_id() -> str | None:
         ctx = span.get_span_context() if span is not None else None
         if ctx is None or not getattr(ctx, "is_valid", False):
             return None
-        return format(ctx.trace_id, "032x")
+        return ctx
+    except Exception:
+        return None
+
+
+def current_trace_id() -> str | None:
+    """Best-effort OTel / request correlation id; None when unavailable."""
+    ctx = active_span_context()
+    if ctx is None:
+        return None
+    try:
+        return format(int(ctx.trace_id), "032x")
+    except Exception:
+        return None
+
+
+def current_span_id() -> str | None:
+    """Best-effort OTel span id hex; None when unavailable."""
+    ctx = active_span_context()
+    if ctx is None:
+        return None
+    try:
+        return format(int(ctx.span_id), "016x")
     except Exception:
         return None
 
