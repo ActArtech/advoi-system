@@ -148,8 +148,8 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | # | Task | Tier | Status |
 |---|------|------|--------|
 | M7.1 | Ingestion MVP (upload, route, optional dispatch-dev) | T0/T2 | [x] Done |
-| M7.2 | `triage.py` classify + `needs_review` | T0 | [ ] Open |
-| M7.3 | Status lifecycle: uploaded → triaged → routed → approved → dispatched | T0 | [ ] Open |
+| M7.2 | `triage.py` classify + `needs_review` | T0 | [~] **Partial** — `triage_item` / `mark_needs_review` in pipeline + lifecycle API (`80b69fa`); no standalone `triage.py` classifier yet |
+| M7.3 | Status lifecycle: uploaded → triaged → routed → approved → dispatched | T0 | [~] **Partial** — happy path `uploaded → triaged → needs_review → approved → dispatched` + legacy `routed` (`80b69fa`, `tests/test_ingestion_lifecycle.py`); inbox UI / batch / voice still open |
 | M7.4 | Batch / folder upload endpoint | T0/T2 | [ ] Open |
 | M7.5 | Triage inbox UI on `/ingest` | T3 | [ ] Open |
 | M7.6 | Voice: "triage uploads", "route ingestion to {project}" | T0/T3 | [ ] Open |
@@ -188,13 +188,15 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 
 | # | Task | Tier | Status |
 |---|------|------|--------|
-| M10.1 | Schema migration `deploy/migrations/001_portfolio_events.sql` + `append_event` | T0 | [x] Done (`advoi-analytics-pel-schema-01`) |
+| M10.1 | Schema migration `deploy/migrations/001_portfolio_events.sql` + `append_event` | T0 | [x] Done (`advoi-analytics-pel-schema-01` @ `7682b96`) |
 | M10.2 | Emit: `frame_run`, `fleet_trigger` (+ confirmation gate), `voice_intent` | T0 | [x] Done — `tests/test_portfolio_events.py` |
 | M10.3 | Do **not** drop `memory_events` yet (deprecation checklist only) | — | [x] Documented in migration-plan |
-| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — after deploy with `DATABASE_URL` |
+| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — after deploy with `DATABASE_URL` (develop tip `7682b96` not yet on staging) |
 | M10.5 | Optional: `/api/events` query + fleet status `last_dispatch_at` from PEL | T2 | [ ] Open (follow-up ships) |
 
-**Design:** [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md) · [migration-plan](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md)
+**PEL note (batch 2026-07-10):** Moat R1 code+design landed on develop at `7682b96`. Authority decision recorded as **ADR-027** (see also [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md)). Next gate is **M10.4** staging row proof only — do not start dual-authority consumers until T2 passes.
+
+**Design:** [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md) · [migration-plan](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md) · ADR-027
 
 **T2 gate (M10.4):** On staging Postgres after a confirmed fleet trigger or frame run:
 
@@ -238,7 +240,7 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 | GAP-006 | P2 | `LETTA_ENABLED=true` on VPS | Open |
 | GAP-007 | P2 | `OTEL_ENABLED=true` on VPS | Open |
 | GAP-008 | P2 | Live squad webhooks | Open |
-| GAP-009 | P2 | Ingestion Phase 2 triage pipeline | Planned |
+| GAP-009 | P2 | Ingestion Phase 2 triage pipeline | **Partial** — lifecycle T0 @ `80b69fa`; classifier polish + UI open |
 | GAP-010 | P3 | React Flow dashboard | Open |
 | GAP-011 | P3 | Port registry / vps-shared | Open |
 | GAP-012 | P3 | Architecture docs 03/05 (3-agent stale) | Open |

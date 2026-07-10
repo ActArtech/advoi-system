@@ -1,0 +1,10 @@
+advoi-batch-doc-setup-01
+advoi-aether-bootstrap-01
+advoi-arch-doc-sync-01
+advoi-memory-retain-audit-01
+advoi-memory-brief-triple-path-01
+advoi-data-ingest-lifecycle-01
+advoi-ontology-registry-01
+advoi-data-memory-events-pel-01
+advoi-analytics-pel-schema-01
+advoi-batch-wrapup-template-01

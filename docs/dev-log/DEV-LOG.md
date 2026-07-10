@@ -5,6 +5,48 @@
 
 ---
 
+## [2026-07-10] — AFK architecture wave + PEL @ `7682b96`
+
+**Version:** v0.5.0 (wave tip)  
+**Type:** Feature + Docs + Architecture  
+**Status:** Complete (code on develop; staging promote + PEL T2 open)  
+**Batch IDs:** advoi-arch-doc-sync-01, advoi-memory-retain-audit-01, advoi-memory-brief-triple-path-01, advoi-data-ingest-lifecycle-01, advoi-ontology-registry-01, advoi-data-memory-events-pel-01, advoi-analytics-pel-schema-01, advoi-batch-doc-setup-01, advoi-batch-wrapup-template-01
+
+### Summary
+
+Closed an 8+ Done AFK wave from architecture review: ADR-026 retain audit, Brief Curator PG-canonical, ingestion lifecycle (M7.2–M7.3 partial), ontology registry, and **Portfolio Event Log** schema + emit paths (moat R1) at develop tip `7682b96`. Batch documentation discipline is now mandatory wrap-up after good batches.
+
+### Changes
+
+- [x] Architecture docs reconciled to 6-agent control plane (`e8a0387`)
+- [x] Memory retain integrity audit + MemoryRouter enforcement (`6f3f232`)
+- [x] Brief Curator: Postgres canonical, Redis cache-only (`89e5556`)
+- [x] Ingestion lifecycle: `uploaded → triaged → needs_review → approved → dispatched` (`80b69fa`)
+- [x] Ontology vocabulary registry for frames/agents/ventures (`32c75e9`)
+- [x] PEL design + `memory_events` migration plan (`c91e921`)
+- [x] PEL schema migration + `append_event` + frame/fleet/voice emits (`7682b96`)
+- [x] Batch documentation standard + this wrap-up (`b099e99` + wrap-up branch)
+- [ ] Staging promote for PEL T2 (M10.4 row proof)
+- [ ] Dedicated `triage.py` classifier polish (M7.2 full) — lifecycle API present
+
+### Evidence
+
+- Develop tip: `7682b96`
+- Key SHAs: `e8a0387` `6f3f232` `89e5556` `80b69fa` `32c75e9` `c91e921` `7682b96` `b099e99` `a7c6d78`
+- Staging bootstrap (pre-wave): `5d50805` @ https://advoi-staging.keyteller.com — T2 precheck pass
+- Fleet evidence: `data/feedback-evidence/batch-2026-07-10/summary.md`
+- PEL design: `docs/architecture/07-portfolio-event-log.md`
+- **Decisions:** ADR-027 (PEL authority) — also see `07-portfolio-event-log` + migration-plan
+
+### Next
+
+- Promote develop → staging; run T2; prove M10.4 (`portfolio_events` rows after fleet/frame)
+- Human E2E Path A/C (M2) when device available
+- Defer PWA Playwright / OTel VPS / live squad webhooks (see OPPORTUNITIES-LOG)
+- Optional M7.4+ batch upload + triage inbox UI
+
+---
+
 ## [2026-07-10] — 6-agent control plane + operators + squads + dashboard
 
 **Version:** v0.4.0  

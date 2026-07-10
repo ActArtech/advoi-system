@@ -70,6 +70,7 @@
 | ADR-024 | Reject TheBotCompany as Orchestrator | Accepted | 2026-07-07 |
 | ADR-025 | OpenRouter for Model Routing Experiments | Accepted | 2026-07-07 |
 | ADR-026 | Memory Stack — Hindsight ± Letta | Accepted | 2026-07-07 |
+| ADR-027 | Portfolio Event Log as control-plane event authority | Accepted | 2026-07-10 |
 
 ---
 
@@ -730,6 +731,44 @@ Implementation: `advoi/memory/write_targets.py` + `MemoryRouter` with explicit `
 - [ ] `MEMORY_PROVIDER=hindsight` in deploy/.env
 - [ ] Letta only when `LETTA_ENABLED=true` and `/opt/letta` up
 - [ ] ADR recorded; `.aether/DECISIONS.md` synced
+
+---
+
+## ADR-027: Portfolio Event Log as control-plane event authority
+
+**Date:** 2026-07-10  
+**Status:** Accepted  
+**Deciders:** Architecture review + AFK wave (moat R1)  
+**Ship:** `advoi-data-memory-events-pel-01` (design) · `advoi-analytics-pel-schema-01` @ `7682b96`  
+**Detail:** [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md) · [migration-plan](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md)
+
+### Context
+
+Postgres already has thin `memory_events` rows written via structured retain. Moat R1 and ARCHITECTURE-DATA-MEMORY-REVIEW require a typed, append-only **Portfolio Event Log** (venture, source, type, guardian, execution, trace). Keeping dual long-term tables risks dual authority.
+
+### Options Considered
+
+1. **Dual tables forever** — `memory_events` + `portfolio_events`  
+2. **In-place ALTER/rename** of `memory_events`  
+3. **New `portfolio_events` authority + deprecate `memory_events`** *(chosen)*
+
+### Decision
+
+**`portfolio_events` is the single control-plane event authority.** Create new table; idempotent backfill via `legacy_memory_event_id`; cut over writers; do **not** drop `memory_events` until soak checklist complete. Emit via `advoi.analytics.pel.append_event` / `safe_append_event` from frame runs, fleet triggers (with guardian gate), and voice intents. No live Hindsight double-write (ADR-026 boundary); optional nightly synthesis later.
+
+### Consequences
+
+- **Positive:** Clear moat R1 primitive; typed analytics; safe dual-run window  
+- **Negative:** Short dual-write/migration window; staging T2 row proof still open (M10.4)  
+- **Risks:** Writers bypassing PEL — mitigate with T0 emit tests and staging T2 query gate
+
+### Checklist
+
+- [x] Schema + migration SQL (`deploy/migrations/001_portfolio_events.sql`)
+- [x] Minimum emit points (frame / fleet / voice) + T0 tests
+- [x] Design doc + migration plan
+- [ ] Staging M10.4: ≥1 row after fleet/frame with `DATABASE_URL`
+- [ ] Deprecate/drop `memory_events` after soak (not yet)
 
 ---
 

@@ -1,0 +1,2 @@
+develop: 7682b96 | staging bootstrap: 5d50805 | T2 precheck pass 2026-07-10
+PEL T2 (M10.4): open — needs staging promote with DATABASE_URL
