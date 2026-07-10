@@ -14,4 +14,16 @@ Proactive cycle outputs for FirstMate’s `fm-aether-gate.sh` when `FM_ACTIVE_PR
 
 **Python validator:** `advoi.aether.proactive_schema.validate_proactive_payload` / `validate_proactive_file`.
 
-**T0:** `uv run pytest tests/test_aether_proactive_schema.py tests/test_aether_gate_artifacts.py -q`
+**T0:** `uv run pytest tests/test_aether_proactive_schema.py tests/test_aether_gate_artifacts.py tests/test_aether_feed_cron.py -q`
+
+## Fleet feed cron (`FM_AETHER_GATE_REQUIRED=1`)
+
+Entrypoint: `scripts/aether-feed-cron.sh` (defaults `FM_AETHER_GATE_REQUIRED=1` and `FM_ACTIVE_PROJECT=advoi`).
+
+| Gate exit | Meaning | Feed when required=1 |
+|-----------|---------|----------------------|
+| 0 | PASS | publish |
+| 1 | PASS_AUDIT_ONLY | publish |
+| ≥2 | FAIL | **skip** — log `aether-feed: skipped — gate FAIL (exit=N) [FM_AETHER_GATE_REQUIRED=1]` |
+
+Pure policy: `advoi.aether.feed_cron.should_skip_feed` / `feed_decision`. Test hooks: `FM_AETHER_GATE_EXIT`, `FM_AETHER_GATE_CMD`, `FM_AETHER_FEED_CMD`.

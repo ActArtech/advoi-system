@@ -148,3 +148,11 @@ Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
 - **JSON Schema:** `docs/aether/aether-proactive-latest.schema.json` — required `project`, `mode`=`proactive`, non-empty `findings[]` with `agent`/`severity`/`category`/`message`.
 - **Validator:** `advoi.aether.proactive_schema.validate_proactive_payload` / `validate_proactive_file` (stdlib-only Draft subset; no `jsonschema` dep).
 - **T0:** `tests/test_aether_proactive_schema.py` (fixtures under `tests/fixtures/aether-proactive/`) + `tests/test_aether_gate_artifacts.py`.
+
+## Aether fleet feed cron (`FM_AETHER_GATE_REQUIRED=1`)
+
+- **Cron entrypoint:** `scripts/aether-feed-cron.sh` — defaults `FM_AETHER_GATE_REQUIRED=1` + `FM_ACTIVE_PROJECT=advoi`.
+- **Policy:** when required, run `fm-aether-gate.sh` first; **skip feed publish** if gate exit **>= 2** (FAIL). Exit 0/1 still publish.
+- **Skip log (exact):** `aether-feed: skipped — gate FAIL (exit=N) [FM_AETHER_GATE_REQUIRED=1]`
+- **Pure helper:** `advoi.aether.feed_cron` (`should_skip_feed`, `feed_decision`, `skip_log_line`).
+- **T0:** `tests/test_aether_feed_cron.py` (mocked `FM_AETHER_GATE_EXIT` / `FM_AETHER_GATE_CMD`).
