@@ -19,7 +19,7 @@ Voice / ADVoi routing
 
 **Rule:** Hindsight = what the system knows and believes. Postgres = canonical briefs/records. Redis = last 5 voice turns per session. Guardian log = failures only.
 
-**PEL (runtime):** Moat R1 append-only control-plane log is `portfolio_events` via `advoi.analytics.pel.append_event`. Emit points: `run_frame` (`frame_run`), `invoke_fleet_trigger` / confirmation (`fleet_trigger`, `guardian_gate`), voice frame/operator intents (`voice_intent` — not every Redis turn). Migration SQL: `deploy/migrations/001_portfolio_events.sql`. **`memory_events` is not dropped yet** — `retain_structured` may still write legacy rows; see [migration-plan](../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md). Design: [architecture/07-portfolio-event-log.md](architecture/07-portfolio-event-log.md).
+**PEL (runtime):** Moat R1 append-only control-plane log is `portfolio_events` via `advoi.analytics.pel.append_event`. Emit points: `run_frame` (`frame_run`), `invoke_fleet_trigger` / confirmation (`fleet_trigger`, `guardian_gate`), voice frame/operator intents (`voice_intent` — not every Redis turn). Schema: versioned migrations `deploy/migrations/000_baseline_tables.sql` then `001_portfolio_events.sql`, applied at API boot (`advoi.db.migrations`). **`memory_events` is not dropped yet** — `retain_structured` may still write legacy rows; see [migration-plan](../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md). Design: [architecture/07-portfolio-event-log.md](architecture/07-portfolio-event-log.md). Ops: [operations/MIGRATIONS.md](operations/MIGRATIONS.md).
 
 ## Container architecture (production)
 

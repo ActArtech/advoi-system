@@ -18,35 +18,20 @@ def desktop_brief_url(queue_id: int | str) -> str:
     return f"{base}/{queue_id}"
 
 
-async def _ensure_table(cur) -> None:
-    await cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS review_queue (
-            id BIGSERIAL PRIMARY KEY,
-            title TEXT NOT NULL,
-            source_frame TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            metadata JSONB NOT NULL DEFAULT '{}',
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        )
-        """
-    )
-
-
 async def ensure_table() -> bool:
-    """Create review_queue table when DATABASE_URL is configured."""
+    """Ensure review_queue via versioned migrations when DATABASE_URL is set.
+
+    Schema lives in ``deploy/migrations/000_baseline_tables.sql``; API boot
+    applies pending migrations. This is a best-effort ensure for non-API paths.
+    """
     dsn = os.getenv("DATABASE_URL", "")
     if not dsn:
         return False
     try:
-        import psycopg
+        from advoi.db.migrations import apply_pending_migrations
 
-        async with await psycopg.AsyncConnection.connect(dsn) as conn:
-            async with conn.cursor() as cur:
-                await _ensure_table(cur)
-            await conn.commit()
-        return True
+        result = await apply_pending_migrations()
+        return result.ok and result.reason != "no_database_url"
     except Exception as exc:
         _LOGGER.debug("postgres review ensure_table deferred: %s", exc)
         return False
@@ -81,7 +66,6 @@ async def enqueue_review(
 
         async with await psycopg.AsyncConnection.connect(dsn) as conn:
             async with conn.cursor() as cur:
-                await _ensure_table(cur)
                 await cur.execute(
                     """
                     INSERT INTO review_queue (title, source_frame, status, metadata)
@@ -109,7 +93,6 @@ async def get_review_item(queue_id: int) -> dict[str, Any] | None:
 
         async with await psycopg.AsyncConnection.connect(dsn) as conn:
             async with conn.cursor() as cur:
-                await _ensure_table(cur)
                 await cur.execute(
                     """
                     SELECT id, title, source_frame, status, metadata, created_at
@@ -135,7 +118,6 @@ async def list_pending(*, limit: int = 20) -> list[dict[str, Any]]:
 
         async with await psycopg.AsyncConnection.connect(dsn) as conn:
             async with conn.cursor() as cur:
-                await _ensure_table(cur)
                 await cur.execute(
                     """
                     SELECT id, title, source_frame, status, metadata, created_at

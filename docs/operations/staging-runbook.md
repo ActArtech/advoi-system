@@ -48,6 +48,19 @@ Force voice recreate after key fix:
 docker compose --profile app up -d --force-recreate advoi-voice
 ```
 
+## Postgres migrations (API boot)
+
+Versioned SQL lives in `deploy/migrations/` and is applied **idempotently on `advoi-api` boot** via `advoi.db.migrations.apply_pending_migrations` (tracked in `schema_migrations`).
+
+| Order | File |
+|------:|------|
+| 0 | `000_baseline_tables.sql` (`memory_events`, `decision_briefs`, `review_queue`) |
+| 1 | `001_portfolio_events.sql` (PEL + backfill) |
+
+Full runbook (local apply, staging verification, recovery): **[MIGRATIONS.md](MIGRATIONS.md)**.
+
+**VPS-direct SSH apply is parked** for this ship — land on `develop`, promote, then verify `schema_migrations` rows after API restart (see MIGRATIONS.md § Staging verification).
+
 ## Post-deploy smoke
 
 ### T2 minimum (required after every app deploy)

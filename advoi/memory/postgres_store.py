@@ -11,6 +11,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def retain_structured(event_type: str, payload: dict[str, Any]) -> bool:
+    """Insert a legacy memory_events row.
+
+    Schema is owned by ``deploy/migrations/000_baseline_tables.sql`` (API boot).
+    """
     dsn = os.getenv("DATABASE_URL", "")
     if not dsn:
         return False
@@ -19,16 +23,6 @@ async def retain_structured(event_type: str, payload: dict[str, Any]) -> bool:
 
         async with await psycopg.AsyncConnection.connect(dsn) as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS memory_events (
-                        id BIGSERIAL PRIMARY KEY,
-                        event_type TEXT NOT NULL,
-                        payload JSONB NOT NULL,
-                        created_at TIMESTAMPTZ DEFAULT NOW()
-                    )
-                    """
-                )
                 await cur.execute(
                     "INSERT INTO memory_events (event_type, payload) VALUES (%s, %s::jsonb)",
                     (event_type, json.dumps(payload)),
@@ -40,26 +34,13 @@ async def retain_structured(event_type: str, payload: dict[str, Any]) -> bool:
         return False
 
 
-async def _ensure_briefs_table(cur) -> None:
-    await cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS decision_briefs (
-            id BIGSERIAL PRIMARY KEY,
-            title TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'open',
-            project TEXT DEFAULT 'advoi',
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        )
-        """
-    )
-
-
 async def list_open_briefs(*, limit: int = 10) -> list[str] | None:
     """Return open brief titles, or None when Postgres is unavailable.
 
     Empty list means Postgres answered and there are no open briefs (canonical empty).
     None means DSN missing or query failed — callers may fall back to Redis cache.
+
+    Table: ``decision_briefs`` via ``deploy/migrations/000_baseline_tables.sql``.
     """
     dsn = os.getenv("DATABASE_URL", "")
     if not dsn:
@@ -69,7 +50,6 @@ async def list_open_briefs(*, limit: int = 10) -> list[str] | None:
 
         async with await psycopg.AsyncConnection.connect(dsn) as conn:
             async with conn.cursor() as cur:
-                await _ensure_briefs_table(cur)
                 await cur.execute(
                     """
                     SELECT title FROM decision_briefs
@@ -97,7 +77,6 @@ async def upsert_open_brief(title: str, *, project: str = "advoi") -> bool:
 
         async with await psycopg.AsyncConnection.connect(dsn) as conn:
             async with conn.cursor() as cur:
-                await _ensure_briefs_table(cur)
                 await cur.execute(
                     """
                     INSERT INTO decision_briefs (title, status, project)

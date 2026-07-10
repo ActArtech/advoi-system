@@ -54,11 +54,13 @@ Use this when choosing a read path. Source: arch data/memory review memory-tier 
 
 ### Schema ownership note
 
-| Store object | How created today | Gap |
-|--------------|-------------------|-----|
-| `decision_briefs`, `memory_events` | Inline `CREATE TABLE IF NOT EXISTS` in `postgres_store.py` | No versioned migration history for these tables |
-| `review_queue` | Inline in `review_queue.py` | Same |
-| `portfolio_events` | `deploy/migrations/001_portfolio_events.sql` | Preferred pattern going forward |
+| Store object | How created | Migration |
+|--------------|-------------|-----------|
+| `memory_events`, `decision_briefs`, `review_queue` | Versioned SQL | `deploy/migrations/000_baseline_tables.sql` |
+| `portfolio_events` | Versioned SQL (+ indexes, memory_events backfill) | `deploy/migrations/001_portfolio_events.sql` |
+| `schema_migrations` | Runner bootstrap DDL | `advoi/db/migrations.py` (not a numbered file) |
+
+**Apply:** lexicographic `NNN_*.sql` order at API boot (`apply_pending_migrations`). Ops: [MIGRATIONS.md](../operations/MIGRATIONS.md).
 
 ## Tier diagram
 

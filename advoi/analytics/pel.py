@@ -19,45 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 # In-memory rows when ADVOI_PEL_MEMORY=true (T0 tests / local without Postgres).
 _MEMORY_ROWS: list[dict[str, Any]] = []
 
-_CREATE_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS portfolio_events (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    venture_id      TEXT NOT NULL,
-    source          TEXT NOT NULL,
-    type            TEXT NOT NULL,
-    payload         JSONB NOT NULL DEFAULT '{}'::jsonb,
-    guardian_status TEXT NULL,
-    execution_ref   TEXT NULL,
-    trace_id        TEXT NULL,
-    legacy_memory_event_id BIGINT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT portfolio_events_legacy_memory_event_id_key
-        UNIQUE (legacy_memory_event_id)
-)
-"""
-
-_CREATE_INDEXES_SQL = (
-    """
-    CREATE INDEX IF NOT EXISTS portfolio_events_venture_ts_idx
-        ON portfolio_events (venture_id, timestamp DESC)
-    """,
-    """
-    CREATE INDEX IF NOT EXISTS portfolio_events_source_type_ts_idx
-        ON portfolio_events (source, type, timestamp DESC)
-    """,
-    """
-    CREATE INDEX IF NOT EXISTS portfolio_events_trace_id_idx
-        ON portfolio_events (trace_id)
-        WHERE trace_id IS NOT NULL
-    """,
-    """
-    CREATE INDEX IF NOT EXISTS portfolio_events_execution_ref_idx
-        ON portfolio_events (execution_ref)
-        WHERE execution_ref IS NOT NULL
-    """,
-)
-
 
 class EventSource(StrEnum):
     """Controlled vocabulary for portfolio_events.source."""
@@ -203,24 +164,21 @@ def _append_in_memory(row: dict[str, Any]) -> str | None:
 
 
 async def ensure_portfolio_events_table(cur: Any | None = None) -> bool:
-    """Create portfolio_events + indexes. Uses DATABASE_URL when cur is None."""
-    if cur is not None:
-        await cur.execute(_CREATE_TABLE_SQL)
-        for stmt in _CREATE_INDEXES_SQL:
-            await cur.execute(stmt)
-        return True
+    """Ensure schema via versioned migrations (deploy/migrations/).
 
-    dsn = os.getenv("DATABASE_URL", "")
-    if not dsn:
-        return False
+    Preferred path: API boot runs :func:`advoi.db.migrations.apply_pending_migrations`.
+    This helper remains for callers that need a best-effort ensure without boot
+    (e.g. first ``append_event`` before lifespan completed). When ``cur`` is
+    provided, pending migrations are applied on that cursor.
+    """
+    from advoi.db.migrations import apply_pending_migrations
+
     try:
-        import psycopg
-
-        async with await psycopg.AsyncConnection.connect(dsn) as conn:
-            async with conn.cursor() as db_cur:
-                await ensure_portfolio_events_table(db_cur)
-            await conn.commit()
-        return True
+        if cur is not None:
+            result = await apply_pending_migrations(cur=cur)
+            return result.ok
+        result = await apply_pending_migrations()
+        return result.ok and result.reason != "no_database_url"
     except Exception as exc:
         _LOGGER.debug("portfolio_events ensure deferred: %s", exc)
         return False

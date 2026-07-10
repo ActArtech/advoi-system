@@ -2,7 +2,7 @@
 
 **Status:** Implemented (schema + minimum emit points)  
 **Ship:** `advoi-data-memory-events-pel-01` (design) · `advoi-analytics-pel-schema-01` (runtime)  
-**Code:** `advoi/analytics/pel.py` · `deploy/migrations/001_portfolio_events.sql` · `tests/test_portfolio_events.py`  
+**Code:** `advoi/analytics/pel.py` · `deploy/migrations/001_portfolio_events.sql` · `advoi/db/migrations.py` · `tests/test_portfolio_events.py` · `tests/test_migrations.py`  
 **Authority:** [PORTFOLIO-SYSTEM-MOAT.md §7.1 / R1](../reviews/PORTFOLIO-SYSTEM-MOAT.md) · [ARCHITECTURE-DATA-MEMORY-REVIEW.md](../reviews/ARCHITECTURE-DATA-MEMORY-REVIEW.md) · ADR-026 · full entity matrix in [04-memory-and-data.md § Data authority matrix](04-memory-and-data.md#data-authority-matrix)
 
 ---
@@ -211,7 +211,7 @@ Minimum viable producers for `advoi-analytics-pel-schema-01` and moat R1 validat
 
 ## 5. SQL (applied by analytics ship)
 
-> Canonical file: [`deploy/migrations/001_portfolio_events.sql`](../../deploy/migrations/001_portfolio_events.sql). Runtime also `CREATE TABLE IF NOT EXISTS` on first `append_event` when `DATABASE_URL` is set.
+> Canonical file: [`deploy/migrations/001_portfolio_events.sql`](../../deploy/migrations/001_portfolio_events.sql). Applied by the versioned runner (`advoi/db/migrations.py`) on API boot after `000_baseline_tables.sql`. See [MIGRATIONS.md](../operations/MIGRATIONS.md).
 
 ```sql
 -- PEL: portfolio_events (append-only authority)

@@ -54,6 +54,13 @@ def _prewarm_enabled() -> bool:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):  # noqa: ARG001
+    # Versioned SQL under deploy/migrations/ — idempotent schema_migrations tracking.
+    try:
+        from advoi.db.migrations import apply_pending_migrations
+
+        await apply_pending_migrations()
+    except Exception:
+        pass
     if _prewarm_enabled():
         try:
             await prewarm_all_agents()

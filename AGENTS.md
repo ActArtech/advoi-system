@@ -49,11 +49,19 @@ Target import/write rules: `docs/architecture/06-vertical-boundaries.md`.
 
 - **Authority:** append-only Postgres `portfolio_events` is the control-plane event log. Do **not** drop `memory_events` until soak (migration-plan deprecation checklist).
 - **Write API:** `advoi.analytics.pel.append_event` / `safe_append_event`; enums `EventSource`, `EventType`, `GuardianStatus`.
-- **Migration:** `deploy/migrations/001_portfolio_events.sql` (create + idempotent backfill). Inline `CREATE IF NOT EXISTS` also runs on first append when `DATABASE_URL` is set.
-- **Tests:** set `ADVOI_PEL_MEMORY=true` for in-memory rows (`memory_rows()` / `reset_memory_store()`); T0 `tests/test_portfolio_events.py`.
+- **Migrations:** versioned SQL under `deploy/migrations/` applied idempotently at API boot (`advoi.db.migrations.apply_pending_migrations` → `schema_migrations`). Order: `000_baseline_tables.sql` then `001_portfolio_events.sql` (create + backfill). Ops: `docs/operations/MIGRATIONS.md`. Do not add new inline `CREATE TABLE` in Python.
+- **Tests:** set `ADVOI_PEL_MEMORY=true` for in-memory rows (`memory_rows()` / `reset_memory_store()`); T0 `tests/test_portfolio_events.py`, `tests/test_migrations.py`.
 - **Emit points:** `run_frame` → `frame_run`; `invoke_fleet_trigger` → `fleet_trigger`; confirmation → `guardian_gate`; voice frame/operator only → `voice_intent` (not Redis turns); gate export → `governance_decision` (`payload.kind=gate_snapshot`).
 - **ADR-026:** PEL is not a live Hindsight double-write. Payload excerpts only — no full fleet backlog dumps.
-- **Staging T2:** ROADMAP M10.4 — verify rows after fleet/frame on VPS Postgres.
+- **Staging T2:** ROADMAP M10.4 — verify rows after fleet/frame on VPS Postgres. VPS SSH apply for migrations is parked; verify `schema_migrations` after promote (see MIGRATIONS.md).
+
+## Postgres schema migrations
+
+- **Dir:** `deploy/migrations/NNN_name.sql` (lexicographic ordinal order).
+- **Runner:** `advoi/db/migrations.py`; tracking table `schema_migrations`.
+- **Boot:** `advoi/api/app.py` lifespan calls `apply_pending_migrations()` when `DATABASE_URL` is set.
+- **Image:** `Dockerfile.api` copies `deploy/migrations/` → `/app/deploy/migrations/`.
+- **T0:** `tests/test_migrations.py`.
 
 ## fm-bridge invoke idempotency (60s)
 

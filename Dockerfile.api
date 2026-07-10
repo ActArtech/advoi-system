@@ -7,6 +7,7 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md ./
 COPY advoi/ ./advoi/
+COPY deploy/migrations/ ./deploy/migrations/
 COPY scripts/fm-bridge.sh ./scripts/fm-bridge.sh
 RUN chmod +x ./scripts/fm-bridge.sh
 
