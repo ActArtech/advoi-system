@@ -68,6 +68,15 @@ Local seed without Hermes: `scripts/seed-local-briefs.py`
 
 Fleet Scout reads **read-only** files under `FIRSTMATE_FLEET_PATH` (default `/opt/firstmate-fleet`). No write access to fleet config.
 
+## Portfolio Event Log (PEL)
+
+Structured Postgres events are evolving from thin `memory_events` rows into the moat R1 **Portfolio Event Log** (`portfolio_events`). Design and migration authority:
+
+- [07-portfolio-event-log.md](07-portfolio-event-log.md) — schema, mapping, emit points
+- [migration-plan.md](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md) — deprecate `memory_events` after backfill
+
+Until the analytics schema ship lands, writers still use `memory_events` via `retain_structured` (no runtime change in the design-only PEL ship).
+
 ## Gaps
 
 | Gap | Impact |
@@ -76,3 +85,4 @@ Fleet Scout reads **read-only** files under `FIRSTMATE_FLEET_PATH` (default `/op
 | Bridge fails if Hermes down | Recall/retain degrades; briefs may still work from Redis/Postgres |
 | No memory compaction / TTL policy for Postgres events | Long-term growth unmanaged |
 | Hindsight indexing delay after seed | Brief curator may return empty briefly after seed |
+| `memory_events` vs planned PEL dual authority | Unclear event system of record — see PEL design; implement in `advoi-analytics-pel-schema-01` |

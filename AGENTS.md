@@ -26,3 +26,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Upload stays `uploaded` only; never auto-dispatch on upload.
 - `dispatch_item_dev` requires status `approved` (API returns 409 otherwise).
 - T0: `tests/test_ingestion_lifecycle.py`.
+
+## Portfolio Event Log (PEL / moat R1)
+
+- **Authority:** append-only Postgres `portfolio_events` is the single control-plane event log. Deprecate `memory_events` after idempotent backfill (do not keep dual long-term authority).
+- **Schema design:** `docs/architecture/07-portfolio-event-log.md` — fields `{ id, timestamp, venture_id, source, type, payload, guardian_status, execution_ref, trace_id }`.
+- **Migration plan:** `data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md` — backfill via `legacy_memory_event_id` UNIQUE + `ON CONFLICT DO NOTHING`.
+- **Runtime today:** writers still use `memory_events` via `retain_structured` until ship `advoi-analytics-pel-schema-01`.
+- **Minimum emit points (implementation):** frame run (`run_frame`), fleet trigger (`invoke_fleet_trigger` / confirmation), voice intent (not every Redis `VOICE_TURN`).
+- **ADR-026:** PEL is the Postgres structured-event surface; not a live double-write into Hindsight. No fleet backlog body in event payloads as strategic content.
