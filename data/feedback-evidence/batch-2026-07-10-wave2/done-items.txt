@@ -1,0 +1,10 @@
+# Wave 2 Done SHAs (b2ced10..ce6a8e2)
+
+3de87ac feat(pwa): explicit UI state machine for voice shell
+82b1375 feat(pwa): SLA latency chip beside state chip after frame runs
+697b897 feat(observability): OTEL staging wiring + Guardian trace_id (moat R6)
+3b7df6c feat(analytics): PWA thin beacon POST /api/events → PEL
+2c63897 feat(pwa): error recovery paths for mic, LiveKit, and API 502
+70ce1a3 feat(fleet): 60s idempotency key for fm-bridge invoke
+8584da3 feat(ops): post-deploy T2 curl smoke for advoi-staging
+ce6a8e2 feat(aether): proactive feed JSON Schema + gate validator T0

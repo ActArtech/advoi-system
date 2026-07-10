@@ -1,8 +1,8 @@
 # ADVoi roadmap with validation tiers
 
 **Purpose:** Single checklist for what to build next and how to prove each milestone before moving on.  
-**Baseline:** 2026-07-10, repo `advoi-system` @ `5d50805` (develop/staging fleet)  
-**Last T2 validation:** 2026-07-10 — `staging-signoff-precheck.sh` exit 0; evidence `data/feedback-evidence/advoi-roadmap-review-01/` (fleet)
+**Baseline:** 2026-07-10, repo `advoi-system` develop tip `ce6a8e2` (wave 2) · staging still `5d50805`  
+**Last T2 validation:** 2026-07-10 — `staging-signoff-precheck.sh` exit 0 @ bootstrap; **re-promote parked** (SSH host key) — evidence `data/feedback-evidence/batch-2026-07-10-wave2/`  
 **Staging (fleet tier):** https://advoi-staging.keyteller.com (`/var/www/advoi/staging`, compose `advoi-staging`)  
 **Live:** https://advoi.keyteller.com (`/var/www/advoi/live` · legacy `/opt/advoi` until cutover)
 
@@ -23,7 +23,13 @@ Human E2E does **not** block development. Track device tests in [MANUAL-TEST-TRA
 | Ingestion MVP | Done | `/ingest`, `/api/ingestion/*` |
 | Squad dispatch (mock) | Done | 4 squads + `dispatch_squads=true` |
 | Dashboard MVP | Done | `/dashboard` squad graph + run controls |
-| Automated tests | Done | **224** pytest collected |
+| PWA state machine + latency + recovery | Done (T0) | `3de87ac` `82b1375` `2c63897` — human A11–A13 open |
+| PWA beacon → PEL | Done (T0) | `POST /api/events` @ `3b7df6c` |
+| OTEL + guardian trace_id | Done (T0 code) | `697b897` — VPS apply parked |
+| fm-bridge 60s idempotency | Done (T0) | `70ce1a3` |
+| T2 post-deploy smoke script | Done | `8584da3` `scripts/t2-staging-smoke.sh` |
+| Aether proactive schema | Done (T0) | `ce6a8e2` |
+| Automated tests | Done | **366** pytest collected |
 
 ---
 
@@ -93,9 +99,11 @@ Use the **lowest tier that proves the change**. Do not skip tiers when promoting
 | M3.1 | `run_six_ms` in `/api/diagnostics/latency` | T0/T2 | [x] Done |
 | M3.2 | Voice operator + fleet confirm tests | T0 | [x] Done |
 | M3.3 | Path B WebGPU matrix (desktop + iOS Safari) | T3 | [ ] Open |
-| M3.4 | Full mic → STT → TTS round-trip baseline | T2/T3 | [ ] Open |
-| M3.5 | Playwright PWA connect smoke (no mic) | T0/T1 | [ ] Open |
+| M3.4 | Full mic → STT → TTS round-trip baseline | T2/T3 | [ ] Open — PWA SLA latency chip shipped (`82b1375`); human baseline still open |
+| M3.5 | Playwright PWA connect smoke (no mic) | T0/T1 | [~] **Partial** — e2e stubs for state/latency/recovery (`web/e2e/voice-session-*.spec.ts`); full connect smoke open |
 | M3.6 | Guardian fleet confirm on device | T3 | [ ] Open |
+| M3.7 | Explicit UI state machine (idle→…→error) | T0/T3 | [x] T0 Done (`3de87ac`); T3 A11 open |
+| M3.8 | Error recovery paths (mic / LiveKit / API 502) | T0/T3 | [x] T0 Done (`2c63897`); T3 A13 open |
 
 ---
 
@@ -109,8 +117,8 @@ Use the **lowest tier that proves the change**. Do not skip tiers when promoting
 | M4.2 | `GET /api/diagnostics/platform` | T2 | [x] Done |
 | M4.3 | Letta client + JSONL fallback | T0 | [x] Done |
 | M4.4 | `LETTA_ENABLED=true` on VPS + verify recall | T2 | [ ] Open |
-| M4.5 | `OTEL_ENABLED=true` + collector sidecar | T2 | [~] Code on develop; VPS apply parked — verify `otel_ready` post-redeploy |
-| M4.6 | Trace IDs in guardian events | T0/T2 | [~] T0 JSONL injection done; staging tail of guardian log parked |
+| M4.5 | `OTEL_ENABLED=true` + collector sidecar | T2 | [~] **Code** on develop @ `697b897`; **VPS apply parked** (SSH host key; staging still `5d50805`) — verify `otel_ready` post-redeploy |
+| M4.6 | Trace IDs in guardian events | T0/T2 | [~] **T0 Done** (`test_guardian_trace_id.py`); staging guardian log tail **parked** until promote |
 
 ---
 
@@ -148,8 +156,8 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | # | Task | Tier | Status |
 |---|------|------|--------|
 | M7.1 | Ingestion MVP (upload, route, optional dispatch-dev) | T0/T2 | [x] Done |
-| M7.2 | `triage.py` classify + `needs_review` | T0 | [~] **Partial** — `triage_item` / `mark_needs_review` in pipeline + lifecycle API (`80b69fa`); no standalone `triage.py` classifier yet |
-| M7.3 | Status lifecycle: uploaded → triaged → routed → approved → dispatched | T0 | [~] **Partial** — happy path `uploaded → triaged → needs_review → approved → dispatched` + legacy `routed` (`80b69fa`, `tests/test_ingestion_lifecycle.py`); inbox UI / batch / voice still open |
+| M7.2 | `triage.py` classify + `needs_review` | T0 | [~] **Partial** — `triage_item` / `mark_needs_review` in pipeline + lifecycle API (`80b69fa`); no standalone `triage.py` classifier yet (**unchanged in wave 2**) |
+| M7.3 | Status lifecycle: uploaded → triaged → routed → approved → dispatched | T0 | [~] **Partial** — happy path `uploaded → triaged → needs_review → approved → dispatched` + legacy `routed` (`80b69fa`, `tests/test_ingestion_lifecycle.py`); inbox UI / batch / voice still open (**unchanged in wave 2**) |
 | M7.4 | Batch / folder upload endpoint | T0/T2 | [ ] Open |
 | M7.5 | Triage inbox UI on `/ingest` | T3 | [ ] Open |
 | M7.6 | Voice: "triage uploads", "route ingestion to {project}" | T0/T3 | [ ] Open |
@@ -168,6 +176,7 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | M8.3 | VPS fleet data path `/opt/firstmate-fleet/data/` | — | [x] Runtime only |
 | M8.4 | Discord reply workflow (ACK / PROMOTE / NEXT) documented | — | [ ] Open |
 | M8.5 | Fleet briefs committed or synced to GitHub | — | [ ] Open |
+| M8.6 | 60s idempotency key on fm-bridge invoke | T0 | [x] Done (`70ce1a3`, `tests/test_fleet_idempotency.py`) |
 
 ---
 
@@ -191,10 +200,12 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | M10.1 | Schema migration `deploy/migrations/001_portfolio_events.sql` + `append_event` | T0 | [x] Done (`advoi-analytics-pel-schema-01` @ `7682b96`) |
 | M10.2 | Emit: `frame_run`, `fleet_trigger` (+ confirmation gate), `voice_intent` | T0 | [x] Done — `tests/test_portfolio_events.py` |
 | M10.3 | Do **not** drop `memory_events` yet (deprecation checklist only) | — | [x] Documented in migration-plan |
-| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — after deploy with `DATABASE_URL` (develop tip `7682b96` not yet on staging) |
-| M10.5 | Optional: `/api/events` query + fleet status `last_dispatch_at` from PEL | T2 | [ ] Open (follow-up ships) |
+| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — develop `ce6a8e2` not on staging (`5d50805`); **SSH promote parked** |
+| M10.5 | `/api/events` ingest + optional query / `last_dispatch_at` from PEL | T0/T2 | [~] **Partial** — PWA thin beacon `POST /api/events` → PEL (`3b7df6c` T0); query/read path still open |
 
-**PEL note (batch 2026-07-10):** Moat R1 code+design landed on develop at `7682b96`. Authority decision recorded as **ADR-027** (see also [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md)). Next gate is **M10.4** staging row proof only — do not start dual-authority consumers until T2 passes.
+**PEL note (batch 2026-07-10 wave 1):** Moat R1 code+design landed on develop at `7682b96`. Authority decision recorded as **ADR-027** (see also [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md)).
+
+**PEL / analytics note (wave 2):** Client beacon write path extends ADR-027 at `3b7df6c`. Next gates remain **M10.4** staging row proof + promote, then optional query API. Do not start dual-authority consumers until T2 passes.
 
 **Design:** [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md) · [migration-plan](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md) · ADR-027
 
@@ -238,12 +249,14 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 | GAP-004 | P1 | Full mic latency human baseline | Open (T2 API: `sla_ok=false`, api_voice_path ~1.2–6.9s vs 800ms target) |
 | GAP-005 | P1 | Fleet Guardian confirm on device | API done; human open |
 | GAP-006 | P2 | `LETTA_ENABLED=true` on VPS | Open |
-| GAP-007 | P2 | `OTEL_ENABLED=true` on VPS | Open |
+| GAP-007 | P2 | `OTEL_ENABLED=true` on VPS | **Partial** — code @ `697b897`; VPS apply parked (SSH) |
 | GAP-008 | P2 | Live squad webhooks | Open |
 | GAP-009 | P2 | Ingestion Phase 2 triage pipeline | **Partial** — lifecycle T0 @ `80b69fa`; classifier polish + UI open |
 | GAP-010 | P3 | React Flow dashboard | Open |
 | GAP-011 | P3 | Port registry / vps-shared | Open |
 | GAP-012 | P3 | Architecture docs 03/05 (3-agent stale) | Open |
+| GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `ce6a8e2` |
+| GAP-014 | P1 | PWA human A11–A13 (state / latency / recovery) | Open — T0 automated; T3 device |
 
 ### Bug cross-reference
 
@@ -258,10 +271,10 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 
 ## Definition of "production voice ready"
 
-1. [x] Code: 6 agents, 3 voice paths, operators, squads, ingestion MVP, fm-bridge
-2. [x] T0: 224 pytest pass
-3. [x] T2: staging smoke pass (agents + voice; **latency SLA not met** — `sla_ok=false` on diagnostics)
-4. [ ] T3: Human Path A or C sign-off recorded
+1. [x] Code: 6 agents, 3 voice paths, operators, squads, ingestion MVP, fm-bridge, PWA state/latency/recovery, PEL + beacon
+2. [x] T0: 366 pytest collected; wave2 suites 83 passed
+3. [~] T2: bootstrap smoke pass @ `5d50805`; **re-promote + re-smoke parked** (SSH host key) — post-deploy script ready `8584da3`
+4. [ ] T3: Human Path A or C sign-off recorded (include A11–A13)
 5. [ ] T2: Letta/OTel enabled on VPS
 6. [ ] T2: Live squad webhooks (non-mock)
 
@@ -398,3 +411,4 @@ ssh deploy@187.77.140.216 "cd /var/www/advoi/staging && git pull --ff-only"
 | 2026-07-10 | T2 validation run: precheck pass, M1.4 aether 200, appendix fleet curl fixed; baseline SHA `5d50805`. |
 | 2026-07-10 | M10 PEL schema + emit T0; cross-link T2 M10.4 staging row check (`advoi-analytics-pel-schema-01`). |
 | 2026-07-10 | T2 post-deploy job: `scripts/t2-staging-smoke.sh` + `t2_validate.py` (health agents=6, aether/status); fixture T0 tests; wired into `staging-redeploy.sh`. Default host `advoi-staging.keyteller.com`. |
+| 2026-07-10 | **Wave 2 wrap-up:** PWA state/latency/recovery (M3.7–M3.8), OTEL+trace_id code (M4.5–M4.6), beacon POST (M10.5 partial), fm-bridge idempotency (M8.6), aether proactive schema T0; develop `ce6a8e2`; **SSH promote parked** (GAP-013). |

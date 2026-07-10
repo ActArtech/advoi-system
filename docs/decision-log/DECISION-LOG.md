@@ -72,6 +72,12 @@
 | ADR-026 | Memory Stack — Hindsight ± Letta | Accepted | 2026-07-07 |
 | ADR-027 | Portfolio Event Log as control-plane event authority | Accepted | 2026-07-10 |
 
+### Batch notes (no new ADR)
+
+| Date | Batch | Note |
+|------|-------|------|
+| 2026-07-10 | wave 2 PWA/analytics/aether | **No new ADR.** PWA `POST /api/events` beacon extends ADR-027. OTEL + guardian `trace_id` implements roadmap M4.5–M4.6. fm-bridge 60s idempotency is operational hardening. UI state machine / recovery are PWA product implementation under ADR-001/002. |
+
 ---
 
 ## ADR-001: Web PWA First, No APK

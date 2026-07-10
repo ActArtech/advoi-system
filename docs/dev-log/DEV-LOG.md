@@ -5,6 +5,55 @@
 
 ---
 
+## [2026-07-10] — BATCH-DOCUMENTATION wave 2 — PWA / analytics / aether @ `ce6a8e2`
+
+**Version:** v0.5.1 (wave tip)  
+**Type:** Feature + Docs + Ops  
+**Status:** Partial (code complete on develop; staging VPS promote + OTEL apply blocked by SSH host key)  
+**Batch IDs:** advoi-batch-wrapup-wave2-01 (docs); code ships since prior wrap-up `b2ced10`
+
+### Summary
+
+Documented the post-PEL AFK slice: PWA voice shell state machine, SLA latency chip, error recovery, thin client beacon into PEL, OTEL staging wiring + Guardian `trace_id`, fm-bridge 60s idempotency, post-deploy T2 curl smoke CI, and aether proactive feed JSON Schema + gate validator. **8 Done** on develop tip `ce6a8e2`. Staging remains at bootstrap `5d50805` — promote + OTEL apply parked (SSH host key verification failed).
+
+### Changes
+
+- [x] PWA explicit UI state machine for voice shell (`3de87ac`)
+- [x] SLA latency chip beside state chip after frame runs (`82b1375`)
+- [x] OTEL staging wiring + Guardian `trace_id` / moat R6 (`697b897`)
+- [x] PWA thin beacon `POST /api/events` → PEL (`3b7df6c`)
+- [x] PWA error recovery: mic, LiveKit, API 502 (`2c63897`)
+- [x] fm-bridge 60s idempotency key on invoke (`70ce1a3`)
+- [x] Staging post-deploy T2 curl smoke + CI wiring (`8584da3`)
+- [x] Aether proactive feed JSON Schema + gate validator T0 (`ce6a8e2`)
+- [x] Batch wrap-up docs + evidence (`fm/advoi-batch-wrapup-wave2-01`)
+- [ ] Staging promote develop → advoi-staging (SSH host key) — **parked**
+- [ ] OTEL apply on VPS (`OTEL_ENABLED` + collector) — **parked** (depends on promote)
+- [ ] M10.4 PEL row proof + beacon T2 on staging — **parked**
+
+### Decisions
+
+- **No new ADR.** PWA beacon extends ADR-027 (PEL authority). OTEL/trace_id implements M4.5–M4.6. Idempotency is operational hardening, not an architecture choice.
+
+### Evidence
+
+- Develop tip: `ce6a8e2` (prior wrap-up baseline `b2ced10` / PEL `7682b96`)
+- Key SHAs: `3de87ac` `82b1375` `697b897` `3b7df6c` `2c63897` `70ce1a3` `8584da3` `ce6a8e2`
+- Staging still: `5d50805` @ https://advoi-staging.keyteller.com
+- T0 wave suites: **83 passed** — `data/feedback-evidence/batch-2026-07-10-wave2/`
+- Pytest collection (full tree): **366** tests
+- Prior wave evidence: `data/feedback-evidence/batch-2026-07-10/summary.md`
+
+### Next
+
+1. Fix SSH host key for `deploy@` staging host; promote develop → staging; redeploy
+2. Apply OTEL env + collector; verify `otel_ready` + guardian log `trace_id` (M4.5–M4.6 T2)
+3. Prove M10.4 PEL rows + beacon `POST /api/events` on staging Postgres
+4. Human E2E Path A/C (M2) including A11–A13 (state / latency / recovery chips)
+5. Resume Queued dispatch after this wrap-up merges to develop
+
+---
+
 ## [2026-07-10] — AFK architecture wave + PEL @ `7682b96`
 
 **Version:** v0.5.0 (wave tip)  
