@@ -55,10 +55,19 @@ Set `LETTA_ENABLED=true` only when container is up.
 | `router.py` | recall/retain orchestration |
 | `hindsight.py` | Hermes CLI bridge |
 | `letta.py` | Letta HTTP client (optional) |
-| `postgres_store.py` | Structured events + decision_briefs (canonical) |
+| `postgres_store.py` | Structured events + decision_briefs; `memory_events` age prune |
 | `briefs_cache.py` | Redis `advoi:briefs:open` fill/invalidate (cache only) |
 | `review_queue.py` | Deep-review queue + desktop brief URLs |
-| `redis_store.py` | Ephemeral voice-turn window |
+| `redis_store.py` | Ephemeral voice-turn window (`ADVOI_REDIS_VOICE_TTL_SEC`, max turns) |
 | `guardian_log.py` | Error log (not memory) |
+
+## TTL / retention
+
+See [docs/MEMORY-STACK.md](../../docs/MEMORY-STACK.md#ttl--compaction-policy).
+
+```bash
+# Dry-run count of aged memory_events
+bash scripts/memory-events-retention.sh --dry-run
+```
 
 **PWA home:** thin `GET /api/briefs` loads open briefs via Brief Curator path (PG → Redis only; no Hindsight). Home cards: `web/components/PwaHomeBriefsSurface.tsx`.

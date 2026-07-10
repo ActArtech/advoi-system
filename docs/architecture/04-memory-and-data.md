@@ -20,7 +20,7 @@ Source for this matrix: [ARCHITECTURE-DATA-MEMORY-REVIEW § Data architecture](.
 | Structured memory retain mirror | Postgres `memory_events` (**legacy**) | — | PEL until cutover complete | Written by `retain_structured`; **not** the long-term SoR — migrate → PEL then deprecate. |
 | Strategic beliefs / portfolio facts | **Hindsight** (Hermes via memory-bridge) | Optional Postgres mirror for structured fields on some event types | Redis turns, fleet backlog text | Primary for `portfolio_fact`, governance, synthesis. |
 | User prefs / agent identity / squad ops | **Letta** when `LETTA_ENABLED` | JSONL `operational_store` fallback | Fleet backlog, Hindsight (squad chatter) | Off on staging by default (`LETTA_ENABLED=false`). |
-| Voice turn window | **Redis** `advoi:ephemeral:{session}` | — | Postgres, Hindsight, PEL | Max **5** turns (`MAX_TURNS`); TTL **3600s**. Session default `voice-main`. |
+| Voice turn window | **Redis** `advoi:ephemeral:{session}` | — | Postgres, Hindsight, PEL | Max **5** turns (`ADVOI_REDIS_VOICE_MAX_TURNS`); TTL **3600s** (`ADVOI_REDIS_VOICE_TTL_SEC`). Session default `voice-main`. |
 | Rolling session summary | **Redis** | — | Postgres briefs | `rolling_summary` write target only. |
 | Agent last_run cache | **Redis** `advoi:agent:{id}:last` | — | Postgres | TTL = `2 ×` daemon interval; PWA/`/api/agents` fast path only. |
 | Runtime failures / recovery notes | **Guardian JSONL** (`guardian_log.py`) | Structured `guardian_gate` rows in PEL when gated | Letta, Hindsight (failures ≠ beliefs) | Path: `docs/error-log/guardian-events.jsonl` (or `GUARDIAN_LOG_PATH`). |
@@ -151,7 +151,7 @@ Moat R1 append-only control-plane log: Postgres **`portfolio_events`** via `advo
 |-----|--------|
 | Letta disabled (`LETTA_ENABLED=false`) | No operational/identity memory |
 | Bridge fails if Hermes down | Recall/retain degrades; briefs may still work from Redis/Postgres |
-| No memory compaction / TTL policy for Postgres events | Long-term growth unmanaged |
+| ~~No memory compaction / TTL policy for Postgres events~~ | **Addressed:** Redis voice TTL env + `memory_events` age prune (`scripts/memory-events-retention.sh`); PEL remains append-only. See [MEMORY-STACK.md](../MEMORY-STACK.md#ttl--compaction-policy). |
 | Hindsight indexing delay after seed | Brief curator may return empty briefly after seed |
 | `memory_events` vs PEL dual writers (transitional) | Dual event tables until backfill + cutover — PEL is SoR; see authority matrix + [07](07-portfolio-event-log.md) |
 | Inline PG DDL for briefs/review_queue | Staging/live schema drift hard to detect |

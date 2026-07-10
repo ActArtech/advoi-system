@@ -17,8 +17,20 @@ Runbooks for local development and staging validation.
 | [MIGRATIONS.md](MIGRATIONS.md) | Versioned SQL under `deploy/migrations/`, apply order, staging verify (SSH parked) |
 | [E2E-SIGNOFF.md](E2E-SIGNOFF.md) | Formal Path A sign-off template (incl. home briefs A17) |
 | [BATCH-DOCUMENTATION.md](BATCH-DOCUMENTATION.md) | Fleet batch wrap-up gate, mandatory logs |
+| [../MEMORY-STACK.md](../MEMORY-STACK.md#ttl--compaction-policy) | Redis voice TTL + `memory_events` retention job |
 
 See also: [../VPS-SETUP.md](../VPS-SETUP.md) (8-step Aether checklist).
+
+## Memory retention (`memory_events`)
+
+Legacy Postgres `memory_events` age prune (not PEL). Dry-run by default:
+
+```bash
+bash scripts/memory-events-retention.sh --dry-run
+bash scripts/memory-events-retention.sh --apply   # explicit delete
+```
+
+Policy and env: [MEMORY-STACK.md § TTL / compaction](../MEMORY-STACK.md#ttl--compaction-policy).
 
 ## Aether gate snapshot export (git + PEL)
 
