@@ -1,0 +1,9 @@
+587385d no-mistakes(lint): Ruff and tsc clean after autofixes
+fc3a8a1 no-mistakes(document): Sync docs for PWA home briefs surface
+a365bf6 no-mistakes(review): SWR loading and post-frame briefs refresh
+5a25014 no-mistakes(review): Fix home briefs surface review findings
+7f8bf47 feat(pwa): surface open briefs + review queue on home
+e52898c feat(pwa): install strip + 60s morning pulse CTA on home
+12b1ad8 docs(ops): PEL PWA analytics funnel queries (connect→success)
+1689a33 feat(pwa): voice + tap confirm parity for confirmation_required
+6c01c1c feat(pwa): surface Aether gate verdict + active_slug on home/dashboard

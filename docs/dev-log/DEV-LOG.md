@@ -5,6 +5,51 @@
 
 ---
 
+## [2026-07-10] — BATCH-DOCUMENTATION wave 3 — PWA interaction slice complete @ `587385d`
+
+**Version:** v0.5.3 (wave tip)  
+**Type:** Feature + Docs + Ops  
+**Status:** Partial (code complete on develop; staging VPS promote blocked by SSH host key)  
+**Batch IDs:** advoi-batch-wrapup-wave3-01 (docs); code ships since wave 2 wrap-up `727f77f`
+
+### Summary
+
+Documented the PWA interaction Queued slice since wave 2: Aether gate chip on home/dashboard, voice+tap confirm parity for Guardian `confirmation_required`, PEL analytics funnel SQL doc, install strip + 60s morning pulse CTA, and open briefs + review queue cards on `/`. **5 Queued Done** (+ no-mistakes review/docs/lint) on develop tip `587385d`. Staging remains at bootstrap `5d50805` — promote parked (SSH host key).
+
+### Changes
+
+- [x] Aether gate chip — `GET /api/aether/status` verdict + active_slug (`6c01c1c`, A14)
+- [x] Confirm parity voice + tap for `confirmation_required` (`1689a33`, A15)
+- [x] PEL PWA analytics funnel queries connect→success (`12b1ad8`, `ANALYTICS-FUNNEL.md`)
+- [x] Install strip + 60s morning pulse CTA on home (`e52898c`, A16)
+- [x] Open briefs + review queue surface on home (`7f8bf47`…`587385d`, A17)
+- [x] Batch wrap-up docs + evidence (`fm/advoi-batch-wrapup-wave3-01`)
+- [ ] Staging promote develop → advoi-staging (SSH host key) — **parked**
+- [ ] M10.4 PEL row proof + funnel SQL on staging — **parked**
+- [ ] Human A14–A17 (and A11–A13) on device — **open**
+
+### Decisions
+
+- **No new ADR.** Surfaces implement ADR-001/002/012 (PWA + frames). Thin `GET /api/briefs` reuses Brief Curator PG→Redis (ADR-026). Funnel documents PEL beacon stages (ADR-027).
+
+### Evidence
+
+- Develop tip: `587385d` (prior wrap-up baseline `727f77f` / wave 2 tip `ce6a8e2`)
+- Key SHAs: `6c01c1c` `1689a33` `12b1ad8` `e52898c` `7f8bf47` (+ `5a25014` `a365bf6` `fc3a8a1` `587385d`)
+- Staging still: `5d50805` @ https://advoi-staging.keyteller.com
+- T0 wave suites: **61 passed** — `data/feedback-evidence/batch-2026-07-10-wave3/`
+- Pytest collection (full tree): **415** tests
+- Prior wave evidence: `data/feedback-evidence/batch-2026-07-10-wave2/summary.md`
+
+### Next
+
+1. Fix SSH host key for `deploy@` staging host; promote develop → staging; redeploy
+2. Prove M10.4 PEL rows + funnel stage queries on staging Postgres
+3. Human E2E Path A (M2) including A11–A17
+4. Resume Queued dispatch after this wrap-up merges to develop
+
+---
+
 ## [2026-07-10] — PWA home briefs surface + Path A shell ships @ `f3cd1f1`
 
 **Version:** v0.5.2 (branch tip)  

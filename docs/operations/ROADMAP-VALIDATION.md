@@ -1,8 +1,8 @@
 # ADVoi roadmap with validation tiers
 
 **Purpose:** Single checklist for what to build next and how to prove each milestone before moving on.  
-**Baseline:** 2026-07-10, repo `advoi-system` develop tip `ce6a8e2` (wave 2) · staging still `5d50805`  
-**Last T2 validation:** 2026-07-10 — `staging-signoff-precheck.sh` exit 0 @ bootstrap; **re-promote parked** (SSH host key) — evidence `data/feedback-evidence/batch-2026-07-10-wave2/`  
+**Baseline:** 2026-07-10, repo `advoi-system` develop tip `587385d` (wave 3 PWA interaction) · staging still `5d50805`  
+**Last T2 validation:** 2026-07-10 — `staging-signoff-precheck.sh` exit 0 @ bootstrap; **re-promote parked** (SSH host key) — evidence `data/feedback-evidence/batch-2026-07-10-wave3/`  
 **Staging (fleet tier):** https://advoi-staging.keyteller.com (`/var/www/advoi/staging`, compose `advoi-staging`)  
 **Live:** https://advoi.keyteller.com (`/var/www/advoi/live` · legacy `/opt/advoi` until cutover)
 
@@ -25,11 +25,13 @@ Human E2E does **not** block development. Track device tests in [MANUAL-TEST-TRA
 | Dashboard MVP | Done | `/dashboard` squad graph + run controls |
 | PWA state machine + latency + recovery | Done (T0) | `3de87ac` `82b1375` `2c63897` — human A11–A13 open |
 | PWA beacon → PEL | Done (T0) | `POST /api/events` @ `3b7df6c` |
+| PWA interaction slice (wave 3) | Done (T0) | Gate chip `6c01c1c` · confirm parity `1689a33` · onboarding `e52898c` · home briefs `7f8bf47` — human A14–A17 open |
+| PEL analytics funnel doc | Done | `docs/operations/ANALYTICS-FUNNEL.md` @ `12b1ad8` |
 | OTEL + guardian trace_id | Done (T0 code) | `697b897` — VPS apply parked |
 | fm-bridge 60s idempotency | Done (T0) | `70ce1a3` |
 | T2 post-deploy smoke script | Done | `8584da3` `scripts/t2-staging-smoke.sh` |
 | Aether proactive schema | Done (T0) | `ce6a8e2` |
-| Automated tests | Done | **366** pytest collected |
+| Automated tests | Done | **415** pytest collected |
 
 ---
 
@@ -100,10 +102,15 @@ Use the **lowest tier that proves the change**. Do not skip tiers when promoting
 | M3.2 | Voice operator + fleet confirm tests | T0 | [x] Done |
 | M3.3 | Path B WebGPU matrix (desktop + iOS Safari) | T3 | [ ] Open |
 | M3.4 | Full mic → STT → TTS round-trip baseline | T2/T3 | [ ] Open — PWA SLA latency chip shipped (`82b1375`); human baseline still open |
-| M3.5 | Playwright PWA connect smoke (no mic) | T0/T1 | [~] **Partial** — e2e stubs for state/latency/recovery (`web/e2e/voice-session-*.spec.ts`); full connect smoke open |
-| M3.6 | Guardian fleet confirm on device | T3 | [ ] Open |
+| M3.5 | Playwright PWA connect smoke (no mic) | T0/T1 | [~] **Partial** — e2e stubs for state/latency/recovery/gate/confirm/onboarding/briefs; full connect smoke open |
+| M3.6 | Guardian fleet confirm on device | T3 | [ ] Open — confirm **parity** T0 Done (`1689a33`, A15); device confirm still open |
 | M3.7 | Explicit UI state machine (idle→…→error) | T0/T3 | [x] T0 Done (`3de87ac`); T3 A11 open |
 | M3.8 | Error recovery paths (mic / LiveKit / API 502) | T0/T3 | [x] T0 Done (`2c63897`); T3 A13 open |
+| M3.9 | Aether gate chip on home/dashboard | T0/T3 | [x] T0 Done (`6c01c1c`); T3 A14 open |
+| M3.10 | Install strip + 60s morning pulse CTA | T0/T3 | [x] T0 Done (`e52898c`); T3 A16 open |
+| M3.11 | Open briefs + review queue on home | T0/T3 | [x] T0 Done (`7f8bf47`…`587385d`); T3 A17 open |
+
+**Wave 3 note:** PWA interaction Queued slice (M3.6 parity model + M3.9–M3.11 + funnel doc) is **T0 complete** on develop `587385d`. Staging promote + human A14–A17 remain open.
 
 ---
 
@@ -156,12 +163,14 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | # | Task | Tier | Status |
 |---|------|------|--------|
 | M7.1 | Ingestion MVP (upload, route, optional dispatch-dev) | T0/T2 | [x] Done |
-| M7.2 | `triage.py` classify + `needs_review` | T0 | [~] **Partial** — `triage_item` / `mark_needs_review` in pipeline + lifecycle API (`80b69fa`); no standalone `triage.py` classifier yet (**unchanged in wave 2**) |
-| M7.3 | Status lifecycle: uploaded → triaged → routed → approved → dispatched | T0 | [~] **Partial** — happy path `uploaded → triaged → needs_review → approved → dispatched` + legacy `routed` (`80b69fa`, `tests/test_ingestion_lifecycle.py`); inbox UI / batch / voice still open (**unchanged in wave 2**) |
+| M7.2 | `triage.py` classify + `needs_review` | T0 | [~] **Partial** — `triage_item` / `mark_needs_review` in pipeline + lifecycle API (`80b69fa`); no standalone `triage.py` classifier yet (**unchanged in wave 3**) |
+| M7.3 | Status lifecycle: uploaded → triaged → routed → approved → dispatched | T0 | [~] **Partial** — happy path `uploaded → triaged → needs_review → approved → dispatched` + legacy `routed` (`80b69fa`, `tests/test_ingestion_lifecycle.py`); inbox UI / batch / voice still open (**unchanged in wave 3**) |
 | M7.4 | Batch / folder upload endpoint | T0/T2 | [ ] Open |
-| M7.5 | Triage inbox UI on `/ingest` | T3 | [ ] Open |
+| M7.5 | Triage inbox UI on `/ingest` | T3 | [ ] Open — home briefs/review surface is **not** ingestion triage inbox |
 | M7.6 | Voice: "triage uploads", "route ingestion to {project}" | T0/T3 | [ ] Open |
 | M7.7 | Guardian gate on batch approve + dispatch | T0 | [ ] Open |
+
+**M7 note (wave 3):** No ingestion Phase 2 work in this batch. PWA home review queue (A17) surfaces deep-review briefs only — does not close M7.5.
 
 ---
 
@@ -200,12 +209,15 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | M10.1 | Schema migration `deploy/migrations/001_portfolio_events.sql` + `append_event` | T0 | [x] Done (`advoi-analytics-pel-schema-01` @ `7682b96`) |
 | M10.2 | Emit: `frame_run`, `fleet_trigger` (+ confirmation gate), `voice_intent` | T0 | [x] Done — `tests/test_portfolio_events.py` |
 | M10.3 | Do **not** drop `memory_events` yet (deprecation checklist only) | — | [x] Documented in migration-plan |
-| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — develop `ce6a8e2` not on staging (`5d50805`); **SSH promote parked** |
-| M10.5 | `/api/events` ingest + optional query / `last_dispatch_at` from PEL | T0/T2 | [~] **Partial** — PWA thin beacon `POST /api/events` → PEL (`3b7df6c` T0); query/read path still open |
+| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — develop `587385d` not on staging (`5d50805`); **SSH promote parked** |
+| M10.5 | `/api/events` ingest + optional query / `last_dispatch_at` from PEL | T0/T2 | [~] **Partial** — PWA thin beacon `POST /api/events` → PEL (`3b7df6c` T0); funnel stage SQL documented (`12b1ad8`); query/read API still open |
+| M10.6 | Analytics funnel doc (connect → frame → confirm → success) | Docs | [x] Done (`docs/operations/ANALYTICS-FUNNEL.md` @ `12b1ad8`) |
 
 **PEL note (batch 2026-07-10 wave 1):** Moat R1 code+design landed on develop at `7682b96`. Authority decision recorded as **ADR-027** (see also [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md)).
 
 **PEL / analytics note (wave 2):** Client beacon write path extends ADR-027 at `3b7df6c`. Next gates remain **M10.4** staging row proof + promote, then optional query API. Do not start dual-authority consumers until T2 passes.
+
+**PEL / funnel note (wave 3):** Funnel SQL stages documented for ops/debug; live stage counts still require promote + traffic. Confirm parity ships `confirm_shown` / `confirm_accept` beacons (A15).
 
 **Design:** [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md) · [migration-plan](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md) · ADR-027
 
@@ -255,8 +267,8 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 | GAP-010 | P3 | React Flow dashboard | Open |
 | GAP-011 | P3 | Port registry / vps-shared | Open |
 | GAP-012 | P3 | Architecture docs 03/05 (3-agent stale) | Open |
-| GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `ce6a8e2` |
-| GAP-014 | P1 | PWA human A11–A13 (state / latency / recovery) | Open — T0 automated; T3 device |
+| GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `587385d` |
+| GAP-014 | P1 | PWA human A11–A17 (state / latency / recovery / gate / confirm / install / briefs) | Open — T0 automated wave 2+3; T3 device |
 
 ### Bug cross-reference
 
@@ -271,10 +283,10 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 
 ## Definition of "production voice ready"
 
-1. [x] Code: 6 agents, 3 voice paths, operators, squads, ingestion MVP, fm-bridge, PWA state/latency/recovery, PEL + beacon
-2. [x] T0: 366 pytest collected; wave2 suites 83 passed
+1. [x] Code: 6 agents, 3 voice paths, operators, squads, ingestion MVP, fm-bridge, PWA interaction shell (state/latency/recovery/gate/confirm/onboarding/briefs), PEL + beacon + funnel doc
+2. [x] T0: 415 pytest collected; wave3 suites 61 passed (wave2 suites 83 prior)
 3. [~] T2: bootstrap smoke pass @ `5d50805`; **re-promote + re-smoke parked** (SSH host key) — post-deploy script ready `8584da3`
-4. [ ] T3: Human Path A or C sign-off recorded (include A11–A13)
+4. [ ] T3: Human Path A or C sign-off recorded (include A11–A17)
 5. [ ] T2: Letta/OTel enabled on VPS
 6. [ ] T2: Live squad webhooks (non-mock)
 
@@ -412,3 +424,4 @@ ssh deploy@187.77.140.216 "cd /var/www/advoi/staging && git pull --ff-only"
 | 2026-07-10 | M10 PEL schema + emit T0; cross-link T2 M10.4 staging row check (`advoi-analytics-pel-schema-01`). |
 | 2026-07-10 | T2 post-deploy job: `scripts/t2-staging-smoke.sh` + `t2_validate.py` (health agents=6, aether/status); fixture T0 tests; wired into `staging-redeploy.sh`. Default host `advoi-staging.keyteller.com`. |
 | 2026-07-10 | **Wave 2 wrap-up:** PWA state/latency/recovery (M3.7–M3.8), OTEL+trace_id code (M4.5–M4.6), beacon POST (M10.5 partial), fm-bridge idempotency (M8.6), aether proactive schema T0; develop `ce6a8e2`; **SSH promote parked** (GAP-013). |
+| 2026-07-10 | **Wave 3 wrap-up:** PWA interaction slice complete — gate chip (M3.9), confirm parity (M3.6 model), onboarding (M3.10), home briefs (M3.11), funnel doc (M10.6); M7 unchanged; develop `587385d`; **SSH promote parked** (GAP-013). |

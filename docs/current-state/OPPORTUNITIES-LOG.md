@@ -12,6 +12,7 @@
 
 | Date | Batch | OPP count | Promoted |
 |------|-------|-----------|----------|
+| 2026-07-10 | wave 3 PWA interaction | 7 | 0 (parked; code complete) |
 | 2026-07-10 | wave 2 PWA/analytics/aether | 6 | 0 (parked; partial code progress) |
 | 2026-07-10 | AFK arch wave + PEL | 5 | 0 (parked) |
 
@@ -30,6 +31,21 @@
 ---
 
 _Add entries below newest first._
+
+## [2026-07-10] — wave 3 PWA interaction slice (post-`727f77f`)
+
+| ID | Opportunity | Lane | Value | Complexity | Source | Promoted to |
+|----|-------------|------|-------|------------|--------|-------------|
+| OPP-001 | Human A14–A17 on staging tip (gate / confirm / install / briefs) | VAL | 8 | S | wave3 | parked — device + SSH promote |
+| OPP-002 | Staging promote develop→staging after SSH host-key fix | OPS | 9 | S | wave2/3 blocker | **parked** — staging `5d50805` vs develop `587385d` |
+| OPP-003 | Funnel SQL against live staging PEL (connect→success) | OPP | 7 | S | `12b1ad8` | parked — needs promote + traffic |
+| OPP-004 | Full Playwright PWA connect smoke (no mic) — M3.5 | FEAT | 6 | M | roadmap | **partial** — more e2e stubs (gate/confirm/onboarding/briefs); full connect smoke open |
+| OPP-005 | `OTEL_ENABLED=true` + collector T2 — M4.5/M4.6 | OPP | 8 | M | wave2 | code done; VPS apply parked (SSH) |
+| OPP-006 | Live squad webhooks — M5.4/M5.5 | FEAT | 7 | M | prior | parked |
+| OPP-007 | M7 Phase 2: triage inbox UI + batch upload + voice triage | FEAT | 7 | L | roadmap | **unchanged** — not in PWA interaction scope |
+| OPP-008 | M10.5 PEL query/read API + dashboard last_dispatch | FEAT | 5 | M | analytics | parked — write + funnel docs done; read path open |
+
+**Notes:** Wave 3 closed the PWA interaction Queued slice on develop (gate chip, confirm parity, onboarding, home briefs, funnel doc). Hard parked blocker remains SSH promote. M7 ingestion Phase 2 intentionally untouched this wave. Human matrix A11–A17 ready for device once staging has tip.
 
 ## [2026-07-10] — wave 2 PWA / analytics / aether (post-`b2ced10`)
 
