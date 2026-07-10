@@ -69,7 +69,7 @@ flowchart TB
 | 4 | **Memory retain** | caller → `MemoryRouter.retain` → `write_targets` → single primary store (Postgres / Hindsight / Redis / Letta) |
 | 5 | **Aether gate** | frame result → `architect.post_frame_aether` → gate + portfolio → retain `squad_lesson` / belief |
 
-Also related (not drawn as a sixth swimlane): **Frame run** — PWA/API → `frame_runner` → agent backend → Redis cache → `spoken_summary` (see [03-multi-agent.md](03-multi-agent.md)).
+Also related (not drawn as a sixth swimlane): **Frame run** — PWA/API → `run_frame` → **agent cache → (mock) → backends** → `spoken_summary` (precedence, cache keys, and fallbacks: [03-multi-agent.md § Resolution precedence](03-multi-agent.md#resolution-precedence-run_frame)).
 
 ---
 
@@ -112,4 +112,5 @@ ingestion → route → (approve) → guardian → fleet
 | [06-vertical-boundaries.md](06-vertical-boundaries.md) | Dependency diagram + import/write rules |
 | [04-memory-and-data.md](04-memory-and-data.md) | Authority matrix + retain targets |
 | [02-voice-paths.md](02-voice-paths.md) | Path A/B sequence detail |
+| [03-multi-agent.md](03-multi-agent.md#resolution-precedence-run_frame) | `run_frame` cache / mock / refresh / backend order |
 | [07-portfolio-event-log.md](07-portfolio-event-log.md) | PEL emit points for these flows |

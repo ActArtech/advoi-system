@@ -81,7 +81,57 @@ flowchart TD
 | `memory_health` | Memory Scout | `advoi/routing/diagnostic_frames.run_memory_health` — bridge, Redis, Postgres, operational store probes. |
 | `guardian_status` | Guardian Sentinel | `run_guardian_status` — confirmation policy, high-risk frames/actions, recent guardian event log tail. |
 
-Cache: Redis key `advoi:agent:{agent_id}:last`, TTL `2 * ADVOI_AGENT_INTERVAL_SECS`. Cache bypassed when `refresh=true` or `confirmed=true`.
+### Resolution precedence (`run_frame`)
+
+Source: `advoi/routing/frame_runner.run_frame` + `advoi/cache/agent_cache.py`.
+
+Every on-demand or daemon call follows this order. **Mock is not checked before the agent cache** — it short-circuits only after a cache miss/bypass, inside the backend runner.
+
+```text
+1. Validate frame_id + agent_id (raise if unknown catalog id)
+2. Agent cache (Redis) — unless bypassed
+3. Backend by frame.id
+   3a. ADVOI_FRAME_MOCK short-circuit (fleet / briefs / review only)
+   3b. Live data sources + per-frame fallbacks
+4. Voice preamble (all frames except open_briefs), Aether enrich, PEL emit
+```
+
+| Step | When it runs | Outcome |
+|------|--------------|---------|
+| **1. Validate** | Always | Unknown frame/agent → exception before any I/O |
+| **2. Agent cache** | `use_cache=True` **and** `not refresh` **and** `not confirmed` | Hit only if Redis payload exists, `status == "ok"`, and spoken text is not a fleet-error pattern → return immediately with `detail.cached=true` |
+| **3. Refresh / bypass** | `refresh=true` **or** `confirmed=true` **or** `use_cache=false` | Skip step 2; always execute backend |
+| **4. Mock** | Cache miss/bypass **and** `ADVOI_FRAME_MOCK` in `{1,true,yes}` | Synthetic `ok` result for `fleet_status`, `open_briefs`, `queue_deep_review` (no fleet/PG I/O). Diagnostics / systems_pulse use live helpers. |
+| **5. Backends** | Cache miss/bypass and mock off (or frame has no mock) | Frame-specific live path (table below) |
+
+**Flags** (`run_frame` kwargs / API query):
+
+| Flag | Effect |
+|------|--------|
+| `refresh=true` | Bypass agent cache; re-run backend (daemon fleet-scout always ticks with refresh) |
+| `confirmed=true` | Bypass agent cache (forces live confirm path for review queue) |
+| `use_cache=false` | Bypass agent cache without implying refresh semantics elsewhere |
+
+#### Cache keys
+
+| Key | Role | TTL / write rules |
+|-----|------|-------------------|
+| `advoi:agent:{agent_id}:last` | Last specialist result for PWA/voice fast path | TTL = `2 * ADVOI_AGENT_INTERVAL_SECS` (default 45 → **90s**). Written by `tick_agent` via `write_agent_cache` only when `status` ∈ `{ok, confirmation_required}`. Payload: `agent_id`, `frame_id`, `status`, `spoken_summary`, `timestamp`. |
+| `advoi:briefs:open` | Brief-list **data** cache (not agent spoken result) | Filled from Postgres on hit; invalidated when PG returns empty; served only if PG unavailable |
+
+Cache **read** rejection (`_cached_frame`): missing Redis client/key, parse errors, non-`ok` status (caller only accepts `ok`), or spoken text matching fleet-error patterns (`error:`, container not running, fleet bridge not configured, timed out) — treated as miss so the next backend run can recover.
+
+#### Backend fallbacks (after cache / mock)
+
+| Frame | Live path and failure behavior |
+|-------|--------------------------------|
+| `fleet_status` | Disk snapshot under `FIRSTMATE_FLEET_PATH` → optional `fm-advanced-status.sh` enrich (timeout/missing → keep disk summary, set `advanced_error`). Missing fleet data → status `error`. Spoken `ERROR:` / container-not-running → status `error` (not cached as ok by daemons). |
+| `open_briefs` | Postgres canonical → fill Redis; PG down → Redis degraded cache; both empty → optional Hindsight recall enrich; still empty → spoken “no briefs…” with `briefs: []`, status `ok`. |
+| `queue_deep_review` | Guardian gate first (`confirmed=false` → `confirmation_required`, no enqueue). On proceed: `enqueue_review`; `queue_id is None` → still spoken as queued, `persistence: unavailable`. Mock skips DB. |
+| `systems_pulse` | Parallel `fleet_status` + `open_briefs` (same refresh flag); `degraded` if either child ≠ `ok`. No separate agent-cache read at pulse level. |
+| `memory_health` / `guardian_status` | Diagnostic probes only; no `ADVOI_FRAME_MOCK` branch in frame_runner. |
+
+After a successful backend run, callers that warm the cache (`agent_daemon` / `tick_agent`) write `advoi:agent:{id}:last`. Interactive `run_frame` itself does **not** write the agent cache — it only reads.
 
 ### Review queue (built, not stub)
 
