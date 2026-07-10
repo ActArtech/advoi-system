@@ -98,6 +98,15 @@ Home `/` only (no new routes) — `web/components/PwaHomeOnboarding.tsx` + pure 
 - **60s morning pulse CTA** (`data-testid="morning-pulse-cta"`): portfolio voice pulse copy (moat Pattern F); **Start morning pulse** dispatches `advoi:run-frame` with `frameId=systems_pulse` (VoiceSession listens).
 - T0: `tests/test_pwa_onboarding.py`. Manual matrix **A16**. Stub: `web/e2e/pwa-onboarding.spec.ts`.
 
+## PWA home briefs surface (open briefs + review queue)
+
+Home `/` only — `web/components/PwaHomeBriefsSurface.tsx` + pure model `pwaBriefsSurface.ts`.
+
+- **Open briefs** (`data-testid="open-briefs-section"`): `GET /api/briefs` → titles from Brief Curator load path (`_load_open_briefs`: PG → Redis cache-only). Cards + **Hear open briefs** → `advoi:run-frame` `open_briefs`.
+- **Review queue** (`data-testid="review-queue-section"`): `GET /api/review-queue` → pending cards with link to `brief_url` or `/briefs/{id}` (no need to navigate away from home to *see* the queue).
+- Thin API: `GET /api/briefs` is read-only (no frame run / PEL). Existing `GET /api/review-queue` unchanged.
+- T0: `tests/test_pwa_briefs_surface.py`. Manual matrix **A17**. Stub: `web/e2e/pwa-briefs-surface.spec.ts`.
+
 ## PWA error recovery paths
 
 Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):

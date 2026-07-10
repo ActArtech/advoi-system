@@ -1,3 +1,4 @@
+import { PwaHomeBriefsSurface } from "@/components/PwaHomeBriefsSurface";
 import { PwaHomeOnboarding } from "@/components/PwaHomeOnboarding";
 import { VoiceSession } from "@/components/VoiceSession";
 import styles from "./page.module.css";
@@ -12,6 +13,8 @@ export default function HomePage() {
       </header>
       {/* Install strip + 60s morning pulse CTA — home only, no new routes */}
       <PwaHomeOnboarding />
+      {/* Open briefs + review queue cards — home only; uses /api/briefs + /api/review-queue */}
+      <PwaHomeBriefsSurface />
       <VoiceSession />
       <p style={{ marginTop: "1.25rem", fontSize: "0.9rem", color: "var(--muted)" }}>
         <a href="/ingest">Upload and route</a> ·{" "}

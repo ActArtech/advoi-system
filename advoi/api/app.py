@@ -231,6 +231,18 @@ async def list_frames() -> dict[str, Any]:
     return {"frames": [frame_to_dict(f) for f in FRAMES]}
 
 
+@app.get("/api/briefs")
+async def list_open_briefs_api() -> dict[str, Any]:
+    """Open decision briefs for PWA home surface (read-only; no frame run / PEL).
+
+    Reuses Brief Curator load path: Postgres canonical → Redis cache-only fallback.
+    """
+    from advoi.routing.frame_runner import _load_open_briefs
+
+    items, source = await _load_open_briefs()
+    return {"briefs": items, "count": len(items), "source": source}
+
+
 @app.get("/api/review-queue")
 async def review_queue_pending() -> dict[str, Any]:
     from advoi.memory.review_queue import list_pending
