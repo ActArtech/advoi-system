@@ -41,7 +41,7 @@ These run in CI or via scripts. Re-run after every deploy.
 
 | Check | Command | Last known |
 |-------|---------|------------|
-| Full pytest | `uv run pytest tests/ -q` | **312** passed |
+| Full pytest | `uv run pytest tests/ -q` | **389** passed |
 | Agents smoke | `.\scripts\agents-smoke-test.ps1` | 6 agents + run-six + squads + platform |
 | Run six script | `.\scripts\run-six-agents.ps1 -Refresh` | 6 frames CLI |
 | Voice smoke | `.\scripts\voice-smoke-test.ps1` or `.sh` | Staging `ok: true` |
@@ -89,6 +89,17 @@ These run in CI or via scripts. Re-run after every deploy.
 | A12 | SLA latency chip | Open `/` — chip `data-testid="sla-latency-chip"` sits beside the UI state chip. Initial load may show **SLA —** (empty) or populated timings from `GET /api/diagnostics/latency`. After a frame run (or Run all 6), chip updates **without full page reload** with `frame_run_ms` and `run_six_ms` (e.g. `SLA ok · frame 0.4ms · six 42ms`). Kill/block diagnostics → **SLA —** or **SLA err** (no crash). Screenshot: `web/e2e/artifacts/sla-latency-chip.png`. Unit: `tests/test_latency_chip.py`. Stub: `web/e2e/voice-session-latency.spec.ts`. | **Not tested** (automated model) | |
 | A13 | Error recovery paths | See [PWA error recovery paths](#pwa-error-recovery-paths-a13) below. Three kinds on UI `error` state + PEL beacon `error`: **mic denied**, **LiveKit connect fail**, **API 502 / frame**. Panel `data-testid="error-recovery"`. Unit: `tests/test_error_recovery.py`. Model: `web/components/errorRecovery.ts`. Stub: `web/e2e/voice-session-recovery.spec.ts`. | **Not tested** (automated model) | |
 | A14 | Aether gate chip | Open `/` — chip `data-testid="aether-gate-chip"` sits beside UI state + SLA chips. Fed by `GET /api/aether/status` (`gate.verdict`, `gate.active_slug`). When gate found: label like **Gate pass · gem-dev-shop** (tones: pass=ok, hold=warn, fail=error). Missing gate / fetch fail → **Gate —** / **Gate err** (no crash). Dashboard `/dashboard` shows the same Gate metric in the platform metrics row. Screenshot: `web/e2e/artifacts/aether-gate-chip.png`. Unit: `tests/test_aether_gate_chip.py`. Model: `web/components/aetherGateChip.ts`. Stub: `web/e2e/voice-session-aether-gate.spec.ts`. | **Not tested** (automated model) | |
+| A15 | Confirm parity (voice + tap) | Guardian `confirmation_required` (frame deep review or fleet stop) → UI state **Confirm pending**; panel `data-testid="confirm-pending"` shows **identical** Guardian copy in `data-testid="confirm-copy"` for voice status/TTS and tap status; visible **Confirm** button `data-testid="confirm-accept"` (not only re-tap). Beacons: `confirm_shown` on enter, `confirm_accept` on Confirm. Unit/API: `tests/test_confirm_parity.py`. Model: `web/components/confirmParity.ts`. Stub: `web/e2e/voice-session-confirm-parity.spec.ts`. Screenshot: `web/e2e/artifacts/confirm-parity.png`. | **Not tested** (automated model + API) | |
+
+### PWA confirm parity (A15)
+
+When Guardian returns `confirmation_required`, Path A voice and tap share one copy string (moat 7.4). Panel on UI state `confirm_pending`:
+
+| Path | Status / TTS | Confirm control | Beacon |
+|------|--------------|-----------------|--------|
+| Tap frame (e.g. deep review) | Guardian prompt in status + `confirm-copy` | **Confirm** button (or re-tap pending frame) | `confirm_shown` → `confirm_accept` |
+| Tap fleet operator | Same Guardian fleet prompt | **Confirm** button (or re-tap pending op) | same |
+| Voice intent | Same string spoken via LiveKit TTS | Say yes / confirm phrase, or tap **Confirm** | same |
 
 ### PWA error recovery paths (A13)
 

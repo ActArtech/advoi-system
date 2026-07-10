@@ -161,15 +161,57 @@
   min-width: 0;
 }
 
+/* Confirm parity panel — identical Guardian copy for voice + tap (confirm_pending) */
 .confirmBanner {
   margin: 0.65rem 0 0;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.5rem;
-  font-size: 0.82rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.55rem;
+  font-size: 0.84rem;
   line-height: 1.4;
   color: #ddd6fe;
   background: rgba(167, 139, 250, 0.12);
   border: 1px solid rgba(167, 139, 250, 0.35);
+}
+
+.confirmBannerTitle {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #c4b5fd;
+}
+
+.confirmCopy {
+  margin: 0;
+  color: #ddd6fe;
+  opacity: 0.95;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.65rem;
+}
+
+.confirmBtn {
+  border: 0;
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.9rem;
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  color: #1e1035;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.confirmBtn:hover {
+  filter: brightness(1.05);
+}
+
+.confirmBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Error recovery panel (mic denied / LiveKit fail / API 502) — ship recovery paths */

@@ -25,6 +25,10 @@ import {
   type LatencyDiagnostics,
 } from "./latencyChip";
 import {
+  confirmParityModel,
+  type ConfirmParityModel,
+} from "./confirmParity";
+import {
   emitBeaconForUiEvent,
   emitPwaBeacon,
 } from "./pwaBeacon";
@@ -159,6 +163,8 @@ export function VoiceSession() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [activeFrame, setActiveFrame] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
+  /** Guardian confirm panel — same copy for voice TTS and tap UI. */
+  const [confirmUi, setConfirmUi] = useState<ConfirmParityModel | null>(null);
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const [voiceDiag, setVoiceDiag] = useState<VoiceDiagnostics | null>(null);
   const [latencyDiag, setLatencyDiag] = useState<LatencyDiagnostics | null>(null);
@@ -340,6 +346,7 @@ export function VoiceSession() {
         setStatus("Disconnected. Frames still work in text mode.");
         setPendingConfirm(null);
         setPendingFleet(null);
+        setConfirmUi(null);
       }
     };
 
@@ -432,21 +439,32 @@ export function VoiceSession() {
 
         if (data.status === "confirmation_required") {
           setPendingConfirm(frameId);
+          const model = confirmParityModel({
+            prompt: typeof data.prompt === "string" ? data.prompt : null,
+            spoken_summary:
+              typeof data.spoken_summary === "string" ? data.spoken_summary : null,
+            spoken: typeof data.spoken === "string" ? data.spoken : null,
+            targetKind: "frame",
+            targetId: frameId,
+          });
+          setConfirmUi(model);
           dispatchUi(
             { type: "CONFIRMATION_REQUIRED" },
-            { target: "frame", frame_id: frameId },
+            {
+              target: "frame",
+              frame_id: frameId,
+              confirm_copy: model.copy,
+              path: "tap",
+            },
           );
-          const confirmSpoken = stripEmDash(data.spoken_summary as string);
-          setStatus(
-            voiceConnected
-              ? confirmSpoken
-              : `${confirmSpoken} Connect voice to hear TTS, then tap again to confirm.`,
-          );
-          await publishSpeak(confirmSpoken);
+          // Identical copy for status (tap) and TTS (voice) — moat 7.4 parity.
+          setStatus(model.copy);
+          await publishSpeak(model.copy);
           return;
         }
 
         setPendingConfirm(null);
+        setConfirmUi(null);
         clearErrorRecovery();
         dispatchUi({ type: "FRAME_OK" });
         const spoken = stripEmDash(data.spoken_summary as string);
@@ -531,28 +549,55 @@ export function VoiceSession() {
               }
             | undefined;
           if (opPreview?.spoken) {
-            const spoken = stripEmDash(opPreview.spoken);
-            if (opPreview.action === "confirmation_required" && opPreview.pending_operator) {
-              setPendingFleet(opPreview.pending_operator as FleetAction);
+            if (opPreview.action === "confirmation_required") {
+              const pending = opPreview.pending_operator;
+              const isFleet =
+                pending === "wake_firstmate" ||
+                pending === "start_development" ||
+                pending === "run_next_backlog" ||
+                pending === "fleet_stop";
+              if (isFleet && pending) {
+                setPendingFleet(pending as FleetAction);
+              }
+              const model = confirmParityModel({
+                spoken: opPreview.spoken,
+                targetKind: isFleet ? "fleet" : "operator",
+                targetId: pending || "operator",
+                acceptTranscript: pending
+                  ? `${String(pending).replace(/_/g, " ")} confirm`
+                  : /\bstop agents\b/i.test(opPreview.spoken)
+                    ? "stop agents confirm"
+                    : "yes",
+              });
+              setConfirmUi(model);
               dispatchUi(
                 { type: "CONFIRMATION_REQUIRED" },
-                { target: "operator", pending: opPreview.pending_operator },
+                {
+                  target: isFleet ? "fleet" : "operator",
+                  pending: pending || null,
+                  confirm_copy: model.copy,
+                  path: "voice",
+                },
               );
-            } else {
-              setPendingFleet(null);
-              if (data.confirmed || /\bconfirm\b/i.test(text)) {
-                emitPwaBeacon(apiBase, {
-                  type: "confirm_accept",
-                  session_id: voiceSessionId,
-                  payload: { target: "operator", action: opPreview.action },
-                  guardian_status: "allowed",
-                });
-              }
-              dispatchUi({ type: "FRAME_OK" });
+              setStatus(model.copy);
+              await publishSpeak(model.copy);
+              return;
             }
+            setPendingFleet(null);
+            setConfirmUi(null);
+            if (data.confirmed || /\bconfirm\b/i.test(text)) {
+              emitPwaBeacon(apiBase, {
+                type: "confirm_accept",
+                session_id: voiceSessionId,
+                payload: { target: "operator", action: opPreview.action },
+                guardian_status: "allowed",
+              });
+            }
+            dispatchUi({ type: "FRAME_OK" });
             if (opPreview.action === "run_all" || opPreview.action === "dispatch_squads") {
               void loadAgents();
             }
+            const spoken = stripEmDash(opPreview.spoken);
             const agentNote =
               opPreview.agents_used && opPreview.agents_used.length > 0
                 ? ` (${opPreview.agents_used.length} agents)`
@@ -564,15 +609,33 @@ export function VoiceSession() {
           const preview = data.preview?.spoken_summary as string | undefined;
           const frameId = data.frame_id as string | undefined;
           if (preview) {
-            setStatus(stripEmDash(preview));
-            await publishSpeak(preview);
             if (data.preview?.status === "confirmation_required" && frameId) {
               setPendingConfirm(frameId);
+              const model = confirmParityModel({
+                spoken_summary: preview,
+                prompt:
+                  typeof data.preview?.prompt === "string"
+                    ? data.preview.prompt
+                    : null,
+                targetKind: "frame",
+                targetId: frameId,
+              });
+              setConfirmUi(model);
               dispatchUi(
                 { type: "CONFIRMATION_REQUIRED" },
-                { target: "frame", frame_id: frameId },
+                {
+                  target: "frame",
+                  frame_id: frameId,
+                  confirm_copy: model.copy,
+                  path: "voice",
+                },
               );
+              setStatus(model.copy);
+              await publishSpeak(model.copy);
             } else {
+              setConfirmUi(null);
+              setStatus(stripEmDash(preview));
+              await publishSpeak(preview);
               dispatchUi({ type: "FRAME_OK" });
             }
             return;
@@ -593,21 +656,47 @@ export function VoiceSession() {
         });
         if (resp.ok) {
           const data = await resp.json();
-          const spoken = stripEmDash(String(data.spoken || ""));
-          if (data.action === "confirmation_required" && data.pending_operator) {
-            setPendingFleet(data.pending_operator as FleetAction);
+          if (data.action === "confirmation_required") {
+            const pending = data.pending_operator as string | undefined;
+            const isFleet =
+              pending === "wake_firstmate" ||
+              pending === "start_development" ||
+              pending === "run_next_backlog" ||
+              pending === "fleet_stop";
+            if (isFleet && pending) {
+              setPendingFleet(pending as FleetAction);
+            }
+            const model = confirmParityModel({
+              prompt: typeof data.prompt === "string" ? data.prompt : null,
+              spoken: typeof data.spoken === "string" ? data.spoken : null,
+              targetKind: isFleet ? "fleet" : "operator",
+              targetId: pending || "operator",
+              acceptTranscript: pending
+                ? `${String(pending).replace(/_/g, " ")} confirm`
+                : "yes",
+            });
+            setConfirmUi(model);
             dispatchUi(
               { type: "CONFIRMATION_REQUIRED" },
-              { target: "operator", pending: data.pending_operator },
+              {
+                target: isFleet ? "fleet" : "operator",
+                pending: pending || null,
+                confirm_copy: model.copy,
+                path: "voice",
+              },
             );
-          } else {
-            setPendingFleet(null);
-            clearErrorRecovery();
-            dispatchUi({ type: "FRAME_OK" });
+            setStatus(model.copy);
+            await publishSpeak(model.copy);
+            return;
           }
+          setPendingFleet(null);
+          setConfirmUi(null);
+          clearErrorRecovery();
+          dispatchUi({ type: "FRAME_OK" });
           if (data.action === "run_all" || data.action === "dispatch_squads") {
             void loadAgents();
           }
+          const spoken = stripEmDash(String(data.spoken || ""));
           const agentsUsed = data.agents_used as string[] | undefined;
           const agentNote =
             agentsUsed && agentsUsed.length > 0 ? ` (${agentsUsed.length} agents)` : "";
@@ -675,16 +764,30 @@ export function VoiceSession() {
         const data = await resp.json();
         if (data.status === "confirmation_required") {
           setPendingFleet(action);
+          const model = confirmParityModel({
+            prompt: typeof data.prompt === "string" ? data.prompt : null,
+            spoken: typeof data.spoken === "string" ? data.spoken : null,
+            spoken_summary:
+              typeof data.spoken_summary === "string" ? data.spoken_summary : null,
+            targetKind: "fleet",
+            targetId: action,
+          });
+          setConfirmUi(model);
           dispatchUi(
             { type: "CONFIRMATION_REQUIRED" },
-            { target: "fleet", action },
+            {
+              target: "fleet",
+              action,
+              confirm_copy: model.copy,
+              path: "tap",
+            },
           );
-          const spoken = stripEmDash(String(data.prompt || data.spoken || "Say yes to confirm."));
-          setStatus(spoken);
-          await publishSpeak(spoken);
+          setStatus(model.copy);
+          await publishSpeak(model.copy);
           return;
         }
         setPendingFleet(null);
+        setConfirmUi(null);
         clearErrorRecovery();
         dispatchUi({ type: "FRAME_OK" });
         const spoken = stripEmDash(String(data.spoken || `${label} completed.`));
@@ -919,6 +1022,7 @@ export function VoiceSession() {
     setStatus("Session ended. Frames still work in text mode.");
     setPendingConfirm(null);
     setPendingFleet(null);
+    setConfirmUi(null);
   }, [clearErrorRecovery, dispatchUi, room]);
 
   const retryFromRecovery = useCallback(() => {
@@ -971,6 +1075,21 @@ export function VoiceSession() {
     }
     void runFrame(frameId, false, refresh);
   };
+
+  /** Explicit Confirm button — same accept path as re-tap / voice "yes". */
+  const acceptConfirm = useCallback(() => {
+    if (!confirmUi) return;
+    if (confirmUi.targetKind === "frame") {
+      void runFrame(confirmUi.targetId, true, false);
+      return;
+    }
+    if (confirmUi.targetKind === "fleet") {
+      void runFleetOperator(confirmUi.targetId as FleetAction, true);
+      return;
+    }
+    const line = confirmUi.acceptTranscript || "yes";
+    void speakFromIntent(line);
+  }, [confirmUi, runFleetOperator, runFrame, speakFromIntent]);
 
   const agentsReady = agents.filter((a) => a.cached).length;
   const agentsTotal = agents.length || voiceDiag?.checks?.agents;
@@ -1076,9 +1195,33 @@ export function VoiceSession() {
         </p>
       ) : null}
 
-      {state === "confirm_pending" ? (
-        <p className={styles.confirmBanner} role="alert">
-          Confirmation required — tap the pending control again or say yes.
+      {state === "confirm_pending" && confirmUi ? (
+        <div
+          className={styles.confirmBanner}
+          role="alert"
+          data-testid="confirm-pending"
+          data-confirm-target={confirmUi.targetKind}
+          data-confirm-id={confirmUi.targetId}
+        >
+          <p className={styles.confirmBannerTitle}>{confirmUi.title}</p>
+          <p className={styles.confirmCopy} data-testid="confirm-copy">
+            {confirmUi.copy}
+          </p>
+          <div className={styles.confirmActions}>
+            <button
+              type="button"
+              className={styles.confirmBtn}
+              data-testid="confirm-accept"
+              disabled={Boolean(activeFrame) || operatorBusy}
+              onClick={acceptConfirm}
+            >
+              {confirmUi.buttonLabel}
+            </button>
+          </div>
+        </div>
+      ) : state === "confirm_pending" ? (
+        <p className={styles.confirmBanner} role="alert" data-testid="confirm-pending">
+          Confirmation required — tap Confirm or say yes.
         </p>
       ) : null}
 
@@ -1193,7 +1336,7 @@ export function VoiceSession() {
                 void runFleetOperator("wake_firstmate", pendingFleet === "wake_firstmate")
               }
             >
-              {pendingFleet === "wake_firstmate" ? "Confirm wake" : "Wake FirstMate"}
+              {pendingFleet === "wake_firstmate" ? "Confirm" : "Wake FirstMate"}
             </button>
             <button
               type="button"
@@ -1206,7 +1349,7 @@ export function VoiceSession() {
                 )
               }
             >
-              {pendingFleet === "start_development" ? "Confirm dev" : "Start dev"}
+              {pendingFleet === "start_development" ? "Confirm" : "Start dev"}
             </button>
             <button
               type="button"
@@ -1216,7 +1359,7 @@ export function VoiceSession() {
                 void runFleetOperator("run_next_backlog", pendingFleet === "run_next_backlog")
               }
             >
-              {pendingFleet === "run_next_backlog" ? "Confirm backlog" : "Next backlog"}
+              {pendingFleet === "run_next_backlog" ? "Confirm" : "Next backlog"}
             </button>
             <button
               type="button"
@@ -1224,7 +1367,7 @@ export function VoiceSession() {
               disabled={operatorBusy}
               onClick={() => void runFleetOperator("fleet_stop", pendingFleet === "fleet_stop")}
             >
-              {pendingFleet === "fleet_stop" ? "Confirm stop" : "Stop fleet"}
+              {pendingFleet === "fleet_stop" ? "Confirm" : "Stop fleet"}
             </button>
           </>
         ) : null}
@@ -1333,7 +1476,11 @@ export function VoiceSession() {
             >
               <span className={styles.frameLabel}>{frame.label}</span>
               <span className={styles.frameAgent}>{frame.agent_name}</span>
-              {isPending ? <span className={styles.frameConfirm}>Tap again to confirm</span> : null}
+              {isPending ? (
+                <span className={styles.frameConfirm} data-testid="frame-confirm-hint">
+                  Confirm
+                </span>
+              ) : null}
             </button>
           );
         })}

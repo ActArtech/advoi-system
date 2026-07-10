@@ -81,6 +81,15 @@ Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
 - **PWA wire:** `web/components/pwaBeacon.ts` + `dispatchUi` wrapper in `VoiceSession.tsx` maps UI state-machine events (`CONNECT_OK`→`pwa_connect`, `FRAME_START`→`frame_tap`, `CONFIRMATION_REQUIRED`→`confirm_shown`, `CONNECT_FAIL`/`ERROR`→`error`); confirm taps emit `confirm_accept` explicitly.
 - **T0:** `tests/test_pwa_beacon_events.py` (insert + schema per type).
 
+## PWA confirm parity (voice + tap)
+
+When Guardian returns `confirmation_required`, Path A must show **identical** confirm copy on voice TTS and tap UI (moat 7.4).
+
+- Pure model: `web/components/confirmParity.ts` → `confirmCopyFromResponse` / `confirmParityModel` (prefer `prompt` → `spoken_summary` → `spoken`).
+- Wire: `VoiceSession` stores `confirmUi`, enters UI state `confirm_pending`, panel `data-testid="confirm-pending"` with `confirm-copy` + **Confirm** button `confirm-accept`.
+- Beacons: `CONFIRMATION_REQUIRED` → `confirm_shown` (payload includes `confirm_copy`); accept → `confirm_accept`.
+- T0/API: `tests/test_confirm_parity.py`. Manual matrix A15. Stub: `web/e2e/voice-session-confirm-parity.spec.ts`.
+
 ## PWA error recovery paths
 
 Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):
