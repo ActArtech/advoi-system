@@ -47,6 +47,8 @@ ADVoi is a voice-first executive operating layer over an existing portfolio stac
 
 ## High-level diagram
 
+Deployment/component view. **Control-plane logic** (voice, ingest, fleet bridge, memory retain, Aether gate): [08-system-logic-flows.md](08-system-logic-flows.md).
+
 Six specialist agent daemons (one per decision frame), plus API, voice, and memory bridge:
 
 ```mermaid

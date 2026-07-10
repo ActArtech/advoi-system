@@ -130,6 +130,8 @@ Tables created inline in `postgres_store.py`, `review_queue.py` — no migration
 
 Each flow needs: PEL row (when built), Guardian record on writes, trace_id (when OTel on).
 
+**Diagram:** voice · ingest · fleet bridge · memory retain · Aether gate — [../architecture/08-system-logic-flows.md](../architecture/08-system-logic-flows.md).
+
 ---
 
 ## Recommended ship order (fleet backlog)

@@ -9,10 +9,8 @@ docs/
 ├── README.md                 ← you are here
 ├── architecture/             System design (built vs planned)
 │   ├── 01-system-overview.md
-│   ├── 02-voice-paths.md
-│   ├── 03-multi-agent.md
-│   ├── 04-memory-and-data.md
-│   └── 05-deployment-topology.md
+│   ├── 02-voice-paths.md … 07-portfolio-event-log.md
+│   └── 08-system-logic-flows.md  Voice/ingest/fleet/retain/Aether
 ├── current-state/            What exists, gaps, roadmap
 │   ├── SYSTEM-STATUS.md      Authoritative snapshot
 │   ├── WHAT-WE-DID-2026-07-10.md  Sprint changelog
@@ -42,7 +40,7 @@ docs/
 
 | I want to… | Read |
 |------------|------|
-| Understand the architecture | [architecture/01-system-overview.md](architecture/01-system-overview.md) |
+| Understand the architecture | [architecture/01-system-overview.md](architecture/01-system-overview.md) · [system logic flows](architecture/08-system-logic-flows.md) |
 | See what's built vs missing | [current-state/SYSTEM-STATUS.md](current-state/SYSTEM-STATUS.md) |
 | What we shipped this sprint | [current-state/WHAT-WE-DID-2026-07-10.md](current-state/WHAT-WE-DID-2026-07-10.md) |
 | Roadmap + validation gates | [operations/ROADMAP-VALIDATION.md](operations/ROADMAP-VALIDATION.md) |

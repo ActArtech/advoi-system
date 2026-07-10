@@ -11,6 +11,7 @@ System design for ADVoi as implemented in `advoi-system/`. These docs describe *
 | [05-deployment-topology.md](05-deployment-topology.md) | Docker services, VPS, networking |
 | [06-vertical-boundaries.md](06-vertical-boundaries.md) | Dependency diagram + import/write rules per vertical |
 | [07-portfolio-event-log.md](07-portfolio-event-log.md) | PEL schema (`portfolio_events`), `memory_events` mapping, emit points |
+| [08-system-logic-flows.md](08-system-logic-flows.md) | Mermaid: voice, ingest, fleet bridge, memory retain, Aether gate |
 
 ## Related (existing)
 
@@ -18,6 +19,7 @@ System design for ADVoi as implemented in `advoi-system/`. These docs describe *
 - [../CLARITY-FRAMEWORK.md](../CLARITY-FRAMEWORK.md) — product vision and ontology
 - [../decision-log/DECISION-LOG.md](../decision-log/DECISION-LOG.md) — ADRs
 - [../reviews/PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md) — moat R1 PEL foundation
+- [../reviews/ARCHITECTURE-DATA-MEMORY-REVIEW.md](../reviews/ARCHITECTURE-DATA-MEMORY-REVIEW.md) — data/memory/vertical review; § System logic source for [08](08-system-logic-flows.md)
 - [../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md) — one-table authority + migration steps
 
 ## Stage

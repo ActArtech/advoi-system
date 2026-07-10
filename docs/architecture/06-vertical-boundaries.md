@@ -6,7 +6,7 @@
 
 Domain verticals own a bounded capability. Callers reach side effects through **routing**, **Guardian**, and **MemoryRouter** — not by reaching shell, Hermes, or fleet tree directly.
 
-Related: [04-memory-and-data.md](04-memory-and-data.md) · [07-portfolio-event-log.md](07-portfolio-event-log.md) · [AGENTS.md](../../AGENTS.md)
+Related: [04-memory-and-data.md](04-memory-and-data.md) · [07-portfolio-event-log.md](07-portfolio-event-log.md) · [08-system-logic-flows.md](08-system-logic-flows.md) · [AGENTS.md](../../AGENTS.md)
 
 ---
 
