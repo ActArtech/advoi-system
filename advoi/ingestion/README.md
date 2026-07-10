@@ -20,7 +20,11 @@ Happy path is a strict state machine: **`uploaded` → `triaged` → `needs_revi
 
 ## Web UI
 
-`/ingest` — upload form, project hint, dispatch action (dispatch only after approve).
+`/ingest` — upload form (project + optional venture hint), queue with per-item lifecycle
+actions: **Triage → Needs review → Approve → Dispatch to FirstMate**. No auto-dispatch
+checkbox; dispatch only when status is `approved`. Failed / ontology 422 errors surface
+in the status banner and on the item card. Helpers: `web/components/ingestLifecycle.ts`;
+tests: `tests/test_ingest_ui_lifecycle.py`, stub `web/e2e/ingest-lifecycle.spec.ts`.
 
 ## Flow
 

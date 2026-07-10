@@ -27,6 +27,11 @@
   font-size: 0.9rem;
 }
 
+.lede strong {
+  color: inherit;
+  font-weight: 600;
+}
+
 .nav {
   margin-top: 0.75rem;
   font-size: 0.85rem;
@@ -50,19 +55,14 @@
   font-size: 0.85rem;
 }
 
-.label input[type="text"] {
+.label input[type="text"],
+.label input:not([type]),
+.label input {
   padding: 0.5rem 0.65rem;
   border-radius: 8px;
   border: 1px solid var(--border, #333);
   background: var(--surface, #111);
   color: inherit;
-}
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
 }
 
 .form button {
@@ -85,6 +85,12 @@
   font-size: 0.9rem;
   color: var(--muted);
   margin-bottom: 1.5rem;
+}
+
+.statusError {
+  color: #f87171;
+  border-left: 3px solid #f87171;
+  padding-left: 0.65rem;
 }
 
 .list h2 {
@@ -113,6 +119,11 @@
   background: var(--surface, #111);
 }
 
+.cardFailed {
+  border-color: #7f1d1d;
+  background: #1a0a0a;
+}
+
 .cardHead {
   display: flex;
   justify-content: space-between;
@@ -125,6 +136,31 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--accent);
+  white-space: nowrap;
+}
+
+.badge_neutral {
+  color: #94a3b8;
+}
+
+.badge_progress {
+  color: #38bdf8;
+}
+
+.badge_review {
+  color: #fbbf24;
+}
+
+.badge_ready {
+  color: #4ade80;
+}
+
+.badge_done {
+  color: #a78bfa;
+}
+
+.badge_error {
+  color: #f87171;
 }
 
 .meta {
@@ -139,8 +175,23 @@
   line-height: 1.4;
 }
 
-.card button {
+.itemError {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #f87171;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-top: 0.65rem;
+}
+
+.actions button,
+.card button {
+  margin-top: 0;
   padding: 0.4rem 0.75rem;
   border-radius: 6px;
   border: 1px solid var(--accent);
@@ -150,6 +201,8 @@
   cursor: pointer;
 }
 
+.actions button:disabled,
 .card button:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
 }
