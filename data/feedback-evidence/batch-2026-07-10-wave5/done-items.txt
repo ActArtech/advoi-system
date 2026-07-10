@@ -1,0 +1,24 @@
+9065b94 docs(ops): port registry aligned with vps-shared (M9.1)
+d294846 docs(ops): document Discord/FirstMate ACK PROMOTE NEXT workflow (M8.4)
+a097692 docs(architecture): document frame_runner resolution precedence
+a37d7e7 docs(architecture): system logic Mermaid for five control-plane flows
+40af47c feat(ingestion): M7.2 keyword triage classifier (triage.py)
+04b276e feat(memory): Redis voice TTL env + memory_events retention job
+59da773 feat(web): ingest UI lifecycle parity — triage → approve → dispatch
+d91903b feat(ingestion): reject unregistered venture_id on route
+40f20f3 feat(www): vendor promote-to-staging + compose.www.yml for three-tier flow
+4fe946f feat(fleet): complete wake_firstmate → fm-bridge path with T0 subprocess tests
+9cd0aa6 fix(aether): align post_frame retain types with ADR-026 write_targets
+1c729f0 feat(memory): correlate guardian JSONL with OTel span context
+c666f85 feat(memory): log retain failures at WARNING + expose counter on platform diagnostics
+432f1a2 feat(memory): complete review_queue Postgres CRUD + redeploy durability
+2511eba feat(ontology): 422 structured errors for unknown frame_id/agent_id
+7a6cc98 test(memory): reject fleet backlog payloads on Hindsight retain (ADR-026)
+ba3e436 docs(ops): promote value≥7 OPPs or explicit deferred (opp-promote-01)
+741e961 docs(ops): sync roadmap + gaps to develop tip 2b9a28e
+2b9a28e docs(aether): sync venture-facing ADR-027/028 stubs to DECISIONS.md
+382864a docs(ops): align staging reality — tip 3d5a00d vs VPS 5d50805
+3d5a00d feat(ingestion): optional paperclip_ticket_id on IngestItem
+fd9094d docs: record staging drift develop 19b052d vs VPS 5d50805
+19b052d feat(data): versioned SQL migrations applied on API boot
+792f957 docs(architecture): data authority matrix in 04-memory-and-data

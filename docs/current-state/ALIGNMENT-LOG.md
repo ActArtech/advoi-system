@@ -12,6 +12,7 @@
 
 | Date | Batch | Gate | Staging SHA | Misalignments |
 |------|-------|------|-------------|---------------|
+| 2026-07-10 | wave 5 post–wave-4 lands | hold (SSH promote GAP-013) | `5d50805` (bootstrap) | develop `9065b94` ahead; memory/ingest/fleet/www T2 parked |
 | 2026-07-10 | ops-review (docs vs live staging) | hold (SSH promote GAP-013) | `5d50805` (bootstrap) | develop `3d5a00d` ahead; T2 **pass** proves bootstrap only |
 | 2026-07-10 | staging-record (post wave 4 + data) | hold (SSH promote GAP-013) | `5d50805` (bootstrap) | develop was `19b052d` ahead; promote parked; T2 smoke **pass** on bootstrap URL |
 | 2026-07-10 | wave 4 Aether/system/arch | hold (SSH promote) | `5d50805` (bootstrap) | develop `61de279` ahead; Aether/Guardian T2 + PEL T2 parked |
@@ -42,6 +43,24 @@
 ---
 
 _Add entries below newest first._
+
+## [2026-07-10] — wave 5 post–wave-4 lands (batch wrap-up)
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Aether gate | hold on VPS tip | Wave4 gate/export + wave5 post_frame retain types on develop; not promoted |
+| Fleet `active_slug` | advoi | wake_firstmate → fm-bridge complete T0 (`4fe946f`); hard-gate still wave4 |
+| ROADMAP-VALIDATION milestones | partial advance | **M7.2** triage T0; ingest lifecycle UI; **M8.4** Discord workflow doc; **M9.1** port registry; M2 human open |
+| PORTFOLIO-SYSTEM-MOAT R1–R10 | hold T2 | retain metrics + review_queue + TTL/memory_events ready for post-promote proof |
+| BATCH-DOCUMENTATION gate | honored | Volume of Done post-wave4 + multi-milestone docs → wrap-up before resume |
+| Architecture doc drift | reduced | data authority matrix; control-plane Mermaid; frame_runner precedence |
+| Staging smoke | hold | Tip not on staging; SSH promote still parked (GAP-013) |
+| Drift: develop vs staging | **increased** | develop `9065b94` vs staging `5d50805` |
+
+**Misalignments found:** Develop tip `9065b94` is far ahead of staging bootstrap `5d50805`. Wave 2–5 code (PWA, Aether/Guardian, memory durability, ingest triage, fleet bridge, www promote) is unproven on VPS. Bootstrap T2 still green does **not** prove tip parity.  
+**Follow-up backlog IDs:** GAP-013 / `advoi-ops-staging-promote-01`; then tip T2; M10.4; OTEL; human A11–A17; M7 Phase 2 UI (deferred L).
+
+**Discipline:** Evidence: `data/feedback-evidence/batch-2026-07-10-wave5/summary.md`. Status of wrap-up: **Partial** until promote unblocked. **SHAs:** develop `9065b94` · staging `5d50805`.
 
 ## [2026-07-10] — ops-review: docs vs live staging (develop tip drift)
 

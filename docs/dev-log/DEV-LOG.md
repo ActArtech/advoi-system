@@ -5,6 +5,55 @@
 
 ---
 
+## [2026-07-10] — BATCH-DOCUMENTATION wave 5 — post–wave-4 lands @ `9065b94`
+
+**Version:** v0.5.5 (wave tip)  
+**Type:** Feature + Memory + Ingest + Fleet + Docs  
+**Status:** Partial (code complete on develop; staging VPS promote blocked by GAP-013 SSH host key)  
+**Batch IDs:** advoi-batch-wrapup-wave5-01 (docs); code/docs ships since wave 4 wrap-up `4dd24f6` / tip `61de279`  
+**Branch:** `fm/advoi-batch-wrapup-wave5-01` @ develop base `9065b94`
+
+### Summary
+
+Documented the post–wave-4 landing wave on develop tip `9065b94`: memory guard (ADR-026 Hindsight), review_queue Postgres durability, retain metrics + guardian/OTel trace correlation, post_frame retain type alignment, fleet wake_firstmate → fm-bridge, www three-tier promote scripts, ontology/ingest route hardening, ingest UI lifecycle + M7.2 keyword triage, Redis/voice TTL + memory_events retention, architecture Mermaid + frame_runner precedence, M8 Discord ACK PROMOTE NEXT, M9.1 port registry, plus opp-promote and staging-record discipline. Staging remains bootstrap `5d50805` — promote parked (GAP-013).
+
+### Changes
+
+- [x] Memory: Hindsight retain reject fleet backlog (`7a6cc98`); review_queue PG CRUD (`432f1a2`); retain failure metrics (`c666f85`); guardian JSONL ↔ OTel (`1c729f0`); TTL + retention job (`04b276e`)
+- [x] Aether post_frame retain types align ADR-026 (`9cd0aa6`)
+- [x] Fleet: wake_firstmate → fm-bridge complete + T0 subprocess tests (`4fe946f`)
+- [x] www: promote-to-staging vendor + compose.www.yml (`40f20f3`)
+- [x] Ingest/ontology: paperclip field (`3d5a00d`); venture_id reject (`d91903b`); 422 frame/agent errors (`2511eba`); UI lifecycle (`59da773`); M7.2 triage (`40af47c`)
+- [x] Data: versioned SQL migrations on boot (`19b052d`); data authority matrix (`792f957`)
+- [x] Docs: logic-flow Mermaid (`a37d7e7`); frame_runner (`a097692`); M8 Discord (`d294846`); M9 port registry (`9065b94`); opp-promote (`ba3e436`); staging-record / roadmap tip sync
+- [x] Batch wrap-up evidence + ALIGNMENT/gaps tip update (`fm/advoi-batch-wrapup-wave5-01`)
+- [ ] Staging promote develop → advoi-staging (GAP-013 SSH host key) — **parked**
+- [ ] Tip T2 + M10.4 PEL / review_queue / TTL proof on VPS — **parked**
+- [ ] Human A11–A17 on device — **open**
+
+### Decisions
+
+- No new ADR. Implements ADR-026 retain/write_targets; continues ADR-027/028 landings from prior waves.
+- **opp-promote-01:** value≥7 OPPs promoted or explicit deferred (M7 Phase 2 UI = complexity L).
+
+### Evidence
+
+- Develop tip: `9065b94` (prior wave 4 tip `61de279` / wrap-up `4dd24f6`)
+- Staging still: `5d50805` @ https://advoi-staging.keyteller.com
+- T0 wave5 subset: **207 passed** — `data/feedback-evidence/batch-2026-07-10-wave5/`
+- Pytest collection (full tree): **625** tests
+- Prior wave evidence: `data/feedback-evidence/batch-2026-07-10-wave4/summary.md`
+
+### Next
+
+1. Fix SSH host key for `deploy@` staging host (GAP-013); promote develop → staging; redeploy
+2. Prove tip T2 + M10.4 PEL + review_queue/TTL/migrations on staging Postgres
+3. Optional OTEL apply + aether cron wire post-promote
+4. Human E2E Path A (M2) including A11–A17
+5. Resume Queued dispatch after this wrap-up merges to develop
+
+---
+
 ## [2026-07-10] — BATCH discipline opp-promote-01 (value≥7 gate)
 
 **Version:** docs only  
