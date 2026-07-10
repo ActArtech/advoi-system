@@ -1,9 +1,9 @@
 # ADVoi roadmap with validation tiers
 
 **Purpose:** Single checklist for what to build next and how to prove each milestone before moving on.  
-**Baseline:** 2026-07-10, repo `advoi-system` develop tip `3d5a00d` (paperclip ingest; prior wave-4 `61de279` + data `19b052d`) · staging VPS still `5d50805`  
+**Baseline:** 2026-07-10, repo `advoi-system` develop tip `2b9a28e` (ADR-027/028 stubs; paperclip ingest `3d5a00d`; prior wave-4 `61de279` + data `19b052d`) · staging VPS still `5d50805`  
 **Last T2 validation:** 2026-07-10 — `t2-staging-smoke.sh` + `staging-signoff-precheck.sh` exit 0 @ **bootstrap** SHA; **re-promote parked** (GAP-013 SSH host key) — evidence `data/feedback-evidence/batch-2026-07-10-wave4/` · fleet `/data/staging-state.md`  
-**T2 pass scope:** Proves healthy runtime on VPS tree `5d50805` only — **not** develop tip parity (waves 2–4, migrations, paperclip).  
+**T2 pass scope:** Proves healthy runtime on VPS tree `5d50805` only — **not** develop tip parity (waves 2–4, migrations, paperclip, decision stubs).  
 **Staging (fleet tier):** https://advoi-staging.keyteller.com (`/var/www/advoi/staging`, compose `advoi-staging`)  
 **Live:** https://advoi.keyteller.com (`/var/www/advoi/live` · legacy `/opt/advoi` until cutover)
 
@@ -218,7 +218,7 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | M10.1 | Schema migration `deploy/migrations/001_portfolio_events.sql` + `append_event` | T0 | [x] Done (`advoi-analytics-pel-schema-01` @ `7682b96`) |
 | M10.2 | Emit: `frame_run`, `fleet_trigger` (+ confirmation gate), `voice_intent` | T0 | [x] Done — `tests/test_portfolio_events.py` |
 | M10.3 | Do **not** drop `memory_events` yet (deprecation checklist only) | — | [x] Documented in migration-plan |
-| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — develop `3d5a00d` not on staging (`5d50805`); **SSH promote parked** |
+| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — develop `2b9a28e` not on staging (`5d50805`); **SSH promote parked** |
 | M10.5 | `/api/events` ingest + optional query / `last_dispatch_at` from PEL | T0/T2 | [~] **Partial** — PWA thin beacon `POST /api/events` → PEL (`3b7df6c` T0); funnel stage SQL documented (`12b1ad8`); query/read API still open |
 | M10.6 | Analytics funnel doc (connect → frame → confirm → success) | Docs | [x] Done (`docs/operations/ANALYTICS-FUNNEL.md` @ `12b1ad8`) |
 | M10.7 | Aether gate snapshot export → repo path and/or PEL | T0 | [x] Done (`e71607f` — `governance_decision` / `gate_snapshot`); VPS cron + T2 parked |
@@ -279,7 +279,7 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 | GAP-010 | P3 | React Flow dashboard | Open |
 | GAP-011 | P3 | Port registry / vps-shared | Open |
 | GAP-012 | P3 | Architecture docs 03/05 (3-agent stale) | Open |
-| GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `3d5a00d` |
+| GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `2b9a28e` |
 | GAP-014 | P1 | PWA human A11–A17 (state / latency / recovery / gate / confirm / install / briefs) | Open — T0 automated wave 2+3; T3 device |
 | GAP-015 | P1 arch | Write-path V4 voice→fleet import thinning | Open — deferred wave 4 audit |
 | GAP-016 | P2 arch | Aether fleet-tree publish vs vertical “no write” wording (audit V5) | Open — intentional publish; revisit rules |
@@ -339,7 +339,7 @@ ADVOI_BASE_URL=http://127.0.0.1:8010 bash scripts/voice-smoke-test.sh
 
 ### T2 — staging smoke
 
-**Scope reminder:** A green T2 on the public staging URL proves the **currently deployed** VPS tree (today: bootstrap `5d50805`). It does **not** prove develop tip (`3d5a00d`) until promote lands (GAP-013).
+**Scope reminder:** A green T2 on the public staging URL proves the **currently deployed** VPS tree (today: bootstrap `5d50805`). It does **not** prove develop tip (`2b9a28e`) until promote lands (GAP-013).
 
 **Minimum post-deploy job** (non-zero exit on failure; also run by `staging-redeploy.sh`):
 
@@ -443,4 +443,5 @@ ssh deploy@187.77.140.216 "cd /var/www/advoi/staging && git pull --ff-only"
 | 2026-07-10 | **Wave 2 wrap-up:** PWA state/latency/recovery (M3.7–M3.8), OTEL+trace_id code (M4.5–M4.6), beacon POST (M10.5 partial), fm-bridge idempotency (M8.6), aether proactive schema T0; develop `ce6a8e2`; **SSH promote parked** (GAP-013). |
 | 2026-07-10 | **Wave 3 wrap-up:** PWA interaction slice complete — gate chip (M3.9), confirm parity (M3.6 model), onboarding (M3.10), home briefs (M3.11), funnel doc (M10.6); M7 unchanged; develop `587385d`; **SSH promote parked** (GAP-013). |
 | 2026-07-10 | **Wave 4 wrap-up:** Aether Queued complete — feed skip (M8.8), atomic publish (M8.9), gate export (M10.7); Guardian write-path hard-gate (M8.7, ADR-028); vertical boundaries doc; develop `61de279`; **SSH promote parked** (GAP-013). |
-| 2026-07-10 | **Ops review:** live T2 re-verified @ advoi-staging (bootstrap `5d50805`); develop tip `3d5a00d`; docs corrected — T2 pass ≠ tip parity; GAP-013 still parked. |
+| 2026-07-10 | **Ops review:** live T2 re-verified @ advoi-staging (bootstrap `5d50805`); develop tip was `3d5a00d`; docs corrected — T2 pass ≠ tip parity; GAP-013 still parked. |
+| 2026-07-10 | **Batch roadmap sync:** tip SHA → `2b9a28e` (decision-sync after ops-review); GAP-013 / M10.4 / T2 scope still bootstrap-only; no milestone checkbox flips (align table hold). |

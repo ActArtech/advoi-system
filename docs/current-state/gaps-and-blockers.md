@@ -1,6 +1,6 @@
 # Gaps and blockers
 
-**Last updated:** 2026-07-10 (ops review vs live staging @ develop `3d5a00d`)  
+**Last updated:** 2026-07-10 (roadmap sync @ develop tip `2b9a28e`)  
 **Authoritative snapshot:** [SYSTEM-STATUS.md](SYSTEM-STATUS.md)  
 **Sprint log:** [WHAT-WE-DID-2026-07-10.md](WHAT-WE-DID-2026-07-10.md)  
 **Validation roadmap:** [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md)  
@@ -16,7 +16,7 @@
 
 | Priority | Open items | Blocks coding? |
 |----------|------------|----------------|
-| P0 ops | Staging promote (SSH host key GAP-013); develop `3d5a00d` vs staging `5d50805` | **No** (blocks tip T2 only; bootstrap T2 **pass**) |
+| P0 ops | Staging promote (SSH host key GAP-013); develop `2b9a28e` vs staging `5d50805` | **No** (blocks tip T2 only; bootstrap T2 **pass**) |
 | P0 validation | Human E2E sign-off (incl. A11–A17 chips / home surfaces) | **No** |
 | P1 functional | Device confirm, Path B/iOS, mic latency human baseline | **No** |
 | P1 arch | Write-path V4 voice→fleet import thinning | **No** |
@@ -24,7 +24,7 @@
 | P2 arch | Aether fleet-tree publish vs vertical wording (audit V5) | **No** |
 | P3 polish | React Flow, full Playwright connect smoke | **No** |
 
-**Bottom line:** Develop tip `3d5a00d` (paperclip ingest link; prior data migrations @ `19b052d`, wave-4 Aether/arch @ `61de279`) is **ahead** of staging VPS `5d50805`. Primary gap remains **SSH-blocked staging promote** + human validation. Bootstrap staging still smokes green — that is **not** tip parity.
+**Bottom line:** Develop tip `2b9a28e` (ADR-027/028 stubs; paperclip ingest @ `3d5a00d`; prior data migrations @ `19b052d`, wave-4 Aether/arch @ `61de279`) is **ahead** of staging VPS `5d50805`. Primary gap remains **SSH-blocked staging promote** + human validation. Bootstrap staging still smokes green — that is **not** tip parity.
 
 ---
 
@@ -32,9 +32,9 @@
 
 ### 1. Staging promote parked (SSH host key) — GAP-013
 
-**Status:** Parked (wave 2 → wave 3 → wave 4 → staging-record → ops-review).
+**Status:** Parked (wave 2 → wave 3 → wave 4 → staging-record → ops-review → tip `2b9a28e`).
 
-Staging VPS tree remains @ `5d50805`; develop tip `3d5a00d`. SSH host key verification failed on promote/redeploy. Blocks OTEL apply, M10.4 PEL rows, beacon/funnel/gate_export T2, aether feed cron live, migrations/briefs/paperclip fields on VPS, and valid A14–A17 human checks on staging tip.
+Staging VPS tree remains @ `5d50805`; develop tip `2b9a28e`. SSH host key verification failed on promote/redeploy. Blocks OTEL apply, M10.4 PEL rows, beacon/funnel/gate_export T2, aether feed cron live, migrations/briefs/paperclip fields on VPS, and valid A14–A17 human checks on staging tip.
 
 **T2 note (re-verified 2026-07-10):** Bootstrap SHA **passes** at https://advoi-staging.keyteller.com:
 - `GET /api/health` → 200, `agents_ready=6` / `agents_total=6`, `stage=voice-pwa-2`
@@ -43,10 +43,27 @@ Staging VPS tree remains @ `5d50805`; develop tip `3d5a00d`. SSH host key verifi
 - Latency SLA still open: `sla_ok=false` (~1.2s API voice path vs 800ms target)
 
 **What T2 pass proves:** runtime on **bootstrap** SHA `5d50805` is healthy.  
-**What it does not prove:** wave 2–4 code, data migrations, paperclip ingest, or any develop tip after `5d50805` on VPS.
+**What it does not prove:** wave 2–4 code, data migrations, paperclip ingest, decision stubs, or any develop tip after `5d50805` on VPS.
 
 **Action:** Fix host key / `known_hosts`; run promote + `scripts/t2-staging-smoke.sh` + precheck with `ADVOI_BASE_URL=https://advoi-staging.keyteller.com`.  
 **Evidence:** `data/feedback-evidence/batch-2026-07-10-wave4/blockers.md` · fleet `/data/staging-state.md`
+
+### 1b. Merged awaiting deploy (develop → staging)
+
+**Range:** VPS `5d50805` .. develop tip `2b9a28e` (GAP-013 blocks promote).  
+**T2 on URL ≠ this list:** green smoke only covers bootstrap `5d50805`.
+
+| Through SHA | Slice | Staging status |
+|-------------|-------|----------------|
+| `7682b96`…`ce6a8e2` | Wave 2: PWA state/latency/recovery, PEL beacon, OTEL code, fm-bridge idempotency, T2 smoke script, aether proactive schema | not on VPS |
+| `6c01c1c`…`587385d` | Wave 3: gate chip, confirm parity, onboarding, home briefs, funnel doc | not on VPS |
+| `686fe38`…`61de279` | Wave 4: aether feed skip / atomic publish / gate export; Guardian hard-gate ADR-028 | not on VPS |
+| `19b052d` | Versioned SQL migrations on API boot | not on VPS |
+| `3d5a00d` | Optional `paperclip_ticket_id` on IngestItem | not on VPS |
+| `382864a` | Ops docs: T2 pass ≠ tip parity | docs-only |
+| `2b9a28e` | Aether DECISIONS ADR-027/028 stubs | docs-only |
+
+**After promote:** re-run T2 + precheck on tip; then M10.4 PEL row proof and OTEL apply.
 
 ### 2. Human E2E voice not signed off
 
