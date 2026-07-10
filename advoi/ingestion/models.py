@@ -5,7 +5,17 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-IngestStatus = Literal["uploaded", "routed", "dispatched", "failed"]
+# Lifecycle (moat R4 / M7): uploaded → triaged → needs_review → approved → dispatched
+# ``routed`` retained for legacy MVP items; ``failed`` is terminal.
+IngestStatus = Literal[
+    "uploaded",
+    "triaged",
+    "needs_review",
+    "routed",
+    "approved",
+    "dispatched",
+    "failed",
+]
 PriorityBand = Literal["low", "medium", "high"]
 
 

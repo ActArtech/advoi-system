@@ -159,7 +159,19 @@ def _task_hint(text: str, filename: str) -> str:
     return f"Process ingested file {filename}: {summary}"
 
 
-def apply_route(item: IngestItem, route: dict[str, Any], *, text: str) -> IngestItem:
+def apply_route(
+    item: IngestItem,
+    route: dict[str, Any],
+    *,
+    text: str,
+    set_routed: bool = False,
+) -> IngestItem:
+    """Apply routing metadata. Does not advance lifecycle status by default.
+
+    Pass ``set_routed=True`` only for explicit legacy/reroute paths that still
+    use the pre-lifecycle ``routed`` status. Happy-path status moves via
+    :mod:`advoi.ingestion.lifecycle` transitions.
+    """
     item.venture_id = route.get("venture_id")
     item.project_slug = route.get("project_slug")
     item.route_confidence = float(route.get("route_confidence") or 0)
@@ -169,5 +181,6 @@ def apply_route(item: IngestItem, route: dict[str, Any], *, text: str) -> Ingest
     item.summary = str(route.get("summary") or "")
     item.task_hint = str(route.get("task_hint") or "")
     item.content_preview = _summarize(text, limit=400)
-    item.status = "routed"
+    if set_routed:
+        item.status = "routed"
     return item

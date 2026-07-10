@@ -295,6 +295,20 @@ class IngestRerouteRequest(BaseModel):
     project_hint: str | None = None
 
 
+class IngestTriageRequest(BaseModel):
+    project_hint: str | None = None
+
+
+def _ingestion_lifecycle_error(exc: Exception) -> HTTPException:
+    from advoi.ingestion.lifecycle import InvalidTransitionError
+
+    if isinstance(exc, InvalidTransitionError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, ValueError):
+        return HTTPException(status_code=404, detail=str(exc))
+    return HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/ingestion/summary")
 async def ingestion_status() -> dict[str, Any]:
     from advoi.ingestion.pipeline import ingestion_summary
@@ -325,10 +339,9 @@ async def ingestion_upload(
     file: UploadFile = File(...),
     project_hint: str | None = Form(None),
     venture_hint: str | None = Form(None),
-    dispatch_dev: bool = Form(False),
-    confirmed: bool = Form(False),
 ) -> dict[str, Any]:
-    from advoi.ingestion.pipeline import dispatch_item_dev, ingest_upload
+    """Upload only — status stays ``uploaded``; no auto-dispatch (M7 lifecycle)."""
+    from advoi.ingestion.pipeline import ingest_upload
 
     data = await file.read()
     if not data:
@@ -343,12 +356,49 @@ async def ingestion_upload(
     payload: dict[str, Any] = {"ok": item.status != "failed", "item": item.to_dict()}
     if item.status == "failed":
         payload["error"] = item.error
-        return payload
-
-    if dispatch_dev and item.dev_recommended:
-        dispatch = await dispatch_item_dev(item.id, confirmed=confirmed)
-        payload["dispatch"] = dispatch
     return payload
+
+
+@app.post("/api/ingestion/items/{item_id}/triage")
+async def ingestion_triage(
+    item_id: str,
+    body: IngestTriageRequest | None = None,
+) -> dict[str, Any]:
+    """Transition ``uploaded`` → ``triaged``."""
+    from advoi.ingestion.pipeline import triage_item
+
+    try:
+        item = await triage_item(
+            item_id,
+            project_hint=body.project_hint if body else None,
+        )
+    except Exception as exc:
+        raise _ingestion_lifecycle_error(exc) from exc
+    return {"ok": True, "item": item.to_dict()}
+
+
+@app.post("/api/ingestion/items/{item_id}/needs-review")
+async def ingestion_needs_review(item_id: str) -> dict[str, Any]:
+    """Transition ``triaged`` → ``needs_review``."""
+    from advoi.ingestion.pipeline import mark_needs_review
+
+    try:
+        item = await mark_needs_review(item_id)
+    except Exception as exc:
+        raise _ingestion_lifecycle_error(exc) from exc
+    return {"ok": True, "item": item.to_dict()}
+
+
+@app.post("/api/ingestion/items/{item_id}/approve")
+async def ingestion_approve(item_id: str) -> dict[str, Any]:
+    """Transition ``needs_review`` → ``approved`` (required before dispatch)."""
+    from advoi.ingestion.pipeline import approve_item
+
+    try:
+        item = await approve_item(item_id)
+    except Exception as exc:
+        raise _ingestion_lifecycle_error(exc) from exc
+    return {"ok": True, "item": item.to_dict()}
 
 
 @app.post("/api/ingestion/items/{item_id}/route")
@@ -370,14 +420,18 @@ async def ingestion_dispatch_dev(
     item_id: str,
     body: IngestDispatchRequest | None = None,
 ) -> dict[str, Any]:
+    """Dispatch to FirstMate — only when item status is ``approved``."""
     from advoi.ingestion.pipeline import dispatch_item_dev
 
     req = body or IngestDispatchRequest()
-    return await dispatch_item_dev(
+    result = await dispatch_item_dev(
         item_id,
         confirmed=req.confirmed,
         mode=req.mode,
     )
+    if result.get("status") == "not_approved":
+        raise HTTPException(status_code=409, detail=result.get("error") or "not approved")
+    return result
 
 
 class VoiceRespondRequest(BaseModel):

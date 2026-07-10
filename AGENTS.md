@@ -19,3 +19,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Hindsight** is optional enrich when PG+cache are empty — never merged as a third title source with PG/Redis.
 - Seed: `scripts/seed-advoi-briefs.sh` writes PG first; Hindsight seed uses `portfolio_fact` (not `decision_brief`).
 - T0 tests: `tests/test_brief_curator_canonical.py`.
+
+## Ingestion lifecycle (M7.2–M7.3 / moat R4)
+
+- Happy path: `uploaded → triaged → needs_review → approved → dispatched` (`advoi/ingestion/lifecycle.py`).
+- Upload stays `uploaded` only; never auto-dispatch on upload.
+- `dispatch_item_dev` requires status `approved` (API returns 409 otherwise).
+- T0: `tests/test_ingestion_lifecycle.py`.
