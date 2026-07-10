@@ -1,13 +1,14 @@
-name: ADVoi CI
+# Reference workflow — NOT a fleet ship gate for ADVoi VPS-direct mode.
+# Run manually only: GitHub Actions -> ADVoi CI (reference) -> Run workflow
+# Daily gates: T0 pytest on VPS develop + T2 staging-signoff-precheck on host.
+
+name: ADVoi CI (reference)
 
 on:
-  push:
-    branches: [master, main]
-  pull_request:
-    branches: [master, main]
+  workflow_dispatch:
 
 concurrency:
-  group: advoi-ci-${{ github.workflow }}-${{ github.ref }}
+  group: advoi-ci-reference-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -15,164 +16,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-
       - name: Install Python dependencies
         run: uv sync --group dev
-
       - name: Run pytest
         run: uv run pytest tests/ -q
-
-      - name: T2 smoke fixture parse (offline)
-        run: |
-          bash scripts/t2-staging-smoke.sh --fixture-dir tests/fixtures/t2-smoke
-          uv run pytest tests/test_t2_staging_smoke.py -q
 
   web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
-
       - name: Install web dependencies
         working-directory: web
         run: npm ci
-
       - name: Build Next.js PWA
         working-directory: web
         run: npm run build
-
-  agents-smoke:
-    runs-on: ubuntu-latest
-    env:
-      ADVOI_FRAME_MOCK: "true"
-      ADVOI_AGENT_INTERVAL_SECS: "15"
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Install Python dependencies
-        run: uv sync --group dev
-
-      - name: Start API server
-        run: uv run uvicorn advoi.api.app:app --host 127.0.0.1 --port 8010 &
-
-      - name: Wait for API health
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:8010/api/health >/dev/null; then
-              echo "API healthy after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "API failed to become healthy within 30s"
-          exit 1
-
-      - name: Run fast pytest subset
-        run: uv run pytest tests/test_intent.py tests/test_review_queue.py -q
-
-      - name: Smoke fleet frame and review queue
-        run: |
-          curl -sf -X POST -H "Content-Type: application/json" -d '{}' \
-            http://127.0.0.1:8010/api/frames/fleet_status/run
-          curl -sf http://127.0.0.1:8010/api/review-queue
-
-  t2-staging-smoke:
-    # Live T2 against advoi-staging after merge to default branch (post-deploy gate).
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
-    env:
-      ADVOI_BASE_URL: https://advoi-staging.keyteller.com
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: T2 post-deploy curl smoke
-        run: bash scripts/t2-staging-smoke.sh
-
-  staging-smoke:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    env:
-      ADVOI_BASE_URL: https://advoi.keyteller.com
-    steps:
-      - name: Health check
-        run: |
-          resp=$(curl -sf "${ADVOI_BASE_URL}/api/health") || {
-            echo "FAIL: ${ADVOI_BASE_URL}/api/health unreachable"
-            exit 1
-          }
-          echo "${resp}" | grep -q 'voice-pwa-2' || {
-            echo "FAIL: /api/health missing stage voice-pwa-2"
-            echo "${resp}"
-            exit 1
-          }
-          echo "OK: /api/health (stage=voice-pwa-2)"
-
-      - name: Voice diagnostics
-        run: |
-          resp=$(curl -sf "${ADVOI_BASE_URL}/api/diagnostics/voice") || {
-            echo "FAIL: ${ADVOI_BASE_URL}/api/diagnostics/voice unreachable"
-            exit 1
-          }
-          echo "${resp}" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          if d.get('ok') is not True:
-              raise SystemExit('ok is not true')
-          if d.get('checks', {}).get('llm_key') is not True:
-              raise SystemExit('checks.llm_key is false — advoi-voice needs OPENROUTER_API_KEY or OPENAI_API_KEY')
-          " || {
-            echo "FAIL: /api/diagnostics/voice ok/llm_key check failed"
-            echo "${resp}"
-            exit 1
-          }
-          echo "OK: /api/diagnostics/voice (ok=true, llm_key=true)"
-
-      - name: Latency diagnostics
-        run: |
-          resp=$(curl -sf "${ADVOI_BASE_URL}/api/diagnostics/latency") || {
-            echo "FAIL: ${ADVOI_BASE_URL}/api/diagnostics/latency unreachable"
-            exit 1
-          }
-          echo "${resp}" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          if d.get('sla_ok') is not True:
-              raise SystemExit(f\"sla_ok={d.get('sla_ok')}, expected true\")
-          " || {
-            echo "FAIL: /api/diagnostics/latency sla_ok check failed"
-            echo "${resp}"
-            exit 1
-          }
-          echo "OK: /api/diagnostics/latency (sla_ok=true)"
-
-      - name: Agents ready
-        run: |
-          resp=$(curl -sf "${ADVOI_BASE_URL}/api/agents") || {
-            echo "FAIL: ${ADVOI_BASE_URL}/api/agents unreachable"
-            exit 1
-          }
-          echo "${resp}" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          ready = d.get('ready', 0)
-          if ready < 3:
-              raise SystemExit(f'ready={ready}, expected >= 3')
-          " || {
-            echo "FAIL: /api/agents ready < 3"
-            echo "${resp}"
-            exit 1
-          }
-          echo "OK: /api/agents (ready >= 3)"
