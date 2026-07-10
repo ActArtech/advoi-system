@@ -6,7 +6,7 @@
 
 Human E2E does **not** block development. Track device tests in [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) and formal Path A sign-off in [E2E-SIGNOFF.md](E2E-SIGNOFF.md).
 
-**Related:** [DEVELOPMENT-MILESTONES.md](../current-state/DEVELOPMENT-MILESTONES.md) | [gaps-and-blockers.md](../current-state/gaps-and-blockers.md) | [improvement-roadmap.md](../current-state/improvement-roadmap.md)
+**Related:** [DEVELOPMENT-MILESTONES.md](../current-state/DEVELOPMENT-MILESTONES.md) | [gaps-and-blockers.md](../current-state/gaps-and-blockers.md) | [improvement-roadmap.md](../current-state/improvement-roadmap.md) | [PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md) (holistic strategy)
 
 ---
 
