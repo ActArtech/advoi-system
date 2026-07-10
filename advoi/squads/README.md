@@ -21,3 +21,6 @@ Execution crews. Bridges voice commands to FirstMate and specialized agent crews
 - Receives confirmed actions from `guardian/`
 - Uses `DISCORD_BOT_TOKEN` / `DISCORD_WEBHOOK_URL` from environment
 - Publishes completion events to `memory/` (operational tier)
+
+**Ops contract (bot setup, webhook flow, ACK / PROMOTE / NEXT, env vars):**
+[docs/operations/DISCORD-WORKFLOW.md](../../docs/operations/DISCORD-WORKFLOW.md)

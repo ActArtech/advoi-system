@@ -16,6 +16,7 @@ System design for ADVoi as implemented in `advoi-system/`. These docs describe *
 ## Related (existing)
 
 - [../MEMORY-STACK.md](../MEMORY-STACK.md) — operator setup for memory tiers
+- [../operations/DISCORD-WORKFLOW.md](../operations/DISCORD-WORKFLOW.md) — FirstMate Discord bridge (ACK/PROMOTE/NEXT, webhooks, env)
 - [../CLARITY-FRAMEWORK.md](../CLARITY-FRAMEWORK.md) — product vision and ontology
 - [../decision-log/DECISION-LOG.md](../decision-log/DECISION-LOG.md) — ADRs
 - [../reviews/PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md) — moat R1 PEL foundation

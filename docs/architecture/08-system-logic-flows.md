@@ -65,7 +65,7 @@ flowchart TB
 |---|------|--------|
 | 1 | **Voice intent** | transcript → capabilities → respond → Guardian? → frame or fleet → spoken_summary |
 | 2 | **Ingestion** | upload → parse → route → **[missing approve]** → Guardian → dispatch |
-| 3 | **Fleet bridge** | API / trigger → Guardian evaluate → fm-bridge → fleet tree (side effect) |
+| 3 | **Fleet bridge** | API / trigger → Guardian evaluate → fm-bridge → fleet tree (side effect); Discord crew reply contract: [../operations/DISCORD-WORKFLOW.md](../operations/DISCORD-WORKFLOW.md) |
 | 4 | **Memory retain** | caller → `MemoryRouter.retain` → `write_targets` → single primary store (Postgres / Hindsight / Redis / Letta) |
 | 5 | **Aether gate** | frame result → `architect.post_frame_aether` → gate + portfolio → retain `squad_lesson` / belief |
 

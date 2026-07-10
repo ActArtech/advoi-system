@@ -10,6 +10,7 @@ Runbooks for local development and staging validation.
 | Doc | Audience |
 |-----|----------|
 | [ROADMAP-VALIDATION.md](ROADMAP-VALIDATION.md) | Milestones M1–M10, validation tiers T0–T3, gap register (incl. GAP-013) |
+| [DISCORD-WORKFLOW.md](DISCORD-WORKFLOW.md) | FirstMate Discord bridge: bot setup, webhook flow, ACK/PROMOTE/NEXT, env vars (M8.4) |
 | [ANALYTICS-FUNNEL.md](ANALYTICS-FUNNEL.md) | PWA connect→frame→confirm→success funnel SQL on PEL `portfolio_events` |
 | [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) | What to test / tested / bugs (does not block dev) |
 | [local-testing.md](local-testing.md) | Developers on Windows/Mac/Linux |

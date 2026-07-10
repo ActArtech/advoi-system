@@ -187,7 +187,7 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 | M8.1 | `fm-bridge.sh` wired for wake/dev/backlog intents | T0 | [x] Done |
 | M8.2 | `evaluate_fleet_confirmation` for high-risk actions | T0 | [x] Done |
 | M8.3 | VPS fleet data path `/opt/firstmate-fleet/data/` | — | [x] Runtime only |
-| M8.4 | Discord reply workflow (ACK / PROMOTE / NEXT) documented | — | [ ] Open |
+| M8.4 | Discord reply workflow (ACK / PROMOTE / NEXT) documented | — | [x] Done — [DISCORD-WORKFLOW.md](DISCORD-WORKFLOW.md) |
 | M8.5 | Fleet briefs committed or synced to GitHub | — | [ ] Open |
 | M8.6 | 60s idempotency key on fm-bridge invoke | T0 | [x] Done (`70ce1a3`, `tests/test_fleet_idempotency.py`) |
 | M8.7 | Guardian hard-gate on all live `invoke_fleet_trigger` paths | T0 | [x] Done (`61de279`, ADR-028, `tests/test_write_path_audit.py`) |
