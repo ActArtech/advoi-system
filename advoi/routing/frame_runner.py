@@ -490,6 +490,52 @@ def _looks_like_fleet_error(text: str) -> bool:
     )
 
 
+def _frame_guardian_status(status: str, *, confirmed: bool) -> str:
+    if status == "confirmation_required":
+        return "pending"
+    if confirmed:
+        return "allowed"
+    return "not_required"
+
+
+async def _emit_frame_run_event(
+    result: FrameResult,
+    *,
+    confirmed: bool,
+    refresh: bool,
+    source: str = "api",
+) -> None:
+    """Append PEL row for a completed frame run (best-effort)."""
+    from advoi.analytics.pel import EventSource, EventType, safe_append_event
+
+    detail = result.detail or {}
+    venture = (
+        str(detail.get("active_slug") or detail.get("venture_id") or detail.get("project") or "advoi")
+    )
+    detail_keys = sorted(str(k) for k in detail.keys())[:24]
+    await safe_append_event(
+        venture_id=venture,
+        source=EventSource.API if source == "api" else source,
+        event_type=EventType.FRAME_RUN,
+        payload={
+            "frame_id": result.frame_id,
+            "agent_id": result.agent_id,
+            "status": result.status,
+            "spoken_summary_len": len(result.spoken_summary or ""),
+            "confirmed": confirmed,
+            "refresh": refresh,
+            "detail_keys": detail_keys,
+            "cached": bool(detail.get("cached")),
+        },
+        guardian_status=_frame_guardian_status(result.status, confirmed=confirmed),
+        execution_ref=(
+            str(detail["queue_id"])
+            if detail.get("queue_id") is not None
+            else None
+        ),
+    )
+
+
 async def run_frame(
     frame_id: str,
     *,
@@ -509,6 +555,7 @@ async def run_frame(
     if use_cache and not bypass_cache:
         cached = _cached_frame(frame.agent_id)
         if cached and cached.status == "ok":
+            await _emit_frame_run_event(cached, confirmed=confirmed, refresh=refresh)
             return cached
 
     if frame.id == "fleet_status":
@@ -525,6 +572,7 @@ async def run_frame(
         from advoi.aether.architect import post_frame_aether
 
         await post_frame_aether(result)
+        await _emit_frame_run_event(result, confirmed=confirmed, refresh=refresh)
         return result
     elif frame.id == "memory_health":
         spoken, detail, status = await run_memory_health()
@@ -550,6 +598,7 @@ async def run_frame(
     from advoi.aether.architect import post_frame_aether
 
     await post_frame_aether(result)
+    await _emit_frame_run_event(result, confirmed=confirmed, refresh=refresh)
     return result
 
 

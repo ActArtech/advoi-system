@@ -29,9 +29,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Portfolio Event Log (PEL / moat R1)
 
-- **Authority:** append-only Postgres `portfolio_events` is the single control-plane event log. Deprecate `memory_events` after idempotent backfill (do not keep dual long-term authority).
-- **Schema design:** `docs/architecture/07-portfolio-event-log.md` — fields `{ id, timestamp, venture_id, source, type, payload, guardian_status, execution_ref, trace_id }`.
-- **Migration plan:** `data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md` — backfill via `legacy_memory_event_id` UNIQUE + `ON CONFLICT DO NOTHING`.
-- **Runtime today:** writers still use `memory_events` via `retain_structured` until ship `advoi-analytics-pel-schema-01`.
-- **Minimum emit points (implementation):** frame run (`run_frame`), fleet trigger (`invoke_fleet_trigger` / confirmation), voice intent (not every Redis `VOICE_TURN`).
-- **ADR-026:** PEL is the Postgres structured-event surface; not a live double-write into Hindsight. No fleet backlog body in event payloads as strategic content.
+- **Authority:** append-only Postgres `portfolio_events` is the control-plane event log. Do **not** drop `memory_events` until soak (migration-plan deprecation checklist).
+- **Write API:** `advoi.analytics.pel.append_event` / `safe_append_event`; enums `EventSource`, `EventType`, `GuardianStatus`.
+- **Migration:** `deploy/migrations/001_portfolio_events.sql` (create + idempotent backfill). Inline `CREATE IF NOT EXISTS` also runs on first append when `DATABASE_URL` is set.
+- **Tests:** set `ADVOI_PEL_MEMORY=true` for in-memory rows (`memory_rows()` / `reset_memory_store()`); T0 `tests/test_portfolio_events.py`.
+- **Emit points:** `run_frame` → `frame_run`; `invoke_fleet_trigger` → `fleet_trigger`; confirmation → `guardian_gate`; voice frame/operator only → `voice_intent` (not Redis turns).
+- **ADR-026:** PEL is not a live Hindsight double-write. Payload excerpts only — no full fleet backlog dumps.
+- **Staging T2:** ROADMAP M10.4 — verify rows after fleet/frame on VPS Postgres.

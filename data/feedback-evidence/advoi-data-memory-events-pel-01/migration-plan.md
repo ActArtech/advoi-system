@@ -195,6 +195,17 @@ Implementation ship **`advoi-analytics-pel-schema-01`** owns schema apply + firs
 - Nightly Hindsight export job
 - Dropping `memory_events` on day one (allowed in same ship only if dual-write soak is N/A because empty table)
 
+### Deprecation checklist (do **not** drop yet)
+
+> **Ship rule (`advoi-analytics-pel-schema-01`):** create + emit + optional dual-write — **do not remove `memory_events`.**
+
+- [x] Document deprecation intent (this plan §1 authority decision)
+- [ ] Dual-write / soak verified on staging (or empty-table cutover approved)
+- [ ] No live readers of `memory_events` (grep + staging check)
+- [ ] CI guard: fail new `INSERT INTO memory_events` outside migrations / `retain_structured` dual-write
+- [ ] **Deferred:** `DROP TABLE IF EXISTS memory_events` (separate migration after soak)
+- [ ] **Deferred:** remove dual-write flag and legacy column docs if cleaning up
+
 ---
 
 ## 5. Risk register

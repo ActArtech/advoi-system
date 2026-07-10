@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from advoi.copy_style import plain_copy
 from advoi.decision.frames import FrameId
@@ -35,6 +36,47 @@ def _set_pending_frame(session_id: str, frame_id: FrameId) -> None:
     _pending_frame_by_session[session_id] = frame_id
 
 
+async def _emit_voice_intent(
+    *,
+    transcript: str,
+    route: str,
+    confirmed: bool,
+    frame_id: str | None = None,
+    intent_id: str | None = None,
+    guardian_status: str | None = None,
+    venture_id: str = "advoi",
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """PEL row for resolved frame/operator intents only — not every Redis voice turn."""
+    from advoi.analytics.pel import (
+        EventSource,
+        EventType,
+        safe_append_event,
+        transcript_hash,
+    )
+
+    payload: dict[str, Any] = {
+        "route": route,
+        "confirmed": confirmed,
+        "transcript_hash": transcript_hash(transcript),
+        "transcript_excerpt": (transcript or "").strip()[:80],
+    }
+    if frame_id:
+        payload["frame_id"] = frame_id
+    if intent_id:
+        payload["intent_id"] = intent_id
+    if extra:
+        payload.update(extra)
+
+    await safe_append_event(
+        venture_id=venture_id,
+        source=EventSource.VOICE,
+        event_type=EventType.VOICE_INTENT,
+        payload=payload,
+        guardian_status=guardian_status,
+    )
+
+
 async def _run_and_speak_frame(
     frame_id: FrameId,
     *,
@@ -55,8 +97,18 @@ async def _run_and_speak_frame(
 
     if result.status == "confirmation_required":
         _set_pending_frame(session_id, frame_id)
+        guardian_status = "pending"
     else:
         clear_pending_frame(session_id)
+        guardian_status = "allowed" if confirmed else "not_required"
+
+    await _emit_voice_intent(
+        transcript=transcript,
+        route="frame",
+        confirmed=confirmed,
+        frame_id=str(frame_id),
+        guardian_status=guardian_status,
+    )
 
     try:
         await retain_turn(session_id=session_id, role="user", text=transcript)
@@ -96,6 +148,14 @@ async def maybe_handle_frame_intent(
             confirmed=True,
         )
         if reply:
+            await _emit_voice_intent(
+                transcript=text,
+                route="operator",
+                confirmed=True,
+                intent_id=action,
+                guardian_status="allowed",
+                extra={"prior_transcript_excerpt": (prior or "")[:80]},
+            )
             try:
                 await retain_turn(session_id=session_id, role="user", text=text)
                 await retain_turn(session_id=session_id, role="assistant", text=reply.spoken)
@@ -106,12 +166,26 @@ async def maybe_handle_frame_intent(
 
     op = classify_operator_intent(text)
     if op == "stop_agents" and _stop_agents_needs_confirm(text):
+        await _emit_voice_intent(
+            transcript=text,
+            route="operator",
+            confirmed=False,
+            intent_id=op,
+            guardian_status="pending",
+        )
         await speak("To pause background agent daemons, say stop agents confirm.")
         return True
     if op in _FLEET_WRITE_INTENTS:
         gate = evaluate_fleet_confirmation(op, confirmed=False, transcript=text)
         if not gate["proceed"]:
             set_pending_fleet(session_id, op, text)
+            await _emit_voice_intent(
+                transcript=text,
+                route="operator",
+                confirmed=False,
+                intent_id=op,
+                guardian_status="pending",
+            )
             await speak(str(gate.get("prompt", "Confirm yes to proceed.")))
             return True
     if op:
@@ -125,6 +199,13 @@ async def maybe_handle_frame_intent(
             confirmed=fleet_confirmed,
         )
         if reply:
+            await _emit_voice_intent(
+                transcript=text,
+                route="operator",
+                confirmed=fleet_confirmed,
+                intent_id=op,
+                guardian_status="allowed" if fleet_confirmed else "pending",
+            )
             try:
                 await retain_turn(session_id=session_id, role="user", text=text)
                 await retain_turn(session_id=session_id, role="assistant", text=reply.spoken)

@@ -70,12 +70,19 @@ Fleet Scout reads **read-only** files under `FIRSTMATE_FLEET_PATH` (default `/op
 
 ## Portfolio Event Log (PEL)
 
-Structured Postgres events are evolving from thin `memory_events` rows into the moat R1 **Portfolio Event Log** (`portfolio_events`). Design and migration authority:
+Moat R1 append-only control-plane log: Postgres **`portfolio_events`** via `advoi.analytics.pel.append_event` (enums `EventSource` / `EventType`).
 
-- [07-portfolio-event-log.md](07-portfolio-event-log.md) — schema, mapping, emit points
-- [migration-plan.md](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md) — deprecate `memory_events` after backfill
+| Emit point | `source` | `type` |
+|------------|----------|--------|
+| `run_frame` completion | `api` | `frame_run` |
+| `invoke_fleet_trigger` | `fleet` | `fleet_trigger` |
+| Fleet confirmation gate | `fleet` | `guardian_gate` |
+| Voice frame / operator intent | `voice` | `voice_intent` |
 
-Until the analytics schema ship lands, writers still use `memory_events` via `retain_structured` (no runtime change in the design-only PEL ship).
+- Schema: [07-portfolio-event-log.md](07-portfolio-event-log.md) · migration `deploy/migrations/001_portfolio_events.sql`
+- Plan: [migration-plan.md](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md)
+- T0: `tests/test_portfolio_events.py` · T2: ROADMAP M10.4
+- **`memory_events` not removed** — still used by `retain_structured` until cutover; deprecation checklist in migration plan
 
 ## Gaps
 

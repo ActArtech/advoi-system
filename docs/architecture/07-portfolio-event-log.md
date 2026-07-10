@@ -1,8 +1,8 @@
 # Portfolio Event Log (PEL)
 
-**Status:** Design proposal (docs-only)  
-**Ship:** `advoi-data-memory-events-pel-01`  
-**Pairs with:** `advoi-analytics-pel-schema-01` (implementation)  
+**Status:** Implemented (schema + minimum emit points)  
+**Ship:** `advoi-data-memory-events-pel-01` (design) · `advoi-analytics-pel-schema-01` (runtime)  
+**Code:** `advoi/analytics/pel.py` · `deploy/migrations/001_portfolio_events.sql` · `tests/test_portfolio_events.py`  
 **Authority:** [PORTFOLIO-SYSTEM-MOAT.md §7.1 / R1](../reviews/PORTFOLIO-SYSTEM-MOAT.md) · [ARCHITECTURE-DATA-MEMORY-REVIEW.md](../reviews/ARCHITECTURE-DATA-MEMORY-REVIEW.md) · ADR-026
 
 ---
@@ -209,9 +209,9 @@ Minimum viable producers for `advoi-analytics-pel-schema-01` and moat R1 validat
 
 ---
 
-## 5. Stub SQL (documentation only — not applied)
+## 5. SQL (applied by analytics ship)
 
-> **No file under `deploy/migrations/` in this ship.** Implementation applies these (or equivalent) in `advoi-analytics-pel-schema-01`.
+> Canonical file: [`deploy/migrations/001_portfolio_events.sql`](../../deploy/migrations/001_portfolio_events.sql). Runtime also `CREATE TABLE IF NOT EXISTS` on first `append_event` when `DATABASE_URL` is set.
 
 ```sql
 -- PEL: portfolio_events (append-only authority)
@@ -321,12 +321,11 @@ Details: [`data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan
 
 ---
 
-## 7. Non-goals (this design ship)
+## 7. Non-goals (remaining)
 
-- No runtime writer changes
-- No `deploy/migrations/` files
-- No `/api/events` endpoint (follow-up)
-- No BI dashboards (analytics ship)
+- No `/api/events` query endpoint yet (follow-up)
+- No BI dashboards yet
+- No drop of `memory_events` in this ship (deprecation checklist only)
 - No rename of Redis/Guardian stores
 
 ---
@@ -351,3 +350,4 @@ Summary:
 | Date | Change |
 |------|--------|
 | 2026-07-10 | Initial PEL schema proposal (`advoi-data-memory-events-pel-01`) |
+| 2026-07-10 | Runtime: migration + `append_event` + emit points (`advoi-analytics-pel-schema-01`) |

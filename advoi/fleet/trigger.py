@@ -147,17 +147,85 @@ def fleet_confirm_prompt(action: FleetVoiceAction) -> str:
     return fleet_confirmation_prompt(action)
 
 
+def _output_excerpt(output: str | None, *, limit: int = 240) -> str:
+    text = (output or "").strip().replace("\n", " ")
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1] + "…"
+
+
+async def _emit_fleet_trigger_event(
+    result: dict[str, Any],
+    *,
+    action: str | None = None,
+    caller: str = "api",
+    guardian_status: str | None = None,
+) -> None:
+    """Append PEL row after a fleet bridge invoke (moat R1 / T0)."""
+    from advoi.analytics.pel import EventSource, EventType, safe_append_event
+
+    project = str(result.get("project") or "unknown")
+    status = str(result.get("status") or "unknown")
+    mock = status == "mock" or _fleet_mock()
+    await safe_append_event(
+        venture_id=project,
+        source=EventSource.FLEET,
+        event_type=EventType.FLEET_TRIGGER,
+        payload={
+            "action": action or result.get("action"),
+            "project": project,
+            "mock": mock,
+            "status": status,
+            "exit_code": result.get("exit_code"),
+            "output_excerpt": _output_excerpt(result.get("output")),
+            "message": result.get("message"),
+            "caller": caller,
+            "ok": bool(result.get("ok")),
+        },
+        guardian_status=guardian_status or ("allowed" if result.get("ok") else None),
+        execution_ref=result.get("bridge") if isinstance(result.get("bridge"), str) else None,
+    )
+
+
+async def _emit_fleet_gate_event(
+    *,
+    action: str,
+    project: str,
+    proceed: bool,
+    caller: str = "voice",
+) -> None:
+    from advoi.analytics.pel import EventSource, EventType, GuardianStatus, safe_append_event
+
+    await safe_append_event(
+        venture_id=project or "unknown",
+        source=EventSource.FLEET,
+        event_type=EventType.GUARDIAN_GATE,
+        payload={
+            "action": action,
+            "project": project,
+            "proceed": proceed,
+            "caller": caller,
+        },
+        guardian_status=(
+            GuardianStatus.ALLOWED if proceed else GuardianStatus.PENDING
+        ),
+    )
+
+
 async def invoke_fleet_trigger(
     message: str,
     *,
     project: str | None = None,
+    caller: str = "api",
+    action: str | None = None,
+    guardian_status: str | None = None,
 ) -> dict[str, Any]:
     slug = resolve_active_project(project)
     msg = message.strip()
     exec_argv = resolve_fleet_exec()
 
     if _fleet_mock():
-        return {
+        result = {
             "ok": True,
             "status": "mock",
             "message": msg,
@@ -165,16 +233,30 @@ async def invoke_fleet_trigger(
             "bridge": exec_argv[1],
             "output": f"OK: mock fleet trigger — {msg} @ {slug}",
         }
+        await _emit_fleet_trigger_event(
+            result,
+            action=action,
+            caller=caller,
+            guardian_status=guardian_status or "allowed",
+        )
+        return result
 
     script_path = Path(exec_argv[1])
     if not script_path.is_file():
-        return {
+        result = {
             "ok": False,
             "status": "bridge_script_missing",
             "path": str(script_path),
             "message": msg,
             "project": slug,
         }
+        await _emit_fleet_trigger_event(
+            result,
+            action=action,
+            caller=caller,
+            guardian_status=guardian_status or "error",
+        )
+        return result
 
     env = os.environ.copy()
     env["FM_HERMES_PROJECT"] = slug
@@ -190,7 +272,7 @@ async def invoke_fleet_trigger(
     stdout, _ = await proc.communicate()
     output = stdout.decode("utf-8", errors="replace").strip()
     ok = proc.returncode == 0
-    return {
+    result = {
         "ok": ok,
         "status": "dispatched" if ok else "failed",
         "exit_code": proc.returncode,
@@ -199,6 +281,13 @@ async def invoke_fleet_trigger(
         "project": slug,
         "bridge": exec_argv[1],
     }
+    await _emit_fleet_trigger_event(
+        result,
+        action=action,
+        caller=caller,
+        guardian_status=guardian_status or ("allowed" if ok else "error"),
+    )
+    return result
 
 
 async def fleet_trigger_from_voice(
@@ -209,24 +298,43 @@ async def fleet_trigger_from_voice(
 ) -> dict[str, Any]:
     from advoi.guardian.confirmation import evaluate_fleet_confirmation
 
+    project = extract_project_slug(transcript) or resolve_active_project()
     gate = evaluate_fleet_confirmation(
         action,
         confirmed=confirmed,
         transcript=transcript,
     )
     if not gate["proceed"]:
+        await _emit_fleet_gate_event(
+            action=action,
+            project=project,
+            proceed=False,
+            caller="voice",
+        )
         return {
             "ok": False,
             "status": "confirmation_required",
             "action": action,
+            "project": project,
             "prompt": gate.get("prompt", fleet_confirm_prompt(action)),
             "guardian": True,
         }
 
-    project = extract_project_slug(transcript) or resolve_active_project()
+    await _emit_fleet_gate_event(
+        action=action,
+        project=project,
+        proceed=True,
+        caller="voice",
+    )
 
     if action == "fleet_stop":
-        result = await invoke_fleet_trigger("stop", project=project)
+        result = await invoke_fleet_trigger(
+            "stop",
+            project=project,
+            caller="voice",
+            action=action,
+            guardian_status="allowed",
+        )
         spoken = (
             f"FirstMate fleet loop stopped on {project}."
             if result.get("ok")
@@ -237,7 +345,13 @@ async def fleet_trigger_from_voice(
         return result
 
     if action == "wake_firstmate":
-        result = await invoke_fleet_trigger("arm", project=project)
+        result = await invoke_fleet_trigger(
+            "arm",
+            project=project,
+            caller="voice",
+            action=action,
+            guardian_status="allowed",
+        )
         spoken = (
             f"FirstMate fleet loop armed on {project}. Captain will pick up from the wake queue."
             if result.get("ok")
@@ -259,7 +373,13 @@ async def fleet_trigger_from_voice(
                     f"No queued backlog items for {project}. Say fleet status to hear the queue."
                 ),
             }
-        result = await invoke_fleet_trigger(f"work {item}", project=project)
+        result = await invoke_fleet_trigger(
+            f"work {item}",
+            project=project,
+            caller="voice",
+            action=action,
+            guardian_status="allowed",
+        )
         spoken = (
             f"Dispatched next backlog item {item} on {project} to the FirstMate captain."
             if result.get("ok")
@@ -271,7 +391,13 @@ async def fleet_trigger_from_voice(
         return result
 
     if action == "start_development":
-        arm = await invoke_fleet_trigger("arm", project=project)
+        arm = await invoke_fleet_trigger(
+            "arm",
+            project=project,
+            caller="voice",
+            action=action,
+            guardian_status="allowed",
+        )
         if not arm.get("ok"):
             arm["spoken"] = plain_copy(
                 f"Could not arm FirstMate on {project}: {arm.get('output', arm.get('status'))}"
@@ -281,7 +407,13 @@ async def fleet_trigger_from_voice(
 
         item = next_backlog_item(project)
         if item:
-            work = await invoke_fleet_trigger(f"work {item}", project=project)
+            work = await invoke_fleet_trigger(
+                f"work {item}",
+                project=project,
+                caller="voice",
+                action=action,
+                guardian_status="allowed",
+            )
             if work.get("ok"):
                 spoken = (
                     f"Development started on {project}. Fleet loop armed and captain dispatched "
@@ -304,6 +436,9 @@ async def fleet_trigger_from_voice(
         work = await invoke_fleet_trigger(
             f"work continue development on {project}",
             project=project,
+            caller="voice",
+            action=action,
+            guardian_status="allowed",
         )
         spoken = (
             f"Development started on {project}. Fleet loop armed and captain notified."

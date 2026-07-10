@@ -182,6 +182,32 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 
 ---
 
+### M10 — Portfolio Event Log / moat R1 (PEL)
+
+**Goal:** Append-only `portfolio_events` is the control-plane event authority; fleet/frame/voice emits are observable.
+
+| # | Task | Tier | Status |
+|---|------|------|--------|
+| M10.1 | Schema migration `deploy/migrations/001_portfolio_events.sql` + `append_event` | T0 | [x] Done (`advoi-analytics-pel-schema-01`) |
+| M10.2 | Emit: `frame_run`, `fleet_trigger` (+ confirmation gate), `voice_intent` | T0 | [x] Done — `tests/test_portfolio_events.py` |
+| M10.3 | Do **not** drop `memory_events` yet (deprecation checklist only) | — | [x] Documented in migration-plan |
+| M10.4 | Staging: fleet trigger / frame run creates ≥1 `portfolio_events` row | **T2** | [ ] Open — after deploy with `DATABASE_URL` |
+| M10.5 | Optional: `/api/events` query + fleet status `last_dispatch_at` from PEL | T2 | [ ] Open (follow-up ships) |
+
+**Design:** [07-portfolio-event-log.md](../architecture/07-portfolio-event-log.md) · [migration-plan](../../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md)
+
+**T2 gate (M10.4):** On staging Postgres after a confirmed fleet trigger or frame run:
+
+```sql
+SELECT source, type, venture_id, guardian_status, created_at
+FROM portfolio_events
+ORDER BY created_at DESC
+LIMIT 10;
+-- Expect: type IN ('fleet_trigger','frame_run','voice_intent','guardian_gate')
+```
+
+---
+
 ## Recommended sequence
 
 ```
@@ -310,6 +336,14 @@ curl -sf "$BASE/api/ingestion/summary"
 
 # Aether
 curl -sf "$BASE/api/aether/status"
+
+# PEL emit smoke (M10.4) — confirmed fleet trigger should append portfolio_events
+curl -sf -X POST -H "Content-Type: application/json" \
+  -d '{"action":"wake_firstmate","confirmed":true,"project":"clapart"}' \
+  "$BASE/api/fleet/trigger"
+# Then on VPS Postgres: SELECT type, source, venture_id FROM portfolio_events
+#   ORDER BY created_at DESC LIMIT 5;
+# Expect ≥1 row with type=fleet_trigger (and/or guardian_gate from confirm path)
 ```
 
 ### T2 — VPS deploy (when code or images change)
@@ -342,3 +376,4 @@ ssh deploy@187.77.140.216 "cd /var/www/advoi/staging && git pull --ff-only"
 | 2026-07-10 | Initial roadmap: validation tiers T0–T3, milestones M1–M9, gap register, appendix commands. Baseline `71fd7ae`, staging 6/6. |
 | 2026-07-10 | www staging tier: `advoi-staging.keyteller.com`, `/var/www/advoi/staging`, T2 commands updated. |
 | 2026-07-10 | T2 validation run: precheck pass, M1.4 aether 200, appendix fleet curl fixed; baseline SHA `5d50805`. |
+| 2026-07-10 | M10 PEL schema + emit T0; cross-link T2 M10.4 staging row check (`advoi-analytics-pel-schema-01`). |

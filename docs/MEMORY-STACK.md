@@ -12,14 +12,14 @@ Voice / ADVoi routing
     │
     ├── Letta (self-hosted, v0.2)  → agent identity, user prefs, squad operational learning
     │
-    ├── PostgreSQL (advoi)         → decision_briefs, memory_events (→ PEL portfolio_events), master-state
+    ├── PostgreSQL (advoi)         → decision_briefs, portfolio_events (PEL), memory_events (deprecated dual-write), master-state
     │
     └── Redis                      → ephemeral voice turns + advoi:briefs:open cache
 ```
 
 **Rule:** Hindsight = what the system knows and believes. Postgres = canonical briefs/records. Redis = last 5 voice turns per session. Guardian log = failures only.
 
-**PEL (design):** Moat R1 append-only control-plane log is `portfolio_events`, replacing thin `memory_events` after migration. See [architecture/07-portfolio-event-log.md](architecture/07-portfolio-event-log.md) and [migration-plan](../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md). Runtime still writes `memory_events` until `advoi-analytics-pel-schema-01`.
+**PEL (runtime):** Moat R1 append-only control-plane log is `portfolio_events` via `advoi.analytics.pel.append_event`. Emit points: `run_frame` (`frame_run`), `invoke_fleet_trigger` / confirmation (`fleet_trigger`, `guardian_gate`), voice frame/operator intents (`voice_intent` — not every Redis turn). Migration SQL: `deploy/migrations/001_portfolio_events.sql`. **`memory_events` is not dropped yet** — `retain_structured` may still write legacy rows; see [migration-plan](../data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan.md). Design: [architecture/07-portfolio-event-log.md](architecture/07-portfolio-event-log.md).
 
 ## Container architecture (production)
 
