@@ -90,6 +90,14 @@ When Guardian returns `confirmation_required`, Path A must show **identical** co
 - Beacons: `CONFIRMATION_REQUIRED` → `confirm_shown` (payload includes `confirm_copy`); accept → `confirm_accept`.
 - T0/API: `tests/test_confirm_parity.py`. Manual matrix A15. Stub: `web/e2e/voice-session-confirm-parity.spec.ts`.
 
+## PWA home onboarding (install strip + 60s morning pulse)
+
+Home `/` only (no new routes) — `web/components/PwaHomeOnboarding.tsx` + pure model `pwaOnboarding.ts`.
+
+- **Install strip** (`data-testid="install-strip"`): shown when **not** standalone (`display-mode: standalone` or iOS `navigator.standalone`) and not dismissed (`localStorage` key `advoi_install_strip_dismissed`). Chrome `beforeinstallprompt` → **Install**; else platform how-to (iOS Share → Add to Home Screen).
+- **60s morning pulse CTA** (`data-testid="morning-pulse-cta"`): portfolio voice pulse copy (moat Pattern F); **Start morning pulse** dispatches `advoi:run-frame` with `frameId=systems_pulse` (VoiceSession listens).
+- T0: `tests/test_pwa_onboarding.py`. Manual matrix **A16**. Stub: `web/e2e/pwa-onboarding.spec.ts`.
+
 ## PWA error recovery paths
 
 Path A recovery panel when UI state is `error` (`data-testid="error-recovery"`):

@@ -39,6 +39,7 @@ import {
   type UiSessionContext,
   type UiSessionEvent,
 } from "./voiceSessionState";
+import { RUN_FRAME_EVENT } from "./pwaOnboarding";
 
 type DecisionFrame = {
   id: string;
@@ -524,6 +525,18 @@ export function VoiceSession() {
       voiceSessionId,
     ],
   );
+
+  // Home onboarding morning-pulse CTA (and any future home CTAs) dispatch this event.
+  useEffect(() => {
+    const onRunFrame = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ frameId?: string; refresh?: boolean }>).detail;
+      const frameId = detail?.frameId;
+      if (!frameId || typeof frameId !== "string") return;
+      void runFrame(frameId, false, Boolean(detail?.refresh));
+    };
+    window.addEventListener(RUN_FRAME_EVENT, onRunFrame);
+    return () => window.removeEventListener(RUN_FRAME_EVENT, onRunFrame);
+  }, [runFrame]);
 
   const speakFromIntent = useCallback(
     async (transcript: string) => {

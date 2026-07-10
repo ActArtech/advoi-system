@@ -1,0 +1,149 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.installStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.installText {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.installTitle {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+
+.installBody {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.installHowTo {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #bae6fd;
+}
+
+.installActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.installBtn {
+  border: 0;
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.installBtn:hover {
+  filter: brightness(1.05);
+}
+
+.dismissBtn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.dismissBtn:hover {
+  color: var(--text);
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+.standaloneBadge {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ok);
+  opacity: 0.9;
+}
+
+.pulseCta {
+  padding: 0.9rem 0.95rem;
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.08);
+}
+
+.pulseEyebrow {
+  margin: 0 0 0.35rem;
+  color: #c4b5fd;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pulseTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pulseBody {
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.pulseRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.pulseBtn {
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  color: #1e1035;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.pulseBtn:hover {
+  filter: brightness(1.05);
+}
+
+.pulseMeta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}

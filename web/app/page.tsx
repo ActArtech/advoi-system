@@ -1,3 +1,4 @@
+import { PwaHomeOnboarding } from "@/components/PwaHomeOnboarding";
 import { VoiceSession } from "@/components/VoiceSession";
 import styles from "./page.module.css";
 
@@ -9,6 +10,8 @@ export default function HomePage() {
         <h1>ADVoi</h1>
         <p className={styles.lede}>Portfolio voice layer. Thin wrapper over Hermes, fleet, and memory.</p>
       </header>
+      {/* Install strip + 60s morning pulse CTA — home only, no new routes */}
+      <PwaHomeOnboarding />
       <VoiceSession />
       <p style={{ marginTop: "1.25rem", fontSize: "0.9rem", color: "var(--muted)" }}>
         <a href="/ingest">Upload and route</a> ·{" "}
