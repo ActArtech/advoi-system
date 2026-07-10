@@ -57,12 +57,13 @@ async def dispatch_squads_for_agents(agent_ids: list[str], *, confirmed: bool = 
 
 
 async def retain_orchestration_memory(bundle: OrchestrateBundle) -> None:
-    """Persist multi-agent run summary to operational memory."""
+    """Persist multi-agent run summary via MemoryRouter (ADR-026 EVENT_WRITE_MAP)."""
     try:
-        from advoi.memory.operational_bridge import retain_operational_unified
+        from advoi.memory.router import MemoryRouter
+        from advoi.memory.write_targets import MemoryEventType
 
-        await retain_operational_unified(
-            "orchestration_run",
+        await MemoryRouter().retain(
+            MemoryEventType.WORKFLOW_EVOLUTION,
             {
                 "summary": bundle.spoken_summary[:500],
                 "agents_used": bundle.agents_used,
