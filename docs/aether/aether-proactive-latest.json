@@ -1,0 +1,99 @@
+{
+  "project": "/data/projects/advoi",
+  "mode": "proactive",
+  "findings": [
+    {
+      "agent": "context",
+      "severity": "none",
+      "category": "audit",
+      "message": "no diff to review",
+      "file": ""
+    }
+  ],
+  "principles_loaded": [
+    "ai",
+    "architecture",
+    "general",
+    "product"
+  ],
+  "has_critical": false,
+  "has_high": false,
+  "top_severity": "none",
+  "top_summary": "no diff to review",
+  "finding_count": 1,
+  "governance": {
+    "decision_count": 2,
+    "event_count": 2,
+    "principles_version": "1.0.0-advoi"
+  },
+  "awareness": {
+    "agents": [
+      "governance",
+      "context",
+      "product",
+      "fleet",
+      "voice",
+      "llm_pm"
+    ],
+    "agent_runs": [
+      {
+        "agent": "governance",
+        "status": "ok",
+        "summary": "0 governance finding(s)",
+        "finding_count": 0
+      },
+      {
+        "agent": "context",
+        "status": "ok",
+        "summary": "stage=Build in_flight=0 no diff to review",
+        "finding_count": 1
+      },
+      {
+        "agent": "product",
+        "status": "ok",
+        "summary": "0 open checklist item(s)",
+        "finding_count": 0
+      },
+      {
+        "agent": "fleet",
+        "status": "ok",
+        "summary": "0 fleet signal(s)",
+        "finding_count": 0
+      },
+      {
+        "agent": "voice",
+        "status": "ok",
+        "summary": "staging voice path present",
+        "finding_count": 0
+      },
+      {
+        "agent": "llm_pm",
+        "status": "skipped",
+        "summary": "disabled (set AETHER_LLM_PM=1)",
+        "finding_count": 0,
+        "output": {
+          "enabled": false
+        }
+      }
+    ],
+    "venture_context": {
+      "stage": "Build",
+      "bet_summary": "Stage 1 Voice + PWA",
+      "last_decision": "ADR-026 Memory stack",
+      "in_flight": 0,
+      "in_flight_label": "0"
+    },
+    "diff_window": "main...HEAD (no changes)",
+    "product_review": {
+      "gap_count": 0,
+      "gaps": [],
+      "product_review_file": "/data/projects/advoi/.aether/PRODUCT-REVIEW.md",
+      "scores": {},
+      "overall": null
+    },
+    "firstmate": {
+      "in_flight": 0,
+      "feedback_path": "/opt/firstmate/data/feedback-backlog-agentsim.md"
+    }
+  }
+}
