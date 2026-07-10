@@ -103,7 +103,7 @@
   background: var(--muted);
 }
 
-/* SLA latency chip (ship #2) — sits beside the UI state chip */
+/* Status chips row: UI state + SLA latency (ship #2) + Aether gate (ship #3) */
 .chipGroup {
   display: inline-flex;
   flex-wrap: wrap;

@@ -41,6 +41,8 @@ Letta (optional) or operational_store.jsonl
 | GET | `/api/aether/ventures/{id}` |
 | POST | `/api/aether/reload` |
 
+PWA surfaces `gate.verdict` + `gate.active_slug` from `GET /api/aether/status` on home (`VoiceSession` chip `data-testid="aether-gate-chip"`) and dashboard metrics. Model: `web/components/aetherGateChip.ts`; T0: `tests/test_aether_gate_chip.py`.
+
 ## CLI
 
 ```bash

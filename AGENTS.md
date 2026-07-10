@@ -65,6 +65,14 @@ Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
 - VoiceSession refreshes latency after successful frame run / operator completion (no full reload).
 - Graceful empty/error: `SLA —` / `SLA err` when diagnostics unavailable.
 
+## PWA Aether gate chip (ship #3)
+
+- Chip beside state + SLA: `data-testid="aether-gate-chip"`; also on `/dashboard` metrics row.
+- Fed by `GET /api/aether/status` (`gate.verdict`, `gate.active_slug`).
+- Pure model: `web/components/aetherGateChip.ts` → `aetherGateChipModel`; Python mirror `tests/test_aether_gate_chip.py`.
+- Label: `Gate pass · {active_slug}` (tones: pass=ok, hold=warn, fail=error); missing/err → `Gate —` / `Gate err`.
+- Manual matrix A14 in `docs/operations/MANUAL-TEST-TRACKER.md`.
+
 ## PWA thin beacon → PEL (`POST /api/events`)
 
 - **Endpoint:** `POST /api/events` accepts thin client beacons only (no third-party analytics SDK).

@@ -35,21 +35,32 @@ type LatencyDiag = {
   sla_target_ms?: number;
 };
 
+type AetherStatus = {
+  gate?: {
+    found?: boolean;
+    verdict?: string | null;
+    active_slug?: string | null;
+  } | null;
+  active_venture?: { id?: string; name?: string } | null;
+};
+
 export default function DashboardPage() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [squads, setSquads] = useState<SquadRow[]>([]);
   const [platform, setPlatform] = useState<PlatformDiag | null>(null);
   const [latency, setLatency] = useState<LatencyDiag | null>(null);
+  const [aether, setAether] = useState<AetherStatus | null>(null);
   const [status, setStatus] = useState("Loading platform view...");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [agentRes, squadRes, platRes, latRes] = await Promise.all([
+      const [agentRes, squadRes, platRes, latRes, aetherRes] = await Promise.all([
         fetch(`${apiBase}/agents`),
         fetch(`${apiBase}/squads`),
         fetch(`${apiBase}/diagnostics/platform`),
         fetch(`${apiBase}/diagnostics/latency`),
+        fetch(`${apiBase}/aether/status`),
       ]);
       const agentData = await agentRes.json();
       const squadData = await squadRes.json();
@@ -57,6 +68,7 @@ export default function DashboardPage() {
       setSquads(squadData.squads || []);
       setPlatform(await platRes.json());
       setLatency(await latRes.json());
+      setAether(aetherRes.ok ? await aetherRes.json() : null);
       setStatus("Ready. Run all 6 or dispatch squads to refresh agent cache.");
     } catch {
       setStatus("Could not load dashboard. Is the API running?");
@@ -102,6 +114,14 @@ export default function DashboardPage() {
   const agentsById = Object.fromEntries(agents.map((a) => [a.id, a]));
   const ready = platform?.agents?.ready ?? agents.filter((a) => a.cached).length;
   const total = platform?.agents?.total ?? agents.length;
+  const gateVerdict = aether?.gate?.found ? aether.gate.verdict || "unknown" : null;
+  const gateSlug = aether?.gate?.active_slug || null;
+  const gateMetricClass =
+    gateVerdict === "pass"
+      ? styles.metricOk
+      : gateVerdict === "hold" || gateVerdict === "fail"
+        ? styles.metricWarn
+        : "";
 
   return (
     <main className={styles.page}>
@@ -126,6 +146,21 @@ export default function DashboardPage() {
             SLA {latency.sla_ok ? "ok" : "miss"}
           </span>
         ) : null}
+        <span
+          className={`${styles.metric} ${gateMetricClass}`}
+          data-testid="aether-gate-chip"
+          data-verdict={gateVerdict ?? ""}
+          data-active-slug={gateSlug ?? ""}
+          title={
+            aether?.gate?.found
+              ? `Aether gate ${gateVerdict}${gateSlug ? ` · ${gateSlug}` : ""}`
+              : "Aether gate unavailable"
+          }
+        >
+          {aether?.gate?.found
+            ? `Gate ${gateVerdict}${gateSlug ? ` · ${gateSlug}` : ""}`
+            : "Gate —"}
+        </span>
         <span className={styles.metric}>
           Memory {platform?.operational_bridge || "operational_store"}
         </span>

@@ -17,6 +17,10 @@ import {
   type ErrorRecoveryModel,
 } from "./errorRecovery";
 import {
+  aetherGateChipModel,
+  type AetherStatusPayload,
+} from "./aetherGateChip";
+import {
   latencyChipModel,
   type LatencyDiagnostics,
 } from "./latencyChip";
@@ -158,6 +162,7 @@ export function VoiceSession() {
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const [voiceDiag, setVoiceDiag] = useState<VoiceDiagnostics | null>(null);
   const [latencyDiag, setLatencyDiag] = useState<LatencyDiagnostics | null>(null);
+  const [aetherStatus, setAetherStatus] = useState<AetherStatusPayload | null>(null);
   const [micOn, setMicOn] = useState(false);
   const [typedLine, setTypedLine] = useState("");
   const [capabilities, setCapabilities] = useState<CapabilitiesPayload | null>(null);
@@ -241,6 +246,24 @@ export function VoiceSession() {
       });
   }, []);
 
+  const loadAetherStatus = useCallback(() => {
+    fetch(`${apiBase}/aether/status`)
+      .then((r) => {
+        if (!r.ok) {
+          setAetherStatus({ ok: false, error: `HTTP ${r.status}` });
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (data) setAetherStatus(data as AetherStatusPayload);
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "fetch failed";
+        setAetherStatus({ ok: false, error: message });
+      });
+  }, []);
+
   const loadDiagnostics = useCallback(() => {
     fetch(`${apiBase}/diagnostics/voice`)
       .then((r) => (r.ok ? r.json() : null))
@@ -248,7 +271,8 @@ export function VoiceSession() {
       .catch(() => setVoiceDiag(null));
 
     loadLatency();
-  }, [loadLatency]);
+    loadAetherStatus();
+  }, [loadLatency, loadAetherStatus]);
 
   const loadAgents = useCallback(() => {
     fetch(`${apiBase}/agents`)
@@ -951,6 +975,7 @@ export function VoiceSession() {
   const agentsReady = agents.filter((a) => a.cached).length;
   const agentsTotal = agents.length || voiceDiag?.checks?.agents;
   const slaChip = latencyChipModel(latencyDiag);
+  const gateChip = aetherGateChipModel(aetherStatus);
   const expectedFrames = capabilities?.frame_count ?? 6;
   const deployStale = frames.length > 0 && frames.length < expectedFrames;
   const fleetAccess = capabilities?.systems_access?.firstmate_fleet;
@@ -988,6 +1013,19 @@ export function VoiceSession() {
             aria-label={slaChip.title}
           >
             {slaChip.label}
+          </span>
+          <span
+            className={`${styles.latencyChip} ${styles[gateChip.tone]}`}
+            data-testid="aether-gate-chip"
+            data-tone={gateChip.tone}
+            data-available={gateChip.available ? "true" : "false"}
+            data-verdict={gateChip.verdict ?? ""}
+            data-active-slug={gateChip.activeSlug ?? ""}
+            data-found={gateChip.found ? "true" : "false"}
+            title={gateChip.title}
+            aria-label={gateChip.title}
+          >
+            {gateChip.label}
           </span>
         </div>
         <p className={styles.status} role="status" aria-live="polite">
