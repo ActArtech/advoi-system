@@ -23,13 +23,21 @@ def fleet_bridge_script() -> Path | None:
 
 
 def fleet_trigger_script() -> Path:
-    """Underlying FirstMate trigger (fm-hermes-trigger.sh)."""
-    return Path(
-        os.getenv(
-            "FIRSTMATE_TRIGGER_SCRIPT",
-            "/opt/firstmate-fleet/scripts/fm-hermes-trigger.sh",
-        )
-    )
+    """Underlying FirstMate trigger (fm-hermes-trigger.sh).
+
+    Prefer ``FIRSTMATE_TRIGGER_SCRIPT`` when set; otherwise the first existing
+    candidate under common VPS layouts (fleet tree, then firstmate scripts).
+    """
+    explicit = os.getenv("FIRSTMATE_TRIGGER_SCRIPT", "").strip()
+    if explicit:
+        return Path(explicit)
+    for candidate in (
+        Path("/opt/firstmate-fleet/scripts/fm-hermes-trigger.sh"),
+        Path("/opt/firstmate/scripts/fm-hermes-trigger.sh"),
+    ):
+        if candidate.is_file():
+            return candidate
+    return Path("/opt/firstmate-fleet/scripts/fm-hermes-trigger.sh")
 
 
 def resolve_fleet_exec() -> tuple[str, ...]:

@@ -19,8 +19,10 @@ Target import/write rules: `docs/architecture/06-vertical-boundaries.md`.
 - Prefer `fleet_trigger_from_voice` for structured high-risk actions (`wake_firstmate`, `start_development`, `run_next_backlog`, `fleet_stop`).
 - Low-level `invoke_fleet_trigger` **requires** Guardian when `ADVOI_CONFIRMATION_REQUIRED` is on: pass `guardian_allowed=True` or `guardian_status="allowed"` only after `evaluate_fleet_confirmation` returned proceed. Otherwise returns `status=guardian_required` and does **not** shell.
 - `POST /api/fleet/trigger` must use `fleet_trigger_from_voice` only — never bare free-form `invoke_fleet_trigger`.
-- Sole subprocess bridge path: `advoi/fleet/trigger.py` → `resolve_fleet_exec` → `scripts/fm-bridge.sh`.
-- Guard: `tests/test_write_path_audit.py`. Inventory: `data/feedback-evidence/advoi-arch-write-path-audit-01/audit.md`.
+- Sole subprocess bridge path: `advoi/fleet/trigger.py` → `resolve_fleet_exec` → `scripts/fm-bridge.sh` → `fm-hermes-trigger.sh`.
+- **Action → hermes verb:** `wake_firstmate` / arm fleet → `arm`; `fleet_stop` → `stop` (`FLEET_ACTION_BRIDGE_VERB`); `run_next_backlog` / `start_development` compose `arm` + `work <task>`. Env: `FM_HERMES_PROJECT`, `FIRSTMATE_CONTAINER`.
+- Bridge trigger resolve: `FIRSTMATE_TRIGGER_SCRIPT` or first existing of `/opt/firstmate-fleet/scripts/fm-hermes-trigger.sh`, `/opt/firstmate/scripts/fm-hermes-trigger.sh`.
+- T0: `tests/test_fleet_trigger.py` (subprocess mock: arm argv/env; guardian_required skips shell). Guard: `tests/test_write_path_audit.py`. Inventory: `data/feedback-evidence/advoi-arch-write-path-audit-01/audit.md`.
 
 ## Memory retain (ADR-026)
 

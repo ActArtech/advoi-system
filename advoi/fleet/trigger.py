@@ -26,6 +26,13 @@ FleetVoiceAction = Literal[
     "fleet_stop",
 ]
 
+# Operator action → fm-hermes-trigger verb (single argv after scripts/fm-bridge.sh).
+# Multi-step actions (start_development, run_next_backlog) compose arm/stop + work.
+FLEET_ACTION_BRIDGE_VERB: dict[FleetVoiceAction, str] = {
+    "wake_firstmate": "arm",
+    "fleet_stop": "stop",
+}
+
 _PROJECT_RE = re.compile(
     r"\b(?:on|for|project)\s+([a-z][a-z0-9_-]+)\b",
     re.IGNORECASE,
@@ -426,7 +433,7 @@ async def fleet_trigger_from_voice(
 
     if action == "fleet_stop":
         result = await invoke_fleet_trigger(
-            "stop",
+            FLEET_ACTION_BRIDGE_VERB["fleet_stop"],
             project=project,
             caller="voice",
             action=action,
@@ -443,7 +450,7 @@ async def fleet_trigger_from_voice(
 
     if action == "wake_firstmate":
         result = await invoke_fleet_trigger(
-            "arm",
+            FLEET_ACTION_BRIDGE_VERB["wake_firstmate"],
             project=project,
             caller="voice",
             action=action,
@@ -490,7 +497,7 @@ async def fleet_trigger_from_voice(
 
     if action == "start_development":
         arm = await invoke_fleet_trigger(
-            "arm",
+            FLEET_ACTION_BRIDGE_VERB["wake_firstmate"],
             project=project,
             caller="voice",
             action=action,
