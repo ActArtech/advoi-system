@@ -202,7 +202,7 @@ See [advoi/ingestion/README.md](../../advoi/ingestion/README.md).
 
 | # | Task | Tier | Status |
 |---|------|------|--------|
-| M9.1 | Port registry → vps-shared | — | [ ] Open |
+| M9.1 | Port registry → vps-shared | Docs | [x] Done — [PORT-REGISTRY.md](PORT-REGISTRY.md) aligns host/container ports + vps-shared row format; VPS apply via `scripts/port-registry-apply.sh`; optional external `vps-shared` git mirror still ops-side |
 | M9.2 | clapart `develop` promote to staging (fleet backlog) | T2 | [ ] Open |
 | M9.3 | Delete confirmed stale `fm/*` branches on GitHub (5 remain) | — | [ ] Open |
 | M9.4 | Architecture docs 03/05 updated to 6 agents | — | [ ] Open |
@@ -277,7 +277,7 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 | GAP-008 | P2 | Live squad webhooks | Open |
 | GAP-009 | P2 | Ingestion Phase 2 triage pipeline | **Partial** — lifecycle T0 @ `80b69fa`; classifier polish + UI open |
 | GAP-010 | P3 | React Flow dashboard | Open |
-| GAP-011 | P3 | Port registry / vps-shared | Open |
+| GAP-011 | P3 | Port registry / vps-shared | **Done (docs)** — [PORT-REGISTRY.md](PORT-REGISTRY.md); external vps-shared git mirror optional |
 | GAP-012 | P3 | Architecture docs 03/05 (3-agent stale) | Open |
 | GAP-013 | P0 ops | Staging promote develop→staging (SSH host key) | **Parked** — staging `5d50805` vs develop `2b9a28e` |
 | GAP-014 | P1 | PWA human A11–A17 (state / latency / recovery / gate / confirm / install / briefs) | Open — T0 automated wave 2+3; T3 device |

@@ -63,7 +63,7 @@ Use this for a greenfield VPS bring-up aligned with the three-tier model. Steps 
 | 1 | Private GitHub repo `ActArtech/advoi-system` | ✅ Done |
 | 2 | Deploy key on VPS → `github-advoi` in `~/.ssh/config` | Run `scripts/setup-vps-deploy-key.sh` |
 | 3 | Clone develop checkout to `/data/projects/advoi` (branch `develop`) | Prefer www model; legacy clone was `/opt/advoi` via `scripts/vps-bootstrap.sh` |
-| 4 | Row in `/opt/shared/port-registry.md` | PG **5438**, Redis **6382** — see `deploy/port-registry-entry.md` |
+| 4 | Row in `/opt/shared/port-registry.md` | PG **5438**, Redis **6382**, API **8010**, Voice **8011** — full table [operations/PORT-REGISTRY.md](operations/PORT-REGISTRY.md); copy row `deploy/port-registry-entry.md` |
 | 5 | DNS A → `187.77.140.216` (grey cloud until LE) | **Staging:** `advoi-staging.keyteller.com` · **Live:** `advoi.keyteller.com` |
 | 6 | `deploy/.env` from staging example + Shelve `ktteam/advoi/staging` | `shelve.json` configured |
 | 7 | Docker compose name `advoi` + Traefik labels for web/api (and staging host) | `deploy/docker-compose.staging.yml`; stage host `advoi-staging.keyteller.com` |
@@ -179,9 +179,11 @@ bash scripts/fm-bridge.sh "fleet status"
 
 ## Port registry
 
-Add to `/opt/shared/port-registry.md` (copy from `deploy/port-registry-entry.md`):
+Canonical allocation (API, voice, web, PG, Redis, LiveKit, OTEL, memory bridge): **[operations/PORT-REGISTRY.md](operations/PORT-REGISTRY.md)**.
 
-| slug | path | host | PG host | Redis host |
-|------|------|------|---------|------------|
-| advoi | `/data/projects/advoi` (dev); staging/live under `/var/www/advoi/*` | advoi-staging.keyteller.com / advoi.keyteller.com | 5438 | 6382 |
-| advoi (legacy) | `/opt/advoi` | advoi.keyteller.com (old stack) | 5438 | 6382 |
+Add the vps-shared-format row to `/opt/shared/port-registry.md` (or run `bash scripts/port-registry-apply.sh`). Short copy source: `deploy/port-registry-entry.md`.
+
+| slug | path | host | ports (host) | notes |
+|------|------|------|--------------|-------|
+| advoi | `/data/projects/advoi` (dev); `/var/www/advoi/{staging,live}` | advoi-staging.keyteller.com / advoi.keyteller.com | PG 5438, Redis 6382, API 8010, Voice 8011, Web 3000 | Traefik `advoi-*`; Shelve `ktteam/advoi/staging` |
+| advoi (legacy) | `/opt/advoi` | advoi.keyteller.com (old stack) | same host ports | deprecating path until cutover |

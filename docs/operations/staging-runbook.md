@@ -18,7 +18,8 @@ VPS: `deploy@187.77.140.216`.
 
 Fleet snapshot: `/data/staging-state.md`. Gap register: [gaps-and-blockers.md](../current-state/gaps-and-blockers.md) · [ROADMAP-VALIDATION.md](ROADMAP-VALIDATION.md) GAP-013.
 
-Full path model: [docs/VPS-SETUP.md](../VPS-SETUP.md).
+Full path model: [docs/VPS-SETUP.md](../VPS-SETUP.md).  
+Host ports (PG **5438**, Redis **6382**, API **8010**, Voice **8011**, OTEL **4317**, …): [PORT-REGISTRY.md](PORT-REGISTRY.md).
 
 ## Pre-deploy checklist
 
