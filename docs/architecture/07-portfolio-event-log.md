@@ -3,7 +3,7 @@
 **Status:** Implemented (schema + minimum emit points)  
 **Ship:** `advoi-data-memory-events-pel-01` (design) · `advoi-analytics-pel-schema-01` (runtime)  
 **Code:** `advoi/analytics/pel.py` · `deploy/migrations/001_portfolio_events.sql` · `tests/test_portfolio_events.py`  
-**Authority:** [PORTFOLIO-SYSTEM-MOAT.md §7.1 / R1](../reviews/PORTFOLIO-SYSTEM-MOAT.md) · [ARCHITECTURE-DATA-MEMORY-REVIEW.md](../reviews/ARCHITECTURE-DATA-MEMORY-REVIEW.md) · ADR-026
+**Authority:** [PORTFOLIO-SYSTEM-MOAT.md §7.1 / R1](../reviews/PORTFOLIO-SYSTEM-MOAT.md) · [ARCHITECTURE-DATA-MEMORY-REVIEW.md](../reviews/ARCHITECTURE-DATA-MEMORY-REVIEW.md) · ADR-026 · full entity matrix in [04-memory-and-data.md § Data authority matrix](04-memory-and-data.md#data-authority-matrix)
 
 ---
 
