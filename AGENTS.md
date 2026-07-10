@@ -36,3 +36,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Emit points:** `run_frame` → `frame_run`; `invoke_fleet_trigger` → `fleet_trigger`; confirmation → `guardian_gate`; voice frame/operator only → `voice_intent` (not Redis turns).
 - **ADR-026:** PEL is not a live Hindsight double-write. Payload excerpts only — no full fleet backlog dumps.
 - **Staging T2:** ROADMAP M10.4 — verify rows after fleet/frame on VPS Postgres.
+
+## PWA voice UI state machine
+
+Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
+`web/components/voiceSessionState.ts`:
+
+`idle` → `connecting` → `connected` → `frame_running` → `confirm_pending` → `error`
+
+- Transitions: LiveKit connect, frame/fleet/intent APIs, Guardian `confirmation_required`.
+- Visible status chip: `data-testid="ui-state-chip"` / `data-state={state}`.
+- Pure reducer unit-tested via `tests/test_voice_session_state.py` (keep TS + Python in sync).
+- Playwright stub: `web/e2e/voice-session-state.spec.ts` (not CI-wired).

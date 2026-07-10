@@ -85,6 +85,7 @@ These run in CI or via scripts. Re-run after every deploy.
 | A8 | Two-turn confirm | Say "queue review" then "yes" | **Not tested** | |
 | A9 | Review queue panel | Pending items show in PWA | **Not tested** | |
 | A10 | Agent freshness | `last_run` chips update after interval | **Automated** (API) | staging 2026-07-08 |
+| A11 | UI state machine chip | Open `/` — chip shows **Idle**; Connect → **Connecting** → **Connected**; tap a frame → **Frame running**; frame with Guardian confirm (e.g. deep review) → **Confirm pending**; force LiveKit/token fail → **Error**. Labels: idle, connecting, connected, frame_running, confirm_pending, error. Screenshot: `web/e2e/artifacts/ui-state-chip.png` (Playwright stub `web/e2e/voice-session-state.spec.ts`). Unit: `tests/test_voice_session_state.py`. | **Not tested** (automated reducer) | |
 
 ### Path B — Client voice (`/voice-local`)
 
