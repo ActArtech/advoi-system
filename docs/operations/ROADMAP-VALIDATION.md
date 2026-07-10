@@ -1,8 +1,10 @@
 # ADVoi roadmap with validation tiers
 
 **Purpose:** Single checklist for what to build next and how to prove each milestone before moving on.  
-**Baseline:** 2026-07-10, repo `advoi-system` @ `71fd7ae`  
-**Staging:** https://advoi.keyteller.com (6/6 agents verified after voice/fleet sprint)
+**Baseline:** 2026-07-10, repo `advoi-system` @ `5d50805` (develop/staging fleet)  
+**Last T2 validation:** 2026-07-10 — `staging-signoff-precheck.sh` exit 0; evidence `data/feedback-evidence/advoi-roadmap-review-01/` (fleet)
+**Staging (fleet tier):** https://advoi-staging.keyteller.com (`/var/www/advoi/staging`, compose `advoi-staging`)  
+**Live:** https://advoi.keyteller.com (`/var/www/advoi/live` · legacy `/opt/advoi` until cutover)
 
 Human E2E does **not** block development. Track device tests in [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) and formal Path A sign-off in [E2E-SIGNOFF.md](E2E-SIGNOFF.md).
 
@@ -54,11 +56,11 @@ Use the **lowest tier that proves the change**. Do not skip tiers when promoting
 
 | # | Task | Tier | Status |
 |---|------|------|--------|
-| M1.1 | `git pull --ff-only` on VPS `/opt/advoi` | — | [x] Done @ `71fd7ae` |
-| M1.2 | `bash scripts/staging-redeploy.sh` when code/images change | T2 | [x] Done |
+| M1.1 | `git pull --ff-only` on VPS `/var/www/advoi/staging` (or promote from develop) | — | [x] Done @ `5d50805` on advoi-staging |
+| M1.2 | `bash /var/www/advoi/deploy-staging.sh` when code/images change | T2 | [x] Done |
 | M1.3 | 6 frame buttons + operator bar on PWA | T2/T3 | [x] Done |
-| M1.4 | `/api/aether/status` returns 200 | T2 | [ ] Verify on next deploy |
-| M1.5 | `agents-smoke` + `voice-smoke` pass on staging | T2 | [x] Done |
+| M1.4 | `/api/aether/status` returns 200 | T2 | [x] Verified 2026-07-10 (HTTP 200, gate pass on VPS) |
+| M1.5 | `agents-smoke` + `voice-smoke` pass on staging | T2 | [x] Verified 2026-07-10 (`staging-signoff-precheck.sh` exit 0) |
 
 **Closes:** BUG-005, BUG-006, BUG-007 (deploy drift and operator fixes).
 
@@ -203,9 +205,9 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 | ID | Priority | Item | Status |
 |----|----------|------|--------|
 | GAP-001 | P0 | Human E2E voice sign-off | **Open** |
-| GAP-002 | P0 | Staging 6-frame deploy parity | **Done** @ `71fd7ae` |
+| GAP-002 | P0 | Staging 6-frame deploy parity | **Done** @ `5d50805` (T2: 6/6 agents, precheck pass 2026-07-10) |
 | GAP-003 | P1 | Path B iOS WebGPU / Kokoro load | Open (Path C fallback) |
-| GAP-004 | P1 | Full mic latency human baseline | Open |
+| GAP-004 | P1 | Full mic latency human baseline | Open (T2 API: `sla_ok=false`, api_voice_path ~1.2–6.9s vs 800ms target) |
 | GAP-005 | P1 | Fleet Guardian confirm on device | API done; human open |
 | GAP-006 | P2 | `LETTA_ENABLED=true` on VPS | Open |
 | GAP-007 | P2 | `OTEL_ENABLED=true` on VPS | Open |
@@ -230,7 +232,7 @@ M1 is **done** for current baseline. Re-run M1 checklist on every code deploy.
 
 1. [x] Code: 6 agents, 3 voice paths, operators, squads, ingestion MVP, fm-bridge
 2. [x] T0: 224 pytest pass
-3. [x] T2: staging smoke pass (agents + voice + latency SLA)
+3. [x] T2: staging smoke pass (agents + voice; **latency SLA not met** — `sla_ok=false` on diagnostics)
 4. [ ] T3: Human Path A or C sign-off recorded
 5. [ ] T2: Letta/OTel enabled on VPS
 6. [ ] T2: Live squad webhooks (non-mock)
@@ -271,7 +273,7 @@ ADVOI_BASE_URL=http://127.0.0.1:8010 bash scripts/voice-smoke-test.sh
 ### T2 — staging smoke
 
 ```bash
-ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/staging-signoff-precheck.sh
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/staging-signoff-precheck.sh
 ```
 
 ```powershell
@@ -281,7 +283,7 @@ ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/staging-signoff-precheck
 #### T2 — targeted API checks
 
 ```bash
-BASE=https://advoi.keyteller.com
+BASE=https://advoi-staging.keyteller.com
 
 # Health + agents (expect 6 ready)
 curl -sf "$BASE/api/health"
@@ -294,9 +296,9 @@ curl -sf -X POST "$BASE/api/agents/run-six?refresh=true"
 curl -sf -X POST -H "Content-Type: application/json" \
   -d '{"transcript":"run all agents"}' "$BASE/api/voice/intent"
 
-# Fleet trigger preview (Guardian gate)
+# Fleet trigger preview (Guardian gate — use valid action, not frame id)
 curl -sf -X POST -H "Content-Type: application/json" \
-  -d '{"action":"fleet_status"}' "$BASE/api/fleet/trigger"
+  -d '{"action":"wake_firstmate","confirmed":false}' "$BASE/api/fleet/trigger"
 
 # Platform diagnostics
 curl -sf "$BASE/api/diagnostics/platform"
@@ -314,21 +316,20 @@ curl -sf "$BASE/api/aether/status"
 
 ```bash
 ssh deploy@187.77.140.216
-cd /opt/advoi
-git pull --ff-only
-bash scripts/staging-redeploy.sh
-ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/staging-signoff-precheck.sh
+bash /var/www/advoi/promote-to-staging.sh
+# or: bash /var/www/advoi/deploy-staging.sh
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/staging-signoff-precheck.sh
 ```
 
 Docs-only deploy:
 
 ```bash
-ssh deploy@187.77.140.216 "cd /opt/advoi && git pull --ff-only"
+ssh deploy@187.77.140.216 "cd /var/www/advoi/staging && git pull --ff-only"
 ```
 
 ### T3 — human E2E
 
-1. Open https://advoi.keyteller.com (Path A) or `/voice-server` (Path C).
+1. Open https://advoi-staging.keyteller.com (Path A) or `/voice-server` (Path C).
 2. Run rows A1–A9 or C1–C5 in [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md).
 3. Record PASS/FAIL in [E2E-SIGNOFF.md](E2E-SIGNOFF.md).
 
@@ -339,3 +340,5 @@ ssh deploy@187.77.140.216 "cd /opt/advoi && git pull --ff-only"
 | Date | Change |
 |------|--------|
 | 2026-07-10 | Initial roadmap: validation tiers T0–T3, milestones M1–M9, gap register, appendix commands. Baseline `71fd7ae`, staging 6/6. |
+| 2026-07-10 | www staging tier: `advoi-staging.keyteller.com`, `/var/www/advoi/staging`, T2 commands updated. |
+| 2026-07-10 | T2 validation run: precheck pass, M1.4 aether 200, appendix fleet curl fixed; baseline SHA `5d50805`. |

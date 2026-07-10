@@ -41,7 +41,7 @@ These run in CI or via scripts. Re-run after every deploy.
 
 | Check | Command | Last known |
 |-------|---------|------------|
-| Full pytest | `uv run pytest tests/ -q` | **224** passed |
+| Full pytest | `uv run pytest tests/ -q` | **190** passed |
 | Agents smoke | `.\scripts\agents-smoke-test.ps1` | 6 agents + run-six + squads + platform |
 | Run six script | `.\scripts\run-six-agents.ps1 -Refresh` | 6 frames CLI |
 | Voice smoke | `.\scripts\voice-smoke-test.ps1` or `.sh` | Staging `ok: true` |
@@ -142,9 +142,9 @@ Log failures here. Link to GitHub issue when filed.
 | BUG-002 | High | Path A staging | User hears nothing when `advoi-voice` missing LLM key | `sync-llm-keys-from-clapart.sh` + recreate voice container | **Mitigated** |
 | BUG-003 | Low | Local dev | Many parallel pytest/node processes slow or hang tests | Kill stray `python`/`node`; clear `pytest-of-artec` temp | **Open** (env) |
 | BUG-004 | Low | Path B Windows | First Kokoro/Parakeet load ~200MB; console cache noise | Expected; use Path C if blocked | **Mitigated** — storage probe + fallback |
-| BUG-005 | **High** | Path A PWA staging | Only 3 frame buttons (A-C); frames D-F + Aether 404 | `bash scripts/staging-redeploy.sh` after `git pull` | **Closed** — staging 6/6 @ `71fd7ae` |
-| BUG-006 | **High** | Path A voice | "What can you do" / FirstMate / GitHub → vague LLM "I don't know" | Operator intents + `/api/capabilities` (2026-07-09 fix) | **Closed in staging** — verify T3 |
-| BUG-007 | Med | Path A PWA | No operator controls (run all, prewarm, capabilities) | Operator bar in `VoiceSession.tsx` (2026-07-09) | **Closed in staging** — verify T3 |
+| BUG-005 | **High** | Path A PWA staging | Only 3 frame buttons (A-C); frames D-F + Aether 404 | `bash scripts/staging-redeploy.sh` after `git pull` | **Open** — deploy drift |
+| BUG-006 | **High** | Path A voice | "What can you do" / FirstMate / GitHub → vague LLM "I don't know" | Operator intents + `/api/capabilities` (2026-07-09 fix) | **Fixed in code** — needs deploy |
+| BUG-007 | Med | Path A PWA | No operator controls (run all, prewarm, capabilities) | Operator bar in `VoiceSession.tsx` (2026-07-09) | **Fixed in code** — needs deploy |
 
 ---
 
