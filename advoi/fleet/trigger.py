@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from advoi.copy_style import plain_copy
 from advoi.fleet.bridge import resolve_fleet_exec
+from advoi.portfolio.ecr import resolve_execution_target
 from advoi.routing.frame_runner import (
     _fleet_backlog_snapshot,
     _fleet_profile_snapshot,
@@ -39,6 +40,9 @@ def _fleet_mock() -> bool:
 def resolve_active_project(explicit: str | None = None) -> str:
     if explicit:
         return explicit.strip().lower()
+    target = resolve_execution_target()
+    if target.get("fleet_slug"):
+        return str(target["fleet_slug"]).strip().lower()
     profile = _fleet_profile_snapshot(_fleet_root() / "data")
     return (profile.get("active_slug") or os.getenv("FM_HERMES_PROJECT") or "clapart").strip()
 

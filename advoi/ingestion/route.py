@@ -7,6 +7,7 @@ from typing import Any
 
 from advoi.aether.portfolio import VENTURES
 from advoi.fleet.trigger import resolve_active_project
+from advoi.portfolio.ecr import resolve_execution_target
 from advoi.ingestion.models import IngestItem, PriorityBand
 
 _DEV_KEYWORDS = (
@@ -84,6 +85,9 @@ def _fleet_slug_for_venture(venture_id: str | None, explicit_slug: str | None) -
         mapped = _SLUG_ALIASES[venture_id]
         if mapped:
             return mapped
+    target = resolve_execution_target()
+    if target.get("fleet_slug"):
+        return str(target["fleet_slug"])
     return resolve_active_project()
 
 
@@ -127,7 +131,8 @@ def route_document(
             best_score = s
             best_venture = venture.id
 
-    active_slug = resolve_active_project()
+    active_target = resolve_execution_target()
+    active_slug = active_target.get("fleet_slug") or resolve_active_project()
     slug_scores: dict[str, float] = {active_slug: 1.0}
     for alias, slug in _SLUG_ALIASES.items():
         if alias in haystack or slug in tokens:

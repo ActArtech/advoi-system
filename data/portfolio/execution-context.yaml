@@ -1,0 +1,39 @@
+version: 1
+
+active_execution_target:
+  venture_id: firstmate-fleet
+  fleet_slug: clapart
+  github_repo: ActArtech/clapart
+  develop_path: develop
+  staging_url: https://clapart.actartech.com
+
+ventures:
+  - venture_id: advoi-system
+    fleet_slug: advoi
+    repo_path: /opt/advoi
+    github_repo: ActArtech/advoi-system
+    tags: [advoi-system, advoi, voice, infrastructure]
+
+  - venture_id: firstmate-fleet
+    fleet_slug: clapart
+    repo_path: /opt/firstmate-fleet
+    github_repo: ActArtech/firstmate-fleet
+    tags: [firstmate-fleet, orchestration, execution]
+
+  - venture_id: clapart
+    fleet_slug: clapart
+    repo_path: /opt/clapart
+    github_repo: ActArtech/clapart
+    tags: [clapart]
+
+  - venture_id: gem-dev-shop
+    fleet_slug: gem-dev-shop
+    repo_path: /opt/gem-dev-shop
+    github_repo: ActArtech/gem-dev-shop
+    tags: [gem-dev-shop, venture, aether-active]
+
+  - venture_id: hermes-beacon
+    fleet_slug: hermes
+    repo_path: /opt/hermes
+    github_repo: ActArtech/hermes-beacon
+    tags: [hermes-beacon, hermes, memory, editorial]
