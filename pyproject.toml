@@ -32,7 +32,7 @@ observability = [
     "opentelemetry-api>=1.27",
     "opentelemetry-sdk>=1.27",
     "opentelemetry-exporter-otlp-proto-grpc>=1.27",
-    "opentelemetry-instrumentation-fastapi>=0.48",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
 ]
 dev = [
     "pytest>=8.0",
