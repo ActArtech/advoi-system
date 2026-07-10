@@ -22,6 +22,7 @@ docs/
 │   └── improvement-roadmap.md
 ├── operations/               Runbooks and validation
 │   ├── ROADMAP-VALIDATION.md  Milestones M1-M9, tiers T0-T3
+│   ├── BATCH-DOCUMENTATION.md Fleet batch wrap-up gate
 │   ├── MANUAL-TEST-TRACKER.md Human test matrix
 │   ├── local-testing.md
 │   └── staging-runbook.md
@@ -31,6 +32,8 @@ docs/
 ├── insights/                 Research distillations
 ├── decision-log/             ADRs
 ├── dev-log/                  Chronological dev notes
+├── opportunities-log/        Deferred work and follow-up ideas
+├── alignment-log/            Batch ↔ roadmap milestone alignment
 └── (legacy guides below)
 ```
 
@@ -42,6 +45,9 @@ docs/
 | See what's built vs missing | [current-state/SYSTEM-STATUS.md](current-state/SYSTEM-STATUS.md) |
 | What we shipped this sprint | [current-state/WHAT-WE-DID-2026-07-10.md](current-state/WHAT-WE-DID-2026-07-10.md) |
 | Roadmap + validation gates | [operations/ROADMAP-VALIDATION.md](operations/ROADMAP-VALIDATION.md) |
+| Batch wrap-up discipline | [operations/BATCH-DOCUMENTATION.md](operations/BATCH-DOCUMENTATION.md) |
+| Deferred opportunities | [opportunities-log/OPPORTUNITIES-LOG.md](opportunities-log/OPPORTUNITIES-LOG.md) |
+| Roadmap alignment trace | [alignment-log/ALIGNMENT-LOG.md](alignment-log/ALIGNMENT-LOG.md) |
 | Portfolio moat and strategy | [reviews/PORTFOLIO-SYSTEM-MOAT.md](reviews/PORTFOLIO-SYSTEM-MOAT.md) |
 | Run all 6 agents | `.\scripts\run-six-agents.ps1 -Refresh` |
 | Open gaps (prioritized) | [current-state/gaps-and-blockers.md](current-state/gaps-and-blockers.md) |

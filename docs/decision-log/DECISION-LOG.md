@@ -70,6 +70,7 @@
 | ADR-024 | Reject TheBotCompany as Orchestrator | Accepted | 2026-07-07 |
 | ADR-025 | OpenRouter for Model Routing Experiments | Accepted | 2026-07-07 |
 | ADR-026 | Memory Stack — Hindsight ± Letta | Accepted | 2026-07-07 |
+| ADR-027 | Batch documentation wrap-up gate | Accepted | 2026-07-10 |
 
 ---
 
@@ -730,6 +731,40 @@ Implementation: `advoi/memory/write_targets.py` + `MemoryRouter` with explicit `
 - [ ] `MEMORY_PROVIDER=hindsight` in deploy/.env
 - [ ] Letta only when `LETTA_ENABLED=true` and `/opt/letta` up
 - [ ] ADR recorded; `.aether/DECISIONS.md` synced
+
+---
+
+## ADR-027: Batch documentation wrap-up gate
+
+**Date:** 2026-07-10  
+**Status:** Accepted  
+**Deciders:** Fleet batch discipline setup (advoi-batch-doc-setup-01)
+
+### Context
+
+Multi-agent fleet batches (FirstMate dispatch, squad bridge, fm-bridge) can ship 5+ items quickly. Without a forced documentation stop, context scatters across commits, Discord, and VPS state. Roadmap milestones M1–M9 need traceable proof and deferral records before the next Queued wave starts.
+
+### Options Considered
+
+1. **Ad hoc docs** — Update DEV-LOG when someone remembers
+2. **PR-only discipline** — Rely on GitHub PR descriptions without structured logs
+3. **Hard wrap-up gate** — STOP new dispatch on triggers; mandatory logs + evidence before resume
+
+### Decision
+
+**Option 3 — hard wrap-up gate:**
+
+- **Triggers:** 5 Done items OR milestone completion OR 2+ parked blockers → STOP new Queued dispatch
+- **Mandatory artifacts:** DEV-LOG, DECISION-LOG (if applicable), OPPORTUNITIES-LOG, ALIGNMENT-LOG, evidence at `data/feedback-evidence/batch-YYYY-MM-DD/`
+- **Resume:** Explicit fleet resume only after all artifacts committed
+
+Procedure: [BATCH-DOCUMENTATION.md](../operations/BATCH-DOCUMENTATION.md).
+
+### Consequences
+
+- **Positive:** Preserves sprint context; aligns fleet cadence with ROADMAP-VALIDATION M1–M9; surfaces deferrals in OPPORTUNITIES-LOG
+- **Negative:** Short pause in dispatch throughput at batch boundaries
+- **Risks:** Gate ignored under pressure — mitigated by ALIGNMENT-LOG check at resume
 
 ---
 
