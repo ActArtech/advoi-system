@@ -25,6 +25,7 @@ docs/
 ├── operations/               Runbooks and validation
 │   ├── BATCH-DOCUMENTATION.md Mandatory wrap-up after good batch
 │   ├── ROADMAP-VALIDATION.md  Milestones M1-M9, tiers T0-T3
+│   ├── ANALYTICS-FUNNEL.md    PWA PEL funnel queries (connect→success)
 │   ├── MANUAL-TEST-TRACKER.md Human test matrix
 │   ├── local-testing.md
 │   └── staging-runbook.md
@@ -46,6 +47,7 @@ docs/
 | What we shipped this sprint | [current-state/WHAT-WE-DID-2026-07-10.md](current-state/WHAT-WE-DID-2026-07-10.md) |
 | Roadmap + validation gates | [operations/ROADMAP-VALIDATION.md](operations/ROADMAP-VALIDATION.md) |
 | Batch wrap-up (dev/decision/OPP/alignment) | [operations/BATCH-DOCUMENTATION.md](operations/BATCH-DOCUMENTATION.md) |
+| PWA analytics funnel (PEL SQL) | [operations/ANALYTICS-FUNNEL.md](operations/ANALYTICS-FUNNEL.md) |
 | Opportunities discovered in batches | [current-state/OPPORTUNITIES-LOG.md](current-state/OPPORTUNITIES-LOG.md) |
 | Alignment after each batch | [current-state/ALIGNMENT-LOG.md](current-state/ALIGNMENT-LOG.md) |
 | Portfolio moat and strategy | [reviews/PORTFOLIO-SYSTEM-MOAT.md](reviews/PORTFOLIO-SYSTEM-MOAT.md) |
