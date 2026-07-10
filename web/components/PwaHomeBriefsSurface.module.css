@@ -124,6 +124,13 @@
   color: var(--text);
 }
 
+.cardMeta {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
 .cardRow {
   display: flex;
   flex-wrap: wrap;

@@ -66,14 +66,6 @@ type AgentRow = {
   last_run?: LastRun;
 };
 
-type ReviewQueueItem = {
-  queue_id: number;
-  title: string;
-  status: string;
-  brief_url?: string;
-  created_at?: string;
-};
-
 type VoiceDiagnostics = {
   ok: boolean;
   checks?: {
@@ -166,7 +158,6 @@ export function VoiceSession() {
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
   /** Guardian confirm panel — same copy for voice TTS and tap UI. */
   const [confirmUi, setConfirmUi] = useState<ConfirmParityModel | null>(null);
-  const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const [voiceDiag, setVoiceDiag] = useState<VoiceDiagnostics | null>(null);
   const [latencyDiag, setLatencyDiag] = useState<LatencyDiagnostics | null>(null);
   const [aetherStatus, setAetherStatus] = useState<AetherStatusPayload | null>(null);
@@ -227,13 +218,6 @@ export function VoiceSession() {
       }),
     [],
   );
-
-  const loadReviewQueue = useCallback(() => {
-    fetch(`${apiBase}/review-queue`)
-      .then((r) => (r.ok ? r.json() : { pending: [] }))
-      .then((data) => setReviewQueue((data.pending || []) as ReviewQueueItem[]))
-      .catch(() => setReviewQueue([]));
-  }, []);
 
   const loadLatency = useCallback(() => {
     fetch(`${apiBase}/diagnostics/latency`)
@@ -315,18 +299,14 @@ export function VoiceSession() {
       .then((data) => setCapabilities(data as CapabilitiesPayload | null))
       .catch(() => setCapabilities(null));
     loadAgents();
-    loadReviewQueue();
     loadDiagnostics();
-    const agentsT = setInterval(() => {
-      loadAgents();
-      loadReviewQueue();
-    }, 30000);
+    const agentsT = setInterval(loadAgents, 30000);
     const diagT = setInterval(loadDiagnostics, 60000);
     return () => {
       clearInterval(agentsT);
       clearInterval(diagT);
     };
-  }, [loadAgents, loadDiagnostics, loadReviewQueue]);
+  }, [loadAgents, loadDiagnostics]);
 
   useEffect(() => {
     const onState = (s: ConnectionState) => {
@@ -476,29 +456,6 @@ export function VoiceSession() {
         loadAgents();
         // Refresh SLA chip without full page reload (ship #2).
         loadLatency();
-        if (frameId === "queue_deep_review" && data.status === "ok") {
-          const detail = data.detail as {
-            brief_url?: string;
-            title?: string;
-            queue_id?: number;
-          };
-          if (detail?.brief_url) {
-            setReviewQueue((prev) => {
-              const id = detail.queue_id ?? prev.length;
-              if (prev.some((r) => r.queue_id === id)) return prev;
-              return [
-                {
-                  queue_id: id,
-                  title: detail.title || "Deep review",
-                  status: "pending",
-                  brief_url: detail.brief_url,
-                },
-                ...prev,
-              ];
-            });
-          }
-          loadReviewQueue();
-        }
       } catch (err) {
         const classified = classifyApiError(err, { target: frameId });
         setLastFailedFrameId(frameId);
@@ -518,7 +475,6 @@ export function VoiceSession() {
       frames,
       loadAgents,
       loadLatency,
-      loadReviewQueue,
       publishSpeak,
       surfaceRecovery,
       voiceConnected,
@@ -1451,29 +1407,6 @@ export function VoiceSession() {
           </button>
         )}
       </div>
-
-      {reviewQueue.length > 0 ? (
-        <div className={styles.reviewSection} aria-label="Pending deep reviews">
-          <p className={styles.reviewHeading}>Review queue ({reviewQueue.length})</p>
-          <ul className={styles.reviewList}>
-            {reviewQueue.slice(0, 5).map((item) => (
-              <li key={item.queue_id} className={styles.reviewItem}>
-                <span className={styles.reviewTitle}>{item.title}</span>
-                {item.brief_url ? (
-                  <a
-                    className={styles.reviewLink}
-                    href={item.brief_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open brief
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
 
       <div className={styles.frames}>
         {frames.map((frame) => {

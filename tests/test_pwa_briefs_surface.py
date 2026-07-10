@@ -13,6 +13,10 @@ import pytest
 
 HOME_BRIEFS_LIMIT = 5
 OPEN_BRIEFS_FRAME_ID = "open_briefs"
+# Home cards: PG→Redis only; voice open_briefs may still Hindsight-enrich.
+OPEN_BRIEFS_EMPTY_LABEL = (
+    "No open briefs in Postgres or cache. Voice may still enrich from Hindsight."
+)
 
 
 def parse_open_briefs_payload(data: Any) -> dict[str, Any]:
@@ -84,7 +88,7 @@ def open_briefs_section_model(
     base = {
         "id": "open_briefs",
         "title": "Open briefs",
-        "empty_label": "No open briefs in memory.",
+        "empty_label": OPEN_BRIEFS_EMPTY_LABEL,
         "error_label": "Could not load open briefs.",
         "cta_label": "Hear open briefs",
         "frame_id": OPEN_BRIEFS_FRAME_ID,
@@ -248,11 +252,19 @@ def test_open_briefs_section_renders_cards_from_mock():
 def test_open_briefs_section_empty_and_error():
     empty = open_briefs_section_model(briefs=[])
     assert empty["state"] == "empty"
-    assert empty["empty_label"] == "No open briefs in memory."
+    assert empty["empty_label"] == OPEN_BRIEFS_EMPTY_LABEL
+    assert "Hindsight" in empty["empty_label"]
     err = open_briefs_section_model(briefs=[], error=True)
     assert err["state"] == "error"
     loading = open_briefs_section_model(briefs=[], loading=True)
     assert loading["state"] == "loading"
+
+
+def test_open_briefs_card_meta_from_source():
+    m = open_briefs_section_model(briefs=["Alpha"], source="postgres")
+    assert m["cards"][0]["meta"] == "source: postgres"
+    bare = open_briefs_section_model(briefs=["Alpha"])
+    assert bare["cards"][0]["meta"] is None
 
 
 def test_open_briefs_section_respects_limit():

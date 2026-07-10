@@ -2,7 +2,7 @@
  * PWA home briefs surface — pure helpers for open briefs + review queue cards.
  *
  * Surfaces existing data on `/` without navigating to `/briefs`:
- * - GET /api/briefs (open decision briefs)
+ * - GET /api/briefs (open decision briefs; PG → Redis only — no Hindsight)
  * - GET /api/review-queue (deep review pending)
  *
  * Keep Python mirror in tests/test_pwa_briefs_surface.py in sync.
@@ -13,6 +13,13 @@ export const HOME_BRIEFS_LIMIT = 5;
 
 /** Frame id for “Hear open briefs” CTA. */
 export const OPEN_BRIEFS_FRAME_ID = "open_briefs";
+
+/**
+ * Empty-state copy for home open briefs (thin GET /api/briefs = PG→Redis only).
+ * Voice open_briefs frame may still Hindsight-enrich when that load is empty.
+ */
+export const OPEN_BRIEFS_EMPTY_LABEL =
+  "No open briefs in Postgres or cache. Voice may still enrich from Hindsight.";
 
 export type OpenBriefItem = {
   title: string;
@@ -62,6 +69,33 @@ export type HomeBriefsSurfaceModel = {
   eyebrow: string;
   heading: string;
 };
+
+/**
+ * Shared section shell for loading/error/ok return shapes.
+ */
+function sectionBase(input: {
+  id: SectionModel["id"];
+  title: string;
+  state: FetchState;
+  emptyLabel: string;
+  errorLabel: string;
+  ctaLabel: string | null;
+  frameId: string | null;
+  count?: number;
+  cards?: BriefCardModel[];
+}): SectionModel {
+  return {
+    id: input.id,
+    title: input.title,
+    state: input.state,
+    count: input.count ?? 0,
+    emptyLabel: input.emptyLabel,
+    errorLabel: input.errorLabel,
+    cards: input.cards ?? [],
+    ctaLabel: input.ctaLabel,
+    frameId: input.frameId,
+  };
+}
 
 /**
  * Normalize open-briefs API payload into title strings.
@@ -151,31 +185,19 @@ export function openBriefsSectionModel(input: {
   limit?: number;
 }): SectionModel {
   const limit = input.limit ?? HOME_BRIEFS_LIMIT;
+  const shell = {
+    id: "open_briefs" as const,
+    title: "Open briefs",
+    emptyLabel: OPEN_BRIEFS_EMPTY_LABEL,
+    errorLabel: "Could not load open briefs.",
+    ctaLabel: "Hear open briefs" as string | null,
+    frameId: OPEN_BRIEFS_FRAME_ID as string | null,
+  };
   if (input.loading) {
-    return {
-      id: "open_briefs",
-      title: "Open briefs",
-      state: "loading",
-      count: 0,
-      emptyLabel: "No open briefs in memory.",
-      errorLabel: "Could not load open briefs.",
-      cards: [],
-      ctaLabel: "Hear open briefs",
-      frameId: OPEN_BRIEFS_FRAME_ID,
-    };
+    return sectionBase({ ...shell, state: "loading" });
   }
   if (input.error) {
-    return {
-      id: "open_briefs",
-      title: "Open briefs",
-      state: "error",
-      count: 0,
-      emptyLabel: "No open briefs in memory.",
-      errorLabel: "Could not load open briefs.",
-      cards: [],
-      ctaLabel: "Hear open briefs",
-      frameId: OPEN_BRIEFS_FRAME_ID,
-    };
+    return sectionBase({ ...shell, state: "error" });
   }
   const titles = (input.briefs || []).map((t) => t.trim()).filter(Boolean);
   const sliced = titles.slice(0, limit);
@@ -187,17 +209,12 @@ export function openBriefsSectionModel(input: {
     href: null,
     meta: input.source ? `source: ${input.source}` : null,
   }));
-  return {
-    id: "open_briefs",
-    title: "Open briefs",
+  return sectionBase({
+    ...shell,
     state: cards.length === 0 ? "empty" : "ok",
     count: titles.length,
-    emptyLabel: "No open briefs in memory.",
-    errorLabel: "Could not load open briefs.",
     cards,
-    ctaLabel: "Hear open briefs",
-    frameId: OPEN_BRIEFS_FRAME_ID,
-  };
+  });
 }
 
 /**
@@ -210,31 +227,19 @@ export function reviewQueueSectionModel(input: {
   limit?: number;
 }): SectionModel {
   const limit = input.limit ?? HOME_BRIEFS_LIMIT;
+  const shell = {
+    id: "review_queue" as const,
+    title: "Review queue",
+    emptyLabel: "Review queue is clear.",
+    errorLabel: "Could not load review queue.",
+    ctaLabel: null as string | null,
+    frameId: null as string | null,
+  };
   if (input.loading) {
-    return {
-      id: "review_queue",
-      title: "Review queue",
-      state: "loading",
-      count: 0,
-      emptyLabel: "Review queue is clear.",
-      errorLabel: "Could not load review queue.",
-      cards: [],
-      ctaLabel: null,
-      frameId: null,
-    };
+    return sectionBase({ ...shell, state: "loading" });
   }
   if (input.error) {
-    return {
-      id: "review_queue",
-      title: "Review queue",
-      state: "error",
-      count: 0,
-      emptyLabel: "Review queue is clear.",
-      errorLabel: "Could not load review queue.",
-      cards: [],
-      ctaLabel: null,
-      frameId: null,
-    };
+    return sectionBase({ ...shell, state: "error" });
   }
   const items = input.pending || [];
   const sliced = items.slice(0, limit);
@@ -252,17 +257,12 @@ export function reviewQueueSectionModel(input: {
       meta: item.created_at ? `queued ${item.created_at}` : null,
     };
   });
-  return {
-    id: "review_queue",
-    title: "Review queue",
+  return sectionBase({
+    ...shell,
     state: cards.length === 0 ? "empty" : "ok",
     count: items.length,
-    emptyLabel: "Review queue is clear.",
-    errorLabel: "Could not load review queue.",
     cards,
-    ctaLabel: null,
-    frameId: null,
-  };
+  });
 }
 
 /**

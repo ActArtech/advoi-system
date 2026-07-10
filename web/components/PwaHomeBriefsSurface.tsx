@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RUN_FRAME_EVENT } from "./pwaOnboarding";
 import {
   HOME_BRIEFS_LIMIT,
@@ -14,9 +14,29 @@ import styles from "./PwaHomeBriefsSurface.module.css";
 const apiBase =
   process.env.NEXT_PUBLIC_ADVOI_API_URL?.replace(/\/$/, "") || "/api";
 
+function isAbortError(err: unknown): boolean {
+  return (
+    !!err &&
+    typeof err === "object" &&
+    "name" in err &&
+    (err as { name?: string }).name === "AbortError"
+  );
+}
+
+/** Shared JSON fetch for section loaders (throws on non-OK). */
+async function fetchJson(
+  url: string,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const r = await fetch(url, { signal });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
 /**
  * Home-only open briefs + review queue cards (no navigation to `/briefs` required).
  * Fetches existing APIs: GET /api/briefs, GET /api/review-queue.
+ * Single review-queue UI on `/` (VoiceSession list removed).
  */
 export function PwaHomeBriefsSurface() {
   const [openBriefs, setOpenBriefs] = useState<string[]>([]);
@@ -28,51 +48,65 @@ export function PwaHomeBriefsSurface() {
   const [reviewLoading, setReviewLoading] = useState(true);
   const [reviewError, setReviewError] = useState(false);
 
+  const loadGenRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+
   const load = useCallback(() => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    const gen = ++loadGenRef.current;
+    const stillCurrent = () => gen === loadGenRef.current && !ac.signal.aborted;
+
     setOpenLoading(true);
     setReviewLoading(true);
     setOpenError(false);
     setReviewError(false);
 
-    fetch(`${apiBase}/briefs`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`briefs ${r.status}`);
-        return r.json();
-      })
+    fetchJson(`${apiBase}/briefs`, ac.signal)
       .then((data) => {
+        if (!stillCurrent()) return;
         const parsed = parseOpenBriefsPayload(data);
         setOpenBriefs(parsed.briefs);
         setOpenSource(parsed.source);
         setOpenError(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (isAbortError(err) || !stillCurrent()) return;
         setOpenBriefs([]);
         setOpenSource(null);
         setOpenError(true);
       })
-      .finally(() => setOpenLoading(false));
+      .finally(() => {
+        if (!stillCurrent()) return;
+        setOpenLoading(false);
+      });
 
-    fetch(`${apiBase}/review-queue`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`review-queue ${r.status}`);
-        return r.json();
-      })
+    fetchJson(`${apiBase}/review-queue`, ac.signal)
       .then((data) => {
+        if (!stillCurrent()) return;
         const parsed = parseReviewQueuePayload(data);
         setReviewPending(parsed.pending);
         setReviewError(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (isAbortError(err) || !stillCurrent()) return;
         setReviewPending([]);
         setReviewError(true);
       })
-      .finally(() => setReviewLoading(false));
+      .finally(() => {
+        if (!stillCurrent()) return;
+        setReviewLoading(false);
+      });
   }, []);
 
   useEffect(() => {
     load();
     const t = setInterval(load, 30000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      abortRef.current?.abort();
+    };
   }, [load]);
 
   const model = useMemo(
@@ -168,6 +202,11 @@ export function PwaHomeBriefsSurface() {
                   data-kind={card.kind}
                 >
                   <p className={styles.cardTitle}>{card.title}</p>
+                  {card.meta ? (
+                    <p className={styles.cardMeta} data-testid="brief-card-meta">
+                      {card.meta}
+                    </p>
+                  ) : null}
                   <div className={styles.cardRow}>
                     <span className={`${styles.statusChip} ${styles.open_brief}`}>
                       {card.statusLabel}
@@ -228,6 +267,11 @@ export function PwaHomeBriefsSurface() {
                   data-kind={card.kind}
                 >
                   <p className={styles.cardTitle}>{card.title}</p>
+                  {card.meta ? (
+                    <p className={styles.cardMeta} data-testid="brief-card-meta">
+                      {card.meta}
+                    </p>
+                  ) : null}
                   <div className={styles.cardRow}>
                     <span className={`${styles.statusChip} ${styles.review}`}>
                       {card.statusLabel}
