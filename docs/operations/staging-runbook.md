@@ -1,6 +1,13 @@
 # Staging runbook
 
-VPS: `deploy@187.77.140.216`, path `/opt/advoi`, public `https://advoi.keyteller.com`.
+VPS: `deploy@187.77.140.216`.
+
+**Canonical staging (www tier):** path `/var/www/advoi/staging`, public https://advoi-staging.keyteller.com  
+**Live:** `/var/www/advoi/live` → https://advoi.keyteller.com  
+**Develop:** `/data/projects/advoi` (branch `develop`)  
+**Legacy (deprecating):** `/opt/advoi` — old single-path stack until cutover; do not treat as the only staging location.
+
+Full path model: [docs/VPS-SETUP.md](../VPS-SETUP.md).
 
 ## Pre-deploy checklist
 
@@ -10,6 +17,18 @@ VPS: `deploy@187.77.140.216`, path `/opt/advoi`, public `https://advoi.keyteller
 - [ ] `ADVOI_SHELVE_PULL` unset or `false`
 
 ## Deploy
+
+### Preferred — promote to www staging
+
+```bash
+# After changes land on develop checkout (/data/projects/advoi):
+bash /var/www/advoi/promote-to-staging.sh
+curl https://advoi-staging.keyteller.com/api/health
+```
+
+Host script `promote-to-staging.sh` is not in this repo (no `scripts/www/` yet).
+
+### Legacy — compose on `/opt/advoi`
 
 ```bash
 cd /opt/advoi
@@ -31,9 +50,10 @@ docker compose --profile app up -d --force-recreate advoi-voice
 ## Post-deploy smoke
 
 ```bash
+curl https://advoi-staging.keyteller.com/api/health
 bash scripts/voice-smoke-test.sh
 # Or:
-ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/agents-smoke-test.sh
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/agents-smoke-test.sh
 bash scripts/memory-health.sh
 ```
 
@@ -50,7 +70,7 @@ Expected:
 
 Path A (staging default):
 
-1. Open https://advoi.keyteller.com on phone or desktop Chrome
+1. Open https://advoi-staging.keyteller.com on phone or desktop Chrome
 2. **Connect voice** — allow mic
 3. Hear ADVoi greeting within ~10s
 4. Tap **Option A** (fleet) — hear spoken summary

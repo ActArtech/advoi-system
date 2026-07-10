@@ -29,7 +29,17 @@ ADVoi is organized as **verticals** (domain capabilities) and **horizontals** (c
 
 ## VPS deploy (Aether standard)
 
-See **[docs/VPS-SETUP.md](docs/VPS-SETUP.md)** — 8-step checklist for `/opt/advoi` @ `advoi.keyteller.com`.
+See **[docs/VPS-SETUP.md](docs/VPS-SETUP.md)** for the three-tier www flow:
+
+| Tier | Path | URL |
+|------|------|-----|
+| Develop | `/data/projects/advoi` (`develop`) | — |
+| Staging | `/var/www/advoi/staging` | https://advoi-staging.keyteller.com |
+| Live | `/var/www/advoi/live` | https://advoi.keyteller.com |
+
+Promote: `bash /var/www/advoi/promote-to-staging.sh` · smoke: `curl https://advoi-staging.keyteller.com/api/health`
+
+`/opt/advoi` is the **legacy** single-path stack (deprecating until cutover). Host promote script is not in this repo yet (no `scripts/www/`).
 
 Memory: **[docs/MEMORY-STACK.md](docs/MEMORY-STACK.md)** — start Hindsight via Hermes; Letta optional v0.2.
 
