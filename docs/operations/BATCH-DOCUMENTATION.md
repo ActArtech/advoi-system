@@ -88,6 +88,8 @@ Use template in `DECISION-LOG.md` § ADR Template.
 
 Promote value ≥7 + complexity ≤M to `data/harvest-backlog-advoi.md` or `data/feedback-backlog-advoi.md`.
 
+**Harvest scouts (ADVoi):** use on-product lenses and report template in [HARVEST-RUBRIC-ADVOI.md](HARVEST-RUBRIC-ADVOI.md) (ingest lifecycle, voice/PWA, aether/PEL, fleet bridge, staging smoke, memory/ADR-026, ontology). Do not use agentsim-lab discovery targets. Fleet runtime copy is `/data/config/harvest-rubric.md` (FirstMate-owned merge).
+
 ---
 
 ## 4. Alignment log entry
@@ -154,4 +156,5 @@ Blocker during batch: still log partial wrap-up with `Status: Partial` and block
 
 | Date | Change |
 |------|--------|
+| 2026-07-10 | Link ADVoi harvest rubric ([HARVEST-RUBRIC-ADVOI.md](HARVEST-RUBRIC-ADVOI.md)) for scout/opportunity promote path |
 | 2026-07-10 | Initial batch documentation standard for First Mate AFK loop |

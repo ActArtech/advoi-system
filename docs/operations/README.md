@@ -19,6 +19,7 @@ Runbooks for local development and staging validation.
 | [MIGRATIONS.md](MIGRATIONS.md) | Versioned SQL under `deploy/migrations/`, apply order, staging verify (SSH parked) |
 | [E2E-SIGNOFF.md](E2E-SIGNOFF.md) | Formal Path A sign-off template (incl. home briefs A17) |
 | [BATCH-DOCUMENTATION.md](BATCH-DOCUMENTATION.md) | Fleet batch wrap-up gate, mandatory logs |
+| [HARVEST-RUBRIC-ADVOI.md](HARVEST-RUBRIC-ADVOI.md) | ADVoi harvest scout lenses (ingest, voice/PWA, aether/PEL, fleet, staging, memory, ontology); fleet merge via FirstMate |
 | [../MEMORY-STACK.md](../MEMORY-STACK.md#ttl--compaction-policy) | Redis voice TTL + `memory_events` retention job |
 
 See also: [../VPS-SETUP.md](../VPS-SETUP.md) (8-step Aether checklist).
