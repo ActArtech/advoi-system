@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from advoi.cache.agent_cache import read_agent_cache
-from advoi.cache.redis_client import get_redis
 from advoi.copy_style import format_briefs_spoken, normalize_brief_title, plain_copy
 from advoi.decision.frames import DecisionFrame, get_frame
 from advoi.memory import MemoryRouter
@@ -343,43 +342,50 @@ def _voice_trim(text: str, *, max_sentences: int = 4) -> str:
     return spoken or text[:400]
 
 
-def _load_open_briefs_redis() -> list[str]:
-    try:
-        import json
-
-        client = get_redis()
-        if not client:
-            return []
-        raw = client.get("advoi:briefs:open")
-        if not raw:
-            return []
-        data = json.loads(raw)
-        if isinstance(data, list):
-            return [str(x)[:120] for x in data if x]
-    except Exception:
-        pass
-    return []
+def _normalize_brief_list(titles: list[str]) -> list[str]:
+    """Dedupe and normalize brief titles (single source list only — never multi-store merge)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for title in titles:
+        clean = normalize_brief_title(title)[:120]
+        key = clean.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(clean)
+    return out
 
 
-async def _load_open_briefs() -> list[str]:
-    """Merge Postgres canonical briefs, Redis cache, deduped."""
+async def _load_open_briefs() -> tuple[list[str], str]:
+    """Load open briefs: Postgres canonical → fill Redis cache; Redis only if PG down.
+
+    Read order (ADR-026 ship #2b):
+      1. Postgres ``decision_briefs`` (canonical)
+      2. On PG hit: fill Redis ``advoi:briefs:open`` (cache only)
+      3. On PG miss/unavailable: degraded Redis cache, then caller may Hindsight-enrich
+    Redis is never merged with PG as a second title source.
+    """
+    from advoi.memory.briefs_cache import (
+        fill_open_briefs_cache,
+        invalidate_open_briefs_cache,
+        read_open_briefs_cache,
+    )
     from advoi.memory.postgres_store import list_open_briefs
 
-    seen: set[str] = set()
-    merged: list[str] = []
-    for title in await list_open_briefs():
-        clean = normalize_brief_title(title)[:120]
-        key = clean.strip().lower()
-        if key and key not in seen:
-            seen.add(key)
-            merged.append(clean)
-    for title in _load_open_briefs_redis():
-        clean = normalize_brief_title(title)[:120]
-        key = clean.strip().lower()
-        if key and key not in seen:
-            seen.add(key)
-            merged.append(clean)
-    return merged
+    pg = await list_open_briefs()
+    if pg is not None:
+        items = _normalize_brief_list(pg)
+        if items:
+            fill_open_briefs_cache(items)
+            return items, "postgres"
+        # Canonical empty — drop stale cache so spoken output cannot resurrect deleted briefs.
+        invalidate_open_briefs_cache()
+        return [], "postgres"
+
+    # Postgres unavailable: serve last filled cache only (not a merge path).
+    cached = _normalize_brief_list(read_open_briefs_cache())
+    if cached:
+        return cached, "redis_cache"
+    return [], "unavailable"
 
 
 async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
@@ -387,25 +393,29 @@ async def _run_brief_curator() -> tuple[str, dict[str, Any]]:
         mock = ["ADVoi voice launch", "Staging catch-up"]
         return format_briefs_spoken(mock), {"mode": "mock", "briefs": mock}
 
-    items = await _load_open_briefs()
-    source = "postgres+redis" if items else "memory"
+    items, source = await _load_open_briefs()
+    # Optional Hindsight enrich when Postgres (and degraded cache) are empty —
+    # not a third merge source alongside PG/Redis titles.
     if not items:
         router = MemoryRouter()
         recall = await router.recall(
             session_id="voice-main",
             query="open decision brief ADVoi portfolio staging",
         )
+        enrich: list[str] = []
         for bucket in (recall.strategic, recall.operational, recall.ephemeral):
             for item in bucket[:3]:
                 text = item.get("text") or item.get("summary") or item.get("content")
                 if text:
-                    items.append(str(text)[:120])
-        source = "memory"
+                    enrich.append(str(text)[:120])
+        items = _normalize_brief_list(enrich)
+        if items:
+            source = "hindsight_enrich"
     if items:
         return format_briefs_spoken(items), {"briefs": items, "source": source}
     return (
         "No briefs in memory yet. Say what you want captured and I'll log it after confirm.",
-        {"briefs": []},
+        {"briefs": [], "source": source},
     )
 
 
@@ -421,7 +431,7 @@ async def _run_review_queue(*, confirmed: bool) -> tuple[str, dict[str, Any]]:
         )
 
     title = "ADVoi voice validation"
-    briefs = await _load_open_briefs()
+    briefs, _ = await _load_open_briefs()
     if briefs:
         title = briefs[0]
 

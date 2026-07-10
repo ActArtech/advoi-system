@@ -55,10 +55,15 @@ async def _ensure_briefs_table(cur) -> None:
     )
 
 
-async def list_open_briefs(*, limit: int = 10) -> list[str]:
+async def list_open_briefs(*, limit: int = 10) -> list[str] | None:
+    """Return open brief titles, or None when Postgres is unavailable.
+
+    Empty list means Postgres answered and there are no open briefs (canonical empty).
+    None means DSN missing or query failed — callers may fall back to Redis cache.
+    """
     dsn = os.getenv("DATABASE_URL", "")
     if not dsn:
-        return []
+        return None
     try:
         import psycopg
 
@@ -78,10 +83,11 @@ async def list_open_briefs(*, limit: int = 10) -> list[str]:
         return [str(row[0]) for row in rows if row and row[0]]
     except Exception as exc:
         _LOGGER.debug("postgres briefs list deferred: %s", exc)
-        return []
+        return None
 
 
 async def upsert_open_brief(title: str, *, project: str = "advoi") -> bool:
+    """Insert an open brief into Postgres and invalidate Redis cache (ADR-026)."""
     dsn = os.getenv("DATABASE_URL", "")
     title = (title or "").strip()
     if not dsn or not title:
@@ -100,6 +106,10 @@ async def upsert_open_brief(title: str, *, project: str = "advoi") -> bool:
                     (title, project),
                 )
             await conn.commit()
+        # Redis is cache-only: drop stale advoi:briefs:open after every PG write.
+        from advoi.memory.briefs_cache import invalidate_open_briefs_cache
+
+        invalidate_open_briefs_cache()
         return True
     except Exception as exc:
         _LOGGER.debug("postgres brief upsert deferred: %s", exc)

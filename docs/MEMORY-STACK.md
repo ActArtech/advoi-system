@@ -27,8 +27,8 @@ App containers (`advoi-api`, `advoi-voice`, agent daemons) **cannot** `docker ex
 |------|-------------|
 | `HINDSIGHT_BRIDGE_URL=http://advoi-memory-bridge:8095` | All app containers — recall/retain via HTTP |
 | `docker exec hermes python hindsight-bridge.py` | `advoi-memory-bridge` only (docker.sock mounted) |
-| Redis `advoi:briefs:open` | Brief Curator fast path |
-| Postgres `decision_briefs` | Brief Curator canonical path |
+| Redis `advoi:briefs:open` | Brief Curator **cache only** (fill-on-read / invalidate-on-write) |
+| Postgres `decision_briefs` | Brief Curator **canonical** path |
 
 ## `deploy/.env` (required)
 
@@ -59,7 +59,7 @@ bash scripts/memory-health.sh
 
 - **Recall** at session start — `MemoryRouter.recall()` in `advoi/voice/agent.py`
 - **Retain** each turn — `VoiceMemoryProcessor` in pipeline → Redis (`VOICE_TURN`)
-- **Briefs** — user can seed via `seed-advoi-briefs.sh`; Brief Curator merges Postgres + Redis + Hindsight
+- **Briefs** — seed via `seed-advoi-briefs.sh` (PG canonical → Redis cache → optional Hindsight `portfolio_fact` enrich); Brief Curator does **not** triple-merge
 
 ## Checklist
 
@@ -67,7 +67,7 @@ bash scripts/memory-health.sh
 - [x] `advoi-memory-bridge` service (HTTP → Hermes docker exec)
 - [x] `HINDSIGHT_BRIDGE_URL` in deploy/.env
 - [x] Voice turn retain to Redis
-- [x] Postgres `decision_briefs` + Brief Curator merge
+- [x] Postgres `decision_briefs` canonical + Redis cache + optional Hindsight enrich
 - [x] `write_targets.py` — no duplicate writes per event type
 - [ ] Shelve push for secrets (OPENAI key corruption on pull)
 - [ ] Review queue Postgres persistence

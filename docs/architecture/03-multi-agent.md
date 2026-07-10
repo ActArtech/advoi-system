@@ -75,7 +75,7 @@ flowchart TD
 | Frame | Backend | Behavior |
 |-------|---------|----------|
 | `fleet_status` | Fleet Scout | Reads fleet snapshot from `FIRSTMATE_FLEET_PATH` (profile, backlog, state, Aether gate). Mock via `ADVOI_FRAME_MOCK=true`. |
-| `open_briefs` | Brief Curator | Postgres `decision_briefs`, Redis `advoi:briefs:open`, Hindsight recall fallback. Mock mode available. |
+| `open_briefs` | Brief Curator | Postgres `decision_briefs` (canonical) → Redis `advoi:briefs:open` (cache fill/invalidate) → optional Hindsight enrich when empty. Mock mode available. |
 | `queue_deep_review` | Review Queue | **Built** — Guardian `evaluate_frame_confirmation`; on confirm, `enqueue_review` → Postgres `review_queue` + desktop brief URL (`ADVOI_DESKTOP_BRIEF_BASE_URL`). Not a stub. |
 | `systems_pulse` | Systems Pulse | `advoi/routing/orchestrator.py` — parallel specialist pass; post-frame Aether enrich via `post_frame_aether`. |
 | `memory_health` | Memory Scout | `advoi/routing/diagnostic_frames.run_memory_health` — bridge, Redis, Postgres, operational store probes. |

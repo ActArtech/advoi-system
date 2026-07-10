@@ -11,4 +11,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Do not call `retain_operational_unified` from outside `advoi/memory/` — use the router with a mapped event (e.g. `WORKFLOW_EVOLUTION`, `SQUAD_LESSON`).
 - Never put fleet backlog text into Hindsight / strategic event types. Fleet-scout tick summaries are operational (`SQUAD_LESSON`) only.
 - Guard: `tests/test_memory_retain_audit.py`. Latest inventory: `data/feedback-evidence/advoi-memory-retain-audit-01/audit.md`.
-- Brief Curator Hindsight seed (`scripts/seed-advoi-briefs.sh`) is a known map tension (decision_brief → Postgres in map); owned by brief-triple-path work, not retain audit.
+
+## Brief Curator (ADR-026)
+
+- **Postgres** `decision_briefs` is the only canonical store for open briefs (`EVENT_WRITE_MAP[decision_brief] = postgres`).
+- **Redis** `advoi:briefs:open` is cache only: fill-on-read from PG, invalidate-on-write in `upsert_open_brief` (`advoi/memory/briefs_cache.py`).
+- **Hindsight** is optional enrich when PG+cache are empty — never merged as a third title source with PG/Redis.
+- Seed: `scripts/seed-advoi-briefs.sh` writes PG first; Hindsight seed uses `portfolio_fact` (not `decision_brief`).
+- T0 tests: `tests/test_brief_curator_canonical.py`.

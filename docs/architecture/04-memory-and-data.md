@@ -46,11 +46,15 @@ flowchart TB
 
 ## Brief Curator data paths
 
-1. **Fast path** — `redis:advoi:briefs:open` (JSON list)
-2. **Canonical** — Postgres `decision_briefs` via `postgres_store.py`
-3. **Strategic** — Hindsight recall via `MemoryRouter`
+Single read order (ADR-026 ship #2b — no triple-merge):
 
-Seed script: `scripts/seed-advoi-briefs.sh` (requires Hermes + optional Redis/Postgres containers).
+1. **Canonical** — Postgres `decision_briefs` via `postgres_store.py`
+2. **Cache fill** — Redis `advoi:briefs:open` filled from PG on read; **invalidate-on-write** after `upsert_open_brief`
+3. **Optional enrich** — Hindsight recall only when PG (and degraded cache) are empty — not merged with PG/Redis titles
+
+`EVENT_WRITE_MAP[decision_brief] = (postgres,)` only. Seed scripts write PG first; Redis is a cache mirror; Hindsight seed uses `portfolio_fact` for optional strategic enrich.
+
+Seed script: `scripts/seed-advoi-briefs.sh` (Postgres + Redis cache + optional Hermes enrich).
 
 Local seed without Hermes: `scripts/seed-local-briefs.py`
 

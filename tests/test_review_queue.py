@@ -136,7 +136,7 @@ async def test_run_review_queue_persists_when_database_configured(monkeypatch):
     with (
         patch(
             "advoi.routing.frame_runner._load_open_briefs",
-            AsyncMock(return_value=["Staging catch-up"]),
+            AsyncMock(return_value=(["Staging catch-up"], "postgres")),
         ),
         patch(
             "advoi.memory.review_queue.enqueue_review",
@@ -159,7 +159,7 @@ async def test_run_review_queue_falls_back_without_database(monkeypatch):
 
     with patch(
         "advoi.routing.frame_runner._load_open_briefs",
-        AsyncMock(return_value=[]),
+        AsyncMock(return_value=([], "postgres")),
     ):
         result = await run_frame("queue_deep_review", confirmed=True)
 

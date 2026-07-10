@@ -9,7 +9,7 @@ Hybrid memory per **ADR-009** (three tiers) and **ADR-026** (Hindsight ± Letta)
 | **Hindsight** (via Hermes) | Portfolio facts, governance, cross-project synthesis, beliefs | Squad chatter, errors, ephemeral turns |
 | **Letta** (optional v0.2) | Agent identity, user prefs, squad operational learning | Portfolio facts (→ Hindsight) |
 | **Postgres** | Structured canonical: projects, decision briefs, master-state | Long-form synthesis (→ Hindsight) |
-| **Redis** | Last 3–5 voice turns + rolling summary | Anything strategic |
+| **Redis** | Last 3–5 voice turns + rolling summary; `advoi:briefs:open` **cache only** | Canonical briefs (→ Postgres); strategic facts |
 | **Guardian log** | Runtime errors, recovery notes | Beliefs or preferences |
 
 ## Usage
@@ -55,6 +55,7 @@ Set `LETTA_ENABLED=true` only when container is up.
 | `router.py` | recall/retain orchestration |
 | `hindsight.py` | Hermes CLI bridge |
 | `letta.py` | Letta HTTP client (optional) |
-| `postgres_store.py` | Structured events table |
-| `redis_store.py` | Ephemeral window |
+| `postgres_store.py` | Structured events + decision_briefs (canonical) |
+| `briefs_cache.py` | Redis `advoi:briefs:open` fill/invalidate (cache only) |
+| `redis_store.py` | Ephemeral voice-turn window |
 | `guardian_log.py` | Error log (not memory) |
