@@ -9,6 +9,7 @@ System design for ADVoi as implemented in `advoi-system/`. These docs describe *
 | [03-multi-agent.md](03-multi-agent.md) | Specialist agents, frames, daemons |
 | [04-memory-and-data.md](04-memory-and-data.md) | Hindsight, Postgres, Redis, bridge |
 | [05-deployment-topology.md](05-deployment-topology.md) | Docker services, VPS, networking |
+| [06-vertical-boundaries.md](06-vertical-boundaries.md) | Dependency diagram + import/write rules per vertical |
 | [07-portfolio-event-log.md](07-portfolio-event-log.md) | PEL schema (`portfolio_events`), `memory_events` mapping, emit points |
 
 ## Related (existing)

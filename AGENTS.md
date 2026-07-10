@@ -4,6 +4,16 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - Add durable project-specific notes here as they are discovered through real work.
 
+## Vertical boundaries
+
+Target import/write rules: `docs/architecture/06-vertical-boundaries.md`.
+
+- **voice** → routing/intents/backends only; never fleet shell / `fm-bridge` directly.
+- **guardian** gates all consequential writes (fleet trigger, ingestion dispatch, review side effects).
+- **memory** — `MemoryRouter` + `write_targets` only; no direct Hindsight outside `advoi/memory/`.
+- **aether** — read gate + portfolio; enrich frames; no fleet writes.
+- **ingestion** — `route → (approve) → guardian → fleet` (no auto-dispatch on upload).
+
 ## Memory retain (ADR-026)
 
 - All production retains go through `MemoryRouter.retain(MemoryEventType, …)`; routing is `EVENT_WRITE_MAP` in `advoi/memory/write_targets.py`.
