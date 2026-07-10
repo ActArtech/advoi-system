@@ -1,0 +1,13 @@
+# Overlay for /var/www/advoi staging|live stacks.
+# Unique Docker network per compose project (avoids collision with /opt/advoi or sibling tiers).
+
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME}-network
+
+services:
+  livekit:
+    ports: !override
+      - "127.0.0.1:${LIVEKIT_HOST_PORT:-7882}:7880"
+      - "${LIVEKIT_RTC_TCP_PORT:-7883}:7881/tcp"
+      - "${LIVEKIT_RTC_UDP_RANGE:-51100-51200}:${LIVEKIT_RTC_UDP_RANGE:-51100-51200}/udp"
