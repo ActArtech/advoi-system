@@ -5,6 +5,34 @@
 
 ---
 
+## [2026-07-10] — BATCH discipline opp-promote-01 (value≥7 gate)
+
+**Version:** docs only  
+**Type:** Docs / fleet queue hygiene  
+**Status:** Complete (gate PASS)  
+**Batch IDs:** advoi-batch-opp-promote-01  
+**Branch:** `fm/advoi-batch-opp-promote-01` @ develop base `741e961`
+
+### Summary
+
+Reviewed `OPPORTUNITIES-LOG.md` + wave 2–4 batch summaries. Closed the batch-discipline gate: every open **value≥7** OPP is either **promoted** (new Queued id or mapped to existing fleet backlog id) or **explicit deferred** (M7 Phase 2 UI = complexity L). Firstmate owns `/data/backlog.md` writes — see promotion list in `data/advoi-batch-opp-promote-01/firstmate-note.md`.
+
+### Changes
+
+- [x] Deduped open OPPs across AFK + wave2–4; scored outcomes in OPPORTUNITIES-LOG
+- [x] **Promote (new Queued — firstmate to file):** `advoi-ops-staging-promote-01` (9), `advoi-ops-aether-cron-wire-01` (8), `advoi-val-pel-m10-4-proof-01` (8)
+- [x] **Map existing Queued:** human T3 → `advoi-roadmap-t3-m2-01`; OTEL → `advoi-roadmap-t2-m4-05`; webhooks → `advoi-roadmap-t2-m5-04`
+- [x] **Explicit deferred:** M7 Phase 2 inbox/batch/voice (value 7, complexity L); low-value polish left deferred with one-line rationale
+- [x] `data/advoi-batch-opp-promote-01/firstmate-note.md` for fleet backlog filing
+
+### Next (firstmate)
+
+1. File the three NEW Queued cards from firstmate-note into `/data/backlog.md`
+2. Merge this branch → develop (VPS-direct, no PR)
+3. Prefer `advoi-ops-staging-promote-01` next after current in-flight closes (unblocks tip T2 / OTEL / PEL / cron)
+
+---
+
 ## [2026-07-10] — BATCH-DOCUMENTATION wave 4 — Aether Queued + Guardian write-path @ `61de279`
 
 **Version:** v0.5.4 (wave tip)  
