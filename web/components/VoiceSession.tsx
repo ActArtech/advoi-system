@@ -14,6 +14,10 @@ import {
   type LatencyDiagnostics,
 } from "./latencyChip";
 import {
+  emitBeaconForUiEvent,
+  emitPwaBeacon,
+} from "./pwaBeacon";
+import {
   INITIAL_UI_SESSION,
   reduceUiSession,
   uiStateLabel,
@@ -132,7 +136,7 @@ function attachRemoteAudio(track: { kind: Track.Kind; attach: () => HTMLMediaEle
 }
 
 export function VoiceSession() {
-  const [ui, dispatchUi] = useReducer(
+  const [ui, dispatchUiRaw] = useReducer(
     (ctx: UiSessionContext, event: UiSessionEvent) => reduceUiSession(ctx, event),
     INITIAL_UI_SESSION,
   );
@@ -153,6 +157,19 @@ export function VoiceSession() {
   const [operatorBusy, setOperatorBusy] = useState(false);
   const [pendingFleet, setPendingFleet] = useState<FleetAction | null>(null);
   const [voiceSessionId] = useState(() => `pwa-${Date.now()}`);
+
+  /** State-machine dispatch with PEL thin-beacon side effects (no third-party SDK). */
+  const dispatchUi = useCallback(
+    (event: UiSessionEvent, extra?: Record<string, unknown>) => {
+      dispatchUiRaw(event);
+      emitBeaconForUiEvent(apiBase, event, {
+        session_id: voiceSessionId,
+        payload: extra,
+      });
+    },
+    [voiceSessionId],
+  );
+
   const room = useMemo(
     () =>
       new Room({
@@ -252,7 +269,8 @@ export function VoiceSession() {
     const onState = (s: ConnectionState) => {
       if (s === ConnectionState.Connected) {
         // Reducer preserves frame_running / confirm_pending when voice comes up mid-work.
-        dispatchUi({ type: "CONNECT_OK" });
+        // CONNECT_OK → pwa_connect beacon via dispatchUi.
+        dispatchUi({ type: "CONNECT_OK" }, { transport: "livekit" });
         setStatus((prev) =>
           prev.includes("working") || prev.includes("Confirm")
             ? prev
@@ -271,7 +289,7 @@ export function VoiceSession() {
 
     const onMediaError = (error: Error) => {
       setMicOn(false);
-      dispatchUi({ type: "ERROR" });
+      dispatchUi({ type: "ERROR" }, { message: error.message, source: "media" });
       setStatus(stripEmDash(`Microphone error: ${error.message}. Check browser permissions.`));
     };
 
@@ -291,7 +309,7 @@ export function VoiceSession() {
       room.off(RoomEvent.MediaDevicesError, onMediaError);
       room.disconnect();
     };
-  }, [room]);
+  }, [dispatchUi, room]);
 
   const publishSpeak = useCallback(
     async (text: string) => {
@@ -309,7 +327,18 @@ export function VoiceSession() {
   const runFrame = useCallback(
     async (frameId: string, confirmed = false, refresh = false) => {
       setActiveFrame(frameId);
-      dispatchUi({ type: "FRAME_START" });
+      if (confirmed) {
+        emitPwaBeacon(apiBase, {
+          type: "confirm_accept",
+          session_id: voiceSessionId,
+          payload: { target: "frame", frame_id: frameId },
+          guardian_status: "allowed",
+        });
+      }
+      dispatchUi(
+        { type: "FRAME_START" },
+        { target: "frame", frame_id: frameId, confirmed },
+      );
       const frame = frames.find((f) => f.id === frameId);
       setStatus(`${frame?.agent_name || "Agent"} working...`);
 
@@ -327,7 +356,10 @@ export function VoiceSession() {
 
         if (data.status === "confirmation_required") {
           setPendingConfirm(frameId);
-          dispatchUi({ type: "CONFIRMATION_REQUIRED" });
+          dispatchUi(
+            { type: "CONFIRMATION_REQUIRED" },
+            { target: "frame", frame_id: frameId },
+          );
           const confirmSpoken = stripEmDash(data.spoken_summary as string);
           setStatus(
             voiceConnected
@@ -373,20 +405,41 @@ export function VoiceSession() {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Frame failed";
-        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" });
+        dispatchUi(
+          { type: "FRAME_FAIL_KEEP_VOICE" },
+          { target: "frame", frame_id: frameId, message },
+        );
+        // Non-voice-fatal failures still surface as PEL error when transport is down.
+        if (!voiceConnected) {
+          emitPwaBeacon(apiBase, {
+            type: "error",
+            session_id: voiceSessionId,
+            payload: { target: "frame", frame_id: frameId, message },
+          });
+        }
         setStatus(message);
       } finally {
         setActiveFrame(null);
       }
     },
-    [apiBase, frames, loadAgents, loadLatency, loadReviewQueue, publishSpeak, voiceConnected],
+    [
+      apiBase,
+      dispatchUi,
+      frames,
+      loadAgents,
+      loadLatency,
+      loadReviewQueue,
+      publishSpeak,
+      voiceConnected,
+      voiceSessionId,
+    ],
   );
 
   const speakFromIntent = useCallback(
     async (transcript: string) => {
       const text = transcript.trim();
       if (!text) return;
-      dispatchUi({ type: "FRAME_START" });
+      dispatchUi({ type: "FRAME_START" }, { target: "intent" });
       setStatus("Understanding...");
       try {
         const intentResp = await fetch(`${apiBase}/voice/intent`, {
@@ -408,9 +461,20 @@ export function VoiceSession() {
             const spoken = stripEmDash(opPreview.spoken);
             if (opPreview.action === "confirmation_required" && opPreview.pending_operator) {
               setPendingFleet(opPreview.pending_operator as FleetAction);
-              dispatchUi({ type: "CONFIRMATION_REQUIRED" });
+              dispatchUi(
+                { type: "CONFIRMATION_REQUIRED" },
+                { target: "operator", pending: opPreview.pending_operator },
+              );
             } else {
               setPendingFleet(null);
+              if (data.confirmed || /\bconfirm\b/i.test(text)) {
+                emitPwaBeacon(apiBase, {
+                  type: "confirm_accept",
+                  session_id: voiceSessionId,
+                  payload: { target: "operator", action: opPreview.action },
+                  guardian_status: "allowed",
+                });
+              }
               dispatchUi({ type: "FRAME_OK" });
             }
             if (opPreview.action === "run_all" || opPreview.action === "dispatch_squads") {
@@ -431,7 +495,10 @@ export function VoiceSession() {
             await publishSpeak(preview);
             if (data.preview?.status === "confirmation_required" && frameId) {
               setPendingConfirm(frameId);
-              dispatchUi({ type: "CONFIRMATION_REQUIRED" });
+              dispatchUi(
+                { type: "CONFIRMATION_REQUIRED" },
+                { target: "frame", frame_id: frameId },
+              );
             } else {
               dispatchUi({ type: "FRAME_OK" });
             }
@@ -456,7 +523,10 @@ export function VoiceSession() {
           const spoken = stripEmDash(String(data.spoken || ""));
           if (data.action === "confirmation_required" && data.pending_operator) {
             setPendingFleet(data.pending_operator as FleetAction);
-            dispatchUi({ type: "CONFIRMATION_REQUIRED" });
+            dispatchUi(
+              { type: "CONFIRMATION_REQUIRED" },
+              { target: "operator", pending: data.pending_operator },
+            );
           } else {
             setPendingFleet(null);
             dispatchUi({ type: "FRAME_OK" });
@@ -470,22 +540,33 @@ export function VoiceSession() {
           setStatus(spoken + agentNote);
           await publishSpeak(spoken);
         } else {
-          dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" });
+          dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" }, { target: "intent", status: resp.status });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Request failed";
-        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" });
+        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" }, { target: "intent", message });
         setStatus(message);
       }
     },
-    [loadAgents, publishSpeak, runFrame, voiceSessionId],
+    [dispatchUi, loadAgents, publishSpeak, runFrame, voiceSessionId],
   );
 
   const runFleetOperator = useCallback(
     async (action: FleetAction, confirmed = false) => {
       if (operatorBusy) return;
       setOperatorBusy(true);
-      dispatchUi({ type: "FRAME_START" });
+      if (confirmed) {
+        emitPwaBeacon(apiBase, {
+          type: "confirm_accept",
+          session_id: voiceSessionId,
+          payload: { target: "fleet", action },
+          guardian_status: "allowed",
+        });
+      }
+      dispatchUi(
+        { type: "FRAME_START" },
+        { target: "fleet", action, confirmed },
+      );
       const project = capabilities?.systems_access?.firstmate_fleet?.active_slug;
       const label = FLEET_LABELS[action];
       setStatus(confirmed ? `${label}...` : `Confirm ${label.toLowerCase()}...`);
@@ -508,7 +589,10 @@ export function VoiceSession() {
         const data = await resp.json();
         if (data.status === "confirmation_required") {
           setPendingFleet(action);
-          dispatchUi({ type: "CONFIRMATION_REQUIRED" });
+          dispatchUi(
+            { type: "CONFIRMATION_REQUIRED" },
+            { target: "fleet", action },
+          );
           const spoken = stripEmDash(String(data.prompt || data.spoken || "Say yes to confirm."));
           setStatus(spoken);
           await publishSpeak(spoken);
@@ -522,13 +606,13 @@ export function VoiceSession() {
         loadAgents();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Fleet action failed";
-        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" });
+        dispatchUi({ type: "FRAME_FAIL_KEEP_VOICE" }, { target: "fleet", action, message });
         setStatus(message);
       } finally {
         setOperatorBusy(false);
       }
     },
-    [apiBase, capabilities, loadAgents, operatorBusy, publishSpeak],
+    [apiBase, capabilities, dispatchUi, loadAgents, operatorBusy, publishSpeak, voiceSessionId],
   );
 
   const submitTypedLine = useCallback(() => {
@@ -555,7 +639,7 @@ export function VoiceSession() {
           await speakFromIntent("what can you do");
           return;
         }
-        dispatchUi({ type: "FRAME_START" });
+        dispatchUi({ type: "FRAME_START" }, { target: "operator", kind });
         if (kind === "stop_agents") {
           setStatus("Pausing background agent daemons...");
           const resp = await fetch(`${apiBase}/agents/stop`, {
@@ -639,7 +723,7 @@ export function VoiceSession() {
         setOperatorBusy(false);
       }
     },
-    [apiBase, loadAgents, loadLatency, operatorBusy, publishSpeak, speakFromIntent],
+    [apiBase, dispatchUi, loadAgents, loadLatency, operatorBusy, publishSpeak, speakFromIntent],
   );
 
   const connect = useCallback(async () => {
@@ -679,7 +763,7 @@ export function VoiceSession() {
           if (pub.track) attachRemoteAudio(pub.track);
         });
       });
-      dispatchUi({ type: "CONNECT_OK" });
+      dispatchUi({ type: "CONNECT_OK" }, { room_name: data.room_name || "" });
       setStatus(
         `Joined ${data.room_name}. Mic on. Say fleet status, systems pulse, memory health, guardian status, or what can you do.`,
       );
@@ -692,10 +776,10 @@ export function VoiceSession() {
           `${message}. Check LiveKit WSS URL and allow microphone access.`,
         );
       }
-      dispatchUi({ type: "CONNECT_FAIL" });
+      dispatchUi({ type: "CONNECT_FAIL" }, { message });
       setStatus(message);
     }
-  }, [room]);
+  }, [dispatchUi, room]);
 
   const disconnect = useCallback(async () => {
     await room.localParticipant.setMicrophoneEnabled(false);
@@ -705,7 +789,7 @@ export function VoiceSession() {
     setStatus("Session ended. Frames still work in text mode.");
     setPendingConfirm(null);
     setPendingFleet(null);
-  }, [room]);
+  }, [dispatchUi, room]);
 
   const onFrameClick = (frameId: string, ev: React.MouseEvent) => {
     const refresh = ev.shiftKey || frameId === "fleet_status" && ev.detail === 2;

@@ -323,10 +323,19 @@ Details: [`data/feedback-evidence/advoi-data-memory-events-pel-01/migration-plan
 
 ## 7. Non-goals (remaining)
 
-- No `/api/events` query endpoint yet (follow-up)
+- No `/api/events` **query** (GET) endpoint yet (follow-up) — **POST** thin beacon for PWA is implemented (`advoi-analytics-pwa-beacon-01`)
 - No BI dashboards yet
 - No drop of `memory_events` in this ship (deprecation checklist only)
 - No rename of Redis/Guardian stores
+
+### 7.1 PWA thin beacon (`POST /api/events`)
+
+| Item | Detail |
+|------|--------|
+| **Types** | `pwa_connect`, `frame_tap`, `confirm_shown`, `confirm_accept`, `error` |
+| **source** | `api` (HTTP client beacon); payload `client=pwa` |
+| **Wire** | `web/components/pwaBeacon.ts` + UI state machine in `VoiceSession` |
+| **SDK** | None — first-party fetch only |
 
 ---
 

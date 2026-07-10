@@ -94,6 +94,24 @@ class EventType(str, Enum):
     GUARDIAN_GATE = "guardian_gate"
     CONFIRMATION_REQUIRED = "confirmation_required"
     CONFIRMATION_RESOLVED = "confirmation_resolved"
+    # PWA thin beacon → POST /api/events (no third-party analytics SDK)
+    PWA_CONNECT = "pwa_connect"
+    FRAME_TAP = "frame_tap"
+    CONFIRM_SHOWN = "confirm_shown"
+    CONFIRM_ACCEPT = "confirm_accept"
+    ERROR = "error"
+
+
+# Allowed types for the PWA thin-beacon HTTP path (subset of EventType).
+PWA_BEACON_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        EventType.PWA_CONNECT.value,
+        EventType.FRAME_TAP.value,
+        EventType.CONFIRM_SHOWN.value,
+        EventType.CONFIRM_ACCEPT.value,
+        EventType.ERROR.value,
+    }
+)
 
 
 class GuardianStatus(str, Enum):

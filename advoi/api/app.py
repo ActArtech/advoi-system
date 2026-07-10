@@ -34,6 +34,12 @@ from advoi.guardian.confirmation import (
     global_confirmation_enabled,
     high_risk_fleet_actions,
 )
+from advoi.analytics.pel import (
+    EventSource,
+    GuardianStatus,
+    PWA_BEACON_EVENT_TYPES,
+    append_event,
+)
 from advoi.observability.otel_setup import setup_otel
 from advoi.observability.request_trace import RequestTraceMiddleware
 from advoi.aether.service import get_aether_service
@@ -83,6 +89,24 @@ class LiveKitTokenResponse(BaseModel):
     identity: str
 
 
+class PwaBeaconEvent(BaseModel):
+    """Thin PWA analytics beacon → portfolio_events (no third-party SDK)."""
+
+    type: str = Field(..., description="One of pwa_connect, frame_tap, confirm_shown, confirm_accept, error")
+    venture_id: str = Field(default="advoi", min_length=1, max_length=128)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    session_id: str | None = Field(default=None, max_length=128)
+    guardian_status: str | None = None
+    execution_ref: str | None = Field(default=None, max_length=256)
+
+
+class PwaBeaconResponse(BaseModel):
+    ok: bool
+    id: str | None = None
+    type: str
+    persisted: bool = False
+
+
 @app.get("/health")
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
@@ -95,6 +119,49 @@ async def health() -> dict[str, Any]:
         "agents_ready": summary["ready"],
         "agents_total": summary["total"],
     }
+
+
+@app.post("/api/events", response_model=PwaBeaconResponse)
+async def post_portfolio_event(body: PwaBeaconEvent) -> PwaBeaconResponse:
+    """Accept PWA thin-beacon payloads and append to portfolio_events (PEL).
+
+    Allowed types: pwa_connect, frame_tap, confirm_shown, confirm_accept, error.
+    Fire-and-forget friendly: always 200 when schema is valid (persisted may be false
+    without DATABASE_URL / ADVOI_PEL_MEMORY).
+    """
+    event_type = (body.type or "").strip().lower()
+    if event_type not in PWA_BEACON_EVENT_TYPES:
+        allowed = ", ".join(sorted(PWA_BEACON_EVENT_TYPES))
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported event type {body.type!r}. Allowed: {allowed}",
+        )
+
+    payload = dict(body.payload or {})
+    if body.session_id:
+        payload.setdefault("session_id", body.session_id)
+    payload.setdefault("client", "pwa")
+
+    guardian: str | None = body.guardian_status
+    if guardian is None and event_type == "confirm_shown":
+        guardian = GuardianStatus.PENDING.value
+    elif guardian is None and event_type == "confirm_accept":
+        guardian = GuardianStatus.ALLOWED.value
+
+    event_id = await append_event(
+        venture_id=body.venture_id,
+        source=EventSource.API,
+        event_type=event_type,
+        payload=payload,
+        guardian_status=guardian,
+        execution_ref=body.execution_ref,
+    )
+    return PwaBeaconResponse(
+        ok=True,
+        id=event_id,
+        type=event_type,
+        persisted=event_id is not None,
+    )
 
 
 @app.post("/api/livekit/token", response_model=LiveKitTokenResponse)

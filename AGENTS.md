@@ -57,6 +57,14 @@ Path A (`web/components/VoiceSession.tsx`) uses an explicit UI state machine in
 - VoiceSession refreshes latency after successful frame run / operator completion (no full reload).
 - Graceful empty/error: `SLA —` / `SLA err` when diagnostics unavailable.
 
+## PWA thin beacon → PEL (`POST /api/events`)
+
+- **Endpoint:** `POST /api/events` accepts thin client beacons only (no third-party analytics SDK).
+- **Allowed types:** `pwa_connect`, `frame_tap`, `confirm_shown`, `confirm_accept`, `error` (`PWA_BEACON_EVENT_TYPES` in `advoi/analytics/pel.py`).
+- **Persist:** same `append_event` path → `portfolio_events` (`source=api`, payload includes `client: pwa`).
+- **PWA wire:** `web/components/pwaBeacon.ts` + `dispatchUi` wrapper in `VoiceSession.tsx` maps UI state-machine events (`CONNECT_OK`→`pwa_connect`, `FRAME_START`→`frame_tap`, `CONFIRMATION_REQUIRED`→`confirm_shown`, `CONNECT_FAIL`/`ERROR`→`error`); confirm taps emit `confirm_accept` explicitly.
+- **T0:** `tests/test_pwa_beacon_events.py` (insert + schema per type).
+
 ## OTel staging + Guardian trace_id (moat R6)
 
 - **Switch:** `OTEL_ENABLED=true` in `deploy/.env.staging.example`; local default off in `.env.example`.
