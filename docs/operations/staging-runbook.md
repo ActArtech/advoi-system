@@ -4,8 +4,19 @@ VPS: `deploy@187.77.140.216`.
 
 **Canonical staging (www tier):** path `/var/www/advoi/staging`, public https://advoi-staging.keyteller.com  
 **Live:** `/var/www/advoi/live` → https://advoi.keyteller.com  
-**Develop:** `/data/projects/advoi` (branch `develop`)  
+**Develop:** `/data/projects/advoi` (branch `develop`, tip `3d5a00d` as of ops review)  
 **Legacy (deprecating):** `/opt/advoi` — old single-path stack until cutover; do not treat as the only staging location.
+
+### Current drift (2026-07-10)
+
+| Tier | Ref | Note |
+|------|-----|------|
+| Develop | `3d5a00d` | paperclip ingest + later data/arch ships |
+| Staging VPS | `5d50805` | **behind** develop |
+| Promote | **parked** | GAP-013 — SSH host key verification failed |
+| T2 smoke | **pass** @ URL | Proves bootstrap `5d50805` only — not tip parity |
+
+Fleet snapshot: `/data/staging-state.md`. Gap register: [gaps-and-blockers.md](../current-state/gaps-and-blockers.md) · [ROADMAP-VALIDATION.md](ROADMAP-VALIDATION.md) GAP-013.
 
 Full path model: [docs/VPS-SETUP.md](../VPS-SETUP.md).
 
@@ -25,9 +36,12 @@ Full path model: [docs/VPS-SETUP.md](../VPS-SETUP.md).
 # After changes land on develop checkout (/data/projects/advoi):
 bash /var/www/advoi/promote-to-staging.sh
 curl https://advoi-staging.keyteller.com/api/health
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/t2-staging-smoke.sh
 ```
 
 Host script `promote-to-staging.sh` is not in this repo (no `scripts/www/` yet).
+
+**Blocked (GAP-013):** SSH host key verification failed — do not assume a green T2 means tip is live. Unblock `known_hosts` / host key, then promote and re-smoke.
 
 ### Legacy — compose on `/opt/advoi`
 
@@ -95,15 +109,14 @@ Cron (optional VPS watch):
 
 ```bash
 curl https://advoi-staging.keyteller.com/api/health
-bash scripts/voice-smoke-test.sh
-# Or:
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/voice-smoke-test.sh
 ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/agents-smoke-test.sh
 bash scripts/memory-health.sh
-# Full pre-human sign-off:
-ADVOI_BASE_URL=https://advoi.keyteller.com bash scripts/staging-signoff-precheck.sh
+# Full pre-human sign-off (explicit host — script default is live):
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/staging-signoff-precheck.sh
 ```
 
-Expected:
+Expected (bootstrap `5d50805` re-verified 2026-07-10):
 
 - `/api/health` → `"stage": "voice-pwa-2"`, `agents_ready=6`, `agents_total=6`
 - `/api/aether/status` → 200 with `gate`, `frame_coverage`, `memory.letta_health`
@@ -112,6 +125,7 @@ Expected:
 - `POST /api/voice/respond` → JSON with `spoken` (requires LLM keys)
 - `GET /api/frames` → each frame has `voice_prompt` (intent catalog)
 - `/api/agents` → six agents with `last_run` after warmup
+- Precheck may still report `sla_ok=false` (~1.2s) while exit 0 — record latency separately
 
 ## Human E2E checklist (5 minutes)
 

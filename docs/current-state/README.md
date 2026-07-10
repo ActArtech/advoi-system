@@ -15,8 +15,10 @@ Honest snapshot of ADVoi before planning next work.
 | **[WHAT-WE-DID-2026-07-10.md](WHAT-WE-DID-2026-07-10.md)** | Sprint changelog (multi-agent platform) |
 | **[DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md)** | Prioritized milestones M0-M7 |
 | [what-we-have.md](what-we-have.md) | Module-level inventory |
-| [gaps-and-blockers.md](gaps-and-blockers.md) | Prioritized open work (dev not blocked) |
+| [gaps-and-blockers.md](gaps-and-blockers.md) | Prioritized open work (incl. GAP-013 promote park) |
+| [ALIGNMENT-LOG.md](ALIGNMENT-LOG.md) | Batch / staging drift alignment entries |
 | [improvement-roadmap.md](improvement-roadmap.md) | Phased plan (Phases 1-4) |
+| [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md) | T0–T3 gates, M1–M10, gap register |
 | [MANUAL-TEST-TRACKER.md](../operations/MANUAL-TEST-TRACKER.md) | Human tests: tested / not tested / bugs |
 | [BUILD-1.5-FINAL.md](BUILD-1.5-FINAL.md) | Build exit criteria |
 | [path-to-full-system.md](path-to-full-system.md) | Path to full system |
@@ -26,7 +28,7 @@ Honest snapshot of ADVoi before planning next work.
 
 ## One-line status
 
-**6 agents + 4 squads built and orchestrable. Home `/` shows open briefs + review queue cards (thin `/api/briefs`). Staging redeploy pending. Human E2E tracked, not blocking dev.** Run `.\scripts\run-six-agents.ps1 -Refresh` locally.
+**6 agents + 4 squads built and orchestrable. Develop `3d5a00d` ahead of staging VPS `5d50805` (GAP-013 SSH promote parked). Bootstrap T2 green @ advoi-staging — not tip parity. Human E2E open, not blocking dev.**
 
 ---
 
@@ -54,15 +56,15 @@ Honest snapshot of ADVoi before planning next work.
 
 ---
 
-## Live staging snapshot (2026-07-08)
+## Live staging snapshot (2026-07-10 ops review)
 
 ```
-https://advoi.keyteller.com/api/health     → 200 (redeploy for agents 4/4)
-https://advoi.keyteller.com/api/diagnostics/voice → ok: true
-pytest local                               → 190 collected
-uv run advoi-orchestrate six-squads --refresh → 6 agents + 4 squads OK
-VPS containers                             → all Up
-ADVOI_AGENT_INTERVAL_SECS                  → 15 (staging)
+https://advoi-staging.keyteller.com/api/health  → 200 (6/6 agents, stage=voice-pwa-2)
+t2-staging-smoke.sh (ADVOI_BASE_URL=staging)    → PASS (bootstrap SHA only)
+staging-signoff-precheck.sh                     → PASS exit 0 (sla_ok=false ~1.2s)
+Staging VPS tree                                → 5d50805 (behind develop 3d5a00d)
+Promote                                         → PARKED GAP-013 (SSH host key)
+Fleet state                                     → /data/staging-state.md
 ```
 
 ---

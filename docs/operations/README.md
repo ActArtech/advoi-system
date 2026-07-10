@@ -2,15 +2,21 @@
 
 Runbooks for local development and staging validation.
 
+**Staging host:** https://advoi-staging.keyteller.com (`/var/www/advoi/staging`)  
+**Live host:** https://advoi.keyteller.com  
+**Promote:** parked (GAP-013 SSH host key) — develop tip `3d5a00d` ahead of VPS `5d50805`. Green T2 = bootstrap health only.  
+**Fleet snapshot:** `/data/staging-state.md` · gaps: [../current-state/gaps-and-blockers.md](../current-state/gaps-and-blockers.md)
+
 | Doc | Audience |
 |-----|----------|
-| [ROADMAP-VALIDATION.md](ROADMAP-VALIDATION.md) | Milestones M1–M9, validation tiers T0–T3, gap register |
+| [ROADMAP-VALIDATION.md](ROADMAP-VALIDATION.md) | Milestones M1–M10, validation tiers T0–T3, gap register (incl. GAP-013) |
 | [ANALYTICS-FUNNEL.md](ANALYTICS-FUNNEL.md) | PWA connect→frame→confirm→success funnel SQL on PEL `portfolio_events` |
 | [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) | What to test / tested / bugs (does not block dev) |
 | [local-testing.md](local-testing.md) | Developers on Windows/Mac/Linux |
 | [staging-runbook.md](staging-runbook.md) | VPS deploy and smoke (T2: `scripts/t2-staging-smoke.sh`) |
 | [MIGRATIONS.md](MIGRATIONS.md) | Versioned SQL under `deploy/migrations/`, apply order, staging verify (SSH parked) |
 | [E2E-SIGNOFF.md](E2E-SIGNOFF.md) | Formal Path A sign-off template (incl. home briefs A17) |
+| [BATCH-DOCUMENTATION.md](BATCH-DOCUMENTATION.md) | Fleet batch wrap-up gate, mandatory logs |
 
 See also: [../VPS-SETUP.md](../VPS-SETUP.md) (8-step Aether checklist).
 

@@ -2,32 +2,38 @@
 
 Human validation template for Path A (LiveKit + server TTS). Copy this section into `docs/dev-log/DEV-LOG.md` or a ticket when signing off.
 
-**Environment:** `https://advoi.keyteller.com`  
-**Deploy ref / date:** `c14c38d` / 2026-07-08 (update when you test)  
+**Environment (canonical staging):** `https://advoi-staging.keyteller.com`  
+**Live (do not treat as tip staging):** `https://advoi.keyteller.com`  
+**Deploy ref / date:** VPS tree `5d50805` / 2026-07-10 (bootstrap; develop tip `3d5a00d` **not** promoted — GAP-013)  
 **Tester:** ____________________  
 **Browser / device:** ____________________
 
-## Automated clearance (2026-07-08 — agent run)
+## Automated clearance (2026-07-10 — fleet ops recheck)
 
-These passed against staging before human test. Re-run before you sign off:
+These passed against **bootstrap** staging before human test. Re-run after every promote:
 
-- [x] `voice-smoke-test.sh` — all journey checks, `sla_ok: true`
-- [x] `/api/diagnostics/voice` — `ok: true`, `llm_key: true`, `memory_bridge_mode: hermes`
-- [x] `/api/agents` — 6/6 ready (re-verify after promote; older logs may say 3/3)
-- [x] VPS env — `PROJECT_SLUG=advoi`, `STOREFRONT_HOST=advoi.keyteller.com`, LLM key synced
-- [x] `staging-signoff-precheck.ps1` — passed 2026-07-08 at `c14c38d` (use `.ps1` on Windows, `.sh` on VPS)
+- [x] `t2-staging-smoke.sh` — health 6/6 + aether/status (exit 0) @ advoi-staging
+- [x] `staging-signoff-precheck.sh` — exit 0 with `ADVOI_BASE_URL=https://advoi-staging.keyteller.com`
+- [x] `/api/health` — 6/6 agents, `stage=voice-pwa-2`
+- [ ] Latency SLA — still open (`sla_ok=false` ~1.2s API path; does not fail precheck today)
+- [ ] **Tip parity** — blocked until GAP-013 promote lands develop on VPS
+
+**Scope:** Green T2 proves bootstrap SHA `5d50805` only — not develop tip.
 
 ## Pre-checks (automated)
 
-Run one command (runs all checks below):
+Always set the fleet staging host (script default is still live host):
 
 ```bash
-bash scripts/staging-signoff-precheck.sh
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/staging-signoff-precheck.sh
+# minimum post-deploy:
+ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/t2-staging-smoke.sh
 ```
 
 **Windows:** use PowerShell only (WSL bash does not inherit `$env:ADVOI_BASE_URL`):
 
 ```powershell
+$env:ADVOI_BASE_URL = "https://advoi-staging.keyteller.com"
 .\scripts\staging-signoff-precheck.ps1
 ```
 
@@ -41,7 +47,7 @@ Or individually:
 
 ## Path A — LiveKit voice (required)
 
-1. Open https://advoi.keyteller.com on phone or desktop Chrome.
+1. Open https://advoi-staging.keyteller.com on phone or desktop Chrome.
 2. Tap **Connect voice** and allow microphone access.
 
 | Step | Action | Pass |

@@ -1,9 +1,9 @@
 # ADVoi system status
 
 **Authoritative snapshot** — what exists, what works, what is still open.  
-**Updated:** 2026-07-10 (wave 4 wrap-up)  
-**Repo:** `advoi-system` develop tip `61de279` (wave 4 Aether/arch; wrap-up branch may add docs tip)  
-**Staging:** https://advoi-staging.keyteller.com @ `5d50805` — promote parked (SSH host key; GAP-013)
+**Updated:** 2026-07-10 (ops review)  
+**Repo:** `advoi-system` develop tip `3d5a00d` (paperclip ingest; wave-4 code from `61de279`)  
+**Staging:** https://advoi-staging.keyteller.com @ `5d50805` — promote parked (SSH host key; GAP-013); T2 pass = bootstrap only
 
 Manual testing does **not** block development. Track human checks in [MANUAL-TEST-TRACKER.md](../operations/MANUAL-TEST-TRACKER.md).
 
@@ -18,7 +18,7 @@ Milestones: [DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md)
 |-----------|--------|
 | **Code (Build 1.5+)** | 6-agent plane + PWA shell + Aether Queued + Guardian write-path hard-gate (ADR-028) |
 | **Automated tests** | **494** pytest collected (wave4 aether/write-path + PWA/PEL suites) |
-| **Staging** | Bootstrap healthy @ `5d50805`; **promote parked** (SSH; develop `61de279`) |
+| **Staging** | Bootstrap healthy @ `5d50805`; **promote parked** (SSH; develop `3d5a00d`) |
 | **Human voice E2E** | Not recorded (A11–A17 open) |
 | **Phase 4** | Aether feed/publish/export T0; Guardian hard-gate T0; Letta/OTel VPS enablement open |
 

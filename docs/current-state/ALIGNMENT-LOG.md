@@ -12,7 +12,8 @@
 
 | Date | Batch | Gate | Staging SHA | Misalignments |
 |------|-------|------|-------------|---------------|
-| 2026-07-10 | staging-record (post wave 4 + data) | hold (SSH promote GAP-013) | `5d50805` (bootstrap) | develop `19b052d` ahead; promote parked; T2 smoke **pass** on bootstrap URL |
+| 2026-07-10 | ops-review (docs vs live staging) | hold (SSH promote GAP-013) | `5d50805` (bootstrap) | develop `3d5a00d` ahead; T2 **pass** proves bootstrap only |
+| 2026-07-10 | staging-record (post wave 4 + data) | hold (SSH promote GAP-013) | `5d50805` (bootstrap) | develop was `19b052d` ahead; promote parked; T2 smoke **pass** on bootstrap URL |
 | 2026-07-10 | wave 4 Aether/system/arch | hold (SSH promote) | `5d50805` (bootstrap) | develop `61de279` ahead; Aether/Guardian T2 + PEL T2 parked |
 | 2026-07-10 | wave 3 PWA interaction | hold (SSH promote) | `5d50805` (bootstrap) | develop `587385d` ahead; PWA A14–A17 T3 + PEL T2 parked |
 | 2026-07-10 | wave 2 PWA/analytics/aether | hold (SSH promote) | `5d50805` (bootstrap) | develop `ce6a8e2` ahead; OTEL/PEL T2 parked |
@@ -41,6 +42,23 @@
 ---
 
 _Add entries below newest first._
+
+## [2026-07-10] — ops-review: docs vs live staging (develop tip drift)
+
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Live staging URL | ok | https://advoi-staging.keyteller.com |
+| `GET /api/health` | **pass** | 200, 6/6 agents, `stage=voice-pwa-2` |
+| `t2-staging-smoke.sh` | **pass** | health + `/api/aether/status` exit 0 |
+| `staging-signoff-precheck.sh` | **pass** (bootstrap) | exit 0 with `ADVOI_BASE_URL=https://advoi-staging.keyteller.com` |
+| Latency SLA | open | `sla_ok=false` (~1.2s API voice path) |
+| Drift: develop vs staging | **increased** | develop `3d5a00d` vs VPS `5d50805` |
+| Promote | **parked** | GAP-013 SSH host key verification failed |
+
+**Misalignments found:** Ops/current-state docs still named older develop tips (`19b052d` / `61de279`) while tip is now `3d5a00d` (paperclip_ticket_id on IngestItem). Staging VPS remains bootstrap `5d50805`. T2 green does **not** prove tip parity. Precheck script default host is still `advoi.keyteller.com` — use explicit `ADVOI_BASE_URL` for fleet staging.  
+**Follow-up backlog IDs:** GAP-013 (SSH + promote); then tip T2; M10.4; OTEL; human A11–A17.
+
+**Discipline:** Ops cross-ref only (no code/deploy). Fleet `/data/staging-state.md` already records tip `3d5a00d`. Status: **Drift** until promote unblocked. **SHAs:** develop `3d5a00d` · staging `5d50805`.
 
 ## [2026-07-10] — staging-record: develop ahead of VPS (batch discipline)
 
