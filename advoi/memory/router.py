@@ -110,6 +110,16 @@ class MemoryRouter:
                 continue
             if target == WriteTarget.HINDSIGHT and self.cfg.hindsight_enabled:
                 from advoi.memory.hindsight import retain_strategic
+                from advoi.memory.write_targets import payload_has_fleet_backlog
+
+                # ADR-026 Never-rule: fleet backlog must never hit Hindsight.
+                if payload_has_fleet_backlog(payload):
+                    _LOGGER.warning(
+                        "retain blocked hindsight: fleet backlog payload (event=%s)",
+                        event_type.value,
+                    )
+                    results["hindsight"] = False
+                    continue
 
                 results["hindsight"] = await retain_strategic(
                     event_type.value, payload, hermes_container=self.cfg.hermes_container

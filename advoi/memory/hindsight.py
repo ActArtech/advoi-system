@@ -221,7 +221,19 @@ async def retain_strategic(
     *,
     hermes_container: str = "hermes",  # noqa: ARG001 — kept for router API compat
 ) -> bool:
-    """Retain strategic fact in Hindsight."""
+    """Retain strategic fact in Hindsight.
+
+    ADR-026 Never-rule: fleet backlog text is rejected and never persisted.
+    """
+    from advoi.memory.write_targets import payload_has_fleet_backlog
+
+    if payload_has_fleet_backlog(payload):
+        _LOGGER.warning(
+            "hindsight retain rejected: fleet backlog text is not strategic memory (event=%s)",
+            event_type,
+        )
+        return False
+
     summary = payload.get("summary") or payload.get("text") or str(payload)[:2000]
     cfg = _hindsight_settings()
     try:
