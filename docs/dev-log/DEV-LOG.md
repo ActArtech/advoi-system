@@ -5,6 +5,31 @@
 
 ---
 
+## [2026-07-10] — Batch documentation discipline setup
+
+**Version:** v0.4.1  
+**Type:** Docs  
+**Status:** Complete
+
+### Summary
+
+Established fleet batch documentation wrap-up gate: stop new Queued dispatch after 5 Done, milestone closure, or 2+ parked blockers until mandatory logs and evidence are committed. Added OPPORTUNITIES-LOG and ALIGNMENT-LOG with first 2026-07-10 batch entries.
+
+### Changes
+
+- [x] `docs/operations/BATCH-DOCUMENTATION.md` — triggers, artifacts, step-by-step wrap-up, resume Queued
+- [x] `docs/opportunities-log/OPPORTUNITIES-LOG.md` — M2 E2E defer, M4 OTel/Letta VPS, M5 live webhooks
+- [x] `docs/alignment-log/ALIGNMENT-LOG.md` — batch discipline ↔ M1–M9 milestone cadence
+- [x] `docs/operations/README.md` + `docs/README.md` — links to new logs
+- [x] ADR-027 — Batch documentation wrap-up gate (Accepted 2026-07-10)
+
+### Next
+
+- Run first full wrap-up at next batch stop trigger
+- Evidence folder: `data/feedback-evidence/batch-YYYY-MM-DD/` on next code batch
+
+---
+
 ## [2026-07-10] — 6-agent control plane + operators + squads + dashboard
 
 **Version:** v0.4.0  
