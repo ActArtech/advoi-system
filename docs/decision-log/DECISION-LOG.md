@@ -77,6 +77,7 @@
 
 | Date | Batch | Note |
 |------|-------|------|
+| 2026-07-10 | decision-sync (Aether stubs) | **ADR-027 + ADR-028** stubs synced to `.aether/DECISIONS.md` (ADR-026 already present). Venture-facing only — no full ADR text. Ship: `advoi-batch-decision-sync-01`. |
 | 2026-07-10 | wave 4 Aether/system/arch | **ADR-028** (write-path hard-gate). Aether feed skip + atomic publish + gate export implement ADR-005 / ADR-027 without extra ADRs. Vertical boundaries doc codifies target import/write rules (`06-vertical-boundaries.md`). |
 | 2026-07-10 | wave 3 PWA interaction slice | **No new ADR.** Aether gate chip, confirm parity (voice+tap), install strip + morning pulse CTA, and home briefs/review surface are PWA product implementation under ADR-001/002/012. Thin `GET /api/briefs` reuses Brief Curator PG→Redis (ADR-026). `ANALYTICS-FUNNEL.md` documents PEL beacon stages under ADR-027. Confirm copy parity is UX consistency, not a new confirmation model. |
 | 2026-07-10 | PWA home briefs surface | **No new ADR.** Thin `GET /api/briefs` reuses Brief Curator PG→Redis path (ADR-026); intentional split — home cards never Hindsight-merge; voice `open_briefs` may enrich when empty. Single home review-queue UI (not VoiceSession). Product surface under ADR-001/012. |

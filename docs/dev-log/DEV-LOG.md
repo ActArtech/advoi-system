@@ -32,7 +32,8 @@ Documented the Aether/system/arch Queued slice since wave 3: gate-required fleet
 ### Decisions
 
 - **ADR-028** — Guardian hard-gate on live `invoke_fleet_trigger` / fm-bridge (Accepted). Structural enforce when confirmation policy is on; no bare invoke from API/ingestion without post-gate tokens.
-- Aether feed skip / atomic publish / gate export extend ADR-005 + ADR-027 (no extra ADRs).
+- Aether feed skip / atomic publish + gate export extend ADR-005 + ADR-027 (no extra ADRs).
+- **Aether sync (`advoi-batch-decision-sync-01`):** venture-facing stubs for **ADR-027** (PEL authority) + **ADR-028** (write-path hard-gate) added to `.aether/DECISIONS.md` (ADR-026 already present). Full text remains in decision-log only.
 
 ### Evidence
 
