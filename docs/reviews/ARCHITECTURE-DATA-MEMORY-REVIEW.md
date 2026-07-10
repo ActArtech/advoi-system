@@ -69,7 +69,7 @@ ingestion → route → (approve) → guardian → fleet
 |-------|---------------|-----------|---------|
 | Postgres `decision_briefs` | Open briefs (claimed) | Brief Curator | Competes with Redis + Hindsight |
 | Postgres `memory_events` | Structured retain mirror | None exposed | Overlaps planned `portfolio_events` |
-| Postgres `review_queue` | Deep review items | Review frame | Persistence incomplete per MEMORY-STACK |
+| Postgres `review_queue` | Deep review items | Review frame + `/api/review-queue` | Canonical; CRUD enqueue/list/get/dequeue |
 | Redis `advoi:briefs:open` | Fast brief cache | Brief Curator | Can drift from Postgres |
 | Redis `advoi:agent:*:last` | Agent last_run cache | PWA, `/api/agents` | TTL = 2x daemon interval only |
 | Redis voice turns | Ephemeral session | Voice recall | No documented max window |

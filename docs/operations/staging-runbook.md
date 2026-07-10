@@ -70,6 +70,7 @@ Versioned SQL lives in `deploy/migrations/` and is applied **idempotently on `ad
 |------:|------|
 | 0 | `000_baseline_tables.sql` (`memory_events`, `decision_briefs`, `review_queue`) |
 | 1 | `001_portfolio_events.sql` (PEL + backfill) |
+| 2 | `002_review_queue_status_idx.sql` (pending FIFO index) |
 
 Full runbook (local apply, staging verification, recovery): **[MIGRATIONS.md](MIGRATIONS.md)**.
 

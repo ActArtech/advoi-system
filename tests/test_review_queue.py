@@ -1,12 +1,20 @@
-"""Review queue persistence and API tests."""
+"""Review queue Postgres persistence, CRUD round-trip, and API tests (T0)."""
 
+from __future__ import annotations
+
+import json
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from advoi.memory import review_queue
 from advoi.routing.frame_runner import run_frame
+
+# ---------------------------------------------------------------------------
+# URL helpers / no-DB guards
+# ---------------------------------------------------------------------------
 
 
 def test_desktop_brief_url_default(monkeypatch):
@@ -32,9 +40,20 @@ async def test_list_pending_without_database(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_dequeue_without_database(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    assert await review_queue.dequeue_review(1) is None
+
+
+@pytest.mark.asyncio
 async def test_ensure_table_without_database(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     assert await review_queue.ensure_table() is False
+
+
+# ---------------------------------------------------------------------------
+# Lightweight AsyncConnection mocks (single-call unit tests)
+# ---------------------------------------------------------------------------
 
 
 class _AsyncContext:
@@ -91,10 +110,10 @@ async def test_enqueue_review_persists(monkeypatch):
     mock_cur.execute.assert_any_call(
         """
                     INSERT INTO review_queue (title, source_frame, status, metadata)
-                    VALUES (%s, %s, 'pending', %s::jsonb)
+                    VALUES (%s, %s, %s, %s::jsonb)
                     RETURNING id
                     """,
-        ("ADVoi voice launch", "queue_deep_review", '{"trigger": "test"}'),
+        ("ADVoi voice launch", "queue_deep_review", "pending", '{"trigger": "test"}'),
     )
 
 
@@ -117,6 +136,204 @@ async def test_list_pending_returns_items(monkeypatch):
     assert items[0]["title"] == "First brief"
     assert items[0]["brief_url"] == "https://advoi.keyteller.com/briefs/1"
     assert items[0]["created_at"] == created.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_dequeue_review_updates_status(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test")
+    created = datetime(2026, 7, 8, 12, 0, tzinfo=UTC)
+    fake_connect, mock_cur = _mock_postgres_cursor(
+        fetchone=(
+            5,
+            "Done brief",
+            "queue_deep_review",
+            review_queue.STATUS_DEQUEUED,
+            {},
+            created,
+        )
+    )
+
+    with patch("psycopg.AsyncConnection.connect", side_effect=fake_connect):
+        item = await review_queue.dequeue_review(5)
+
+    assert item is not None
+    assert item["queue_id"] == 5
+    assert item["status"] == "dequeued"
+    # Ensure UPDATE targets pending → dequeued
+    args = mock_cur.execute.call_args
+    assert args is not None
+    sql, params = args[0][0], args[0][1]
+    assert "UPDATE review_queue" in " ".join(sql.split())
+    assert params[0] == review_queue.STATUS_DEQUEUED
+    assert params[1] == 5
+    assert params[2] == review_queue.STATUS_PENDING
+
+
+# ---------------------------------------------------------------------------
+# In-memory Postgres stand-in — CRUD survives "process restart"
+# ---------------------------------------------------------------------------
+
+
+class _PersistentReviewDb:
+    """Shared row store + connect factory. New connections each call simulate redeploy."""
+
+    def __init__(self) -> None:
+        self.rows: dict[int, dict[str, Any]] = {}
+        self._seq = 0
+
+    def connect_factory(self):
+        store = self
+
+        class _Cursor:
+            def __init__(self) -> None:
+                self._fetchone: Any = None
+                self._fetchall: list[Any] = []
+
+            async def execute(self, query: str, params: Any = None) -> None:
+                q = " ".join(query.split())
+                upper = q.upper()
+                params = params or ()
+
+                if upper.startswith("INSERT INTO REVIEW_QUEUE"):
+                    store._seq += 1
+                    qid = store._seq
+                    title, source_frame, status, meta_raw = params
+                    meta = json.loads(meta_raw) if isinstance(meta_raw, str) else (meta_raw or {})
+                    store.rows[qid] = {
+                        "id": qid,
+                        "title": title,
+                        "source_frame": source_frame,
+                        "status": status,
+                        "metadata": meta,
+                        "created_at": datetime(2026, 7, 10, 12, 0, tzinfo=UTC),
+                    }
+                    self._fetchone = (qid,)
+                    self._fetchall = []
+                    return
+
+                if upper.startswith("SELECT") and "WHERE ID = %S" in upper:
+                    qid = int(params[0])
+                    row = store.rows.get(qid)
+                    self._fetchone = _row_tuple(row) if row else None
+                    self._fetchall = []
+                    return
+
+                if upper.startswith("SELECT") and "STATUS = %S" in upper:
+                    status, limit = params[0], int(params[1])
+                    pending = [
+                        r
+                        for r in sorted(store.rows.values(), key=lambda x: x["created_at"])
+                        if r["status"] == status
+                    ][:limit]
+                    self._fetchall = [_row_tuple(r) for r in pending]
+                    self._fetchone = None
+                    return
+
+                if upper.startswith("UPDATE REVIEW_QUEUE"):
+                    new_status, qid, expect_status = params[0], int(params[1]), params[2]
+                    row = store.rows.get(qid)
+                    if row is None or row["status"] != expect_status:
+                        self._fetchone = None
+                        self._fetchall = []
+                        return
+                    row["status"] = new_status
+                    self._fetchone = _row_tuple(row)
+                    self._fetchall = []
+                    return
+
+                raise AssertionError(f"unexpected SQL in fake DB: {q}")
+
+            async def fetchone(self) -> Any:
+                return self._fetchone
+
+            async def fetchall(self) -> list[Any]:
+                return list(self._fetchall)
+
+        class _Conn:
+            def cursor(self):
+                return _AsyncContext(_Cursor())
+
+            async def commit(self):
+                return None
+
+        async def fake_connect(_dsn: str):
+            return _AsyncContext(_Conn())
+
+        return fake_connect
+
+
+def _row_tuple(row: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        row["id"],
+        row["title"],
+        row["source_frame"],
+        row["status"],
+        row["metadata"],
+        row["created_at"],
+    )
+
+
+@pytest.mark.asyncio
+async def test_crud_roundtrip_survives_process_restart(monkeypatch):
+    """enqueue → list → (restart) → get → dequeue → list empty; shared DB only."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test-review-queue")
+    db = _PersistentReviewDb()
+
+    # Process A: enqueue + list
+    with patch("psycopg.AsyncConnection.connect", side_effect=db.connect_factory()):
+        qid = await review_queue.enqueue_review(
+            "Staging catch-up",
+            "queue_deep_review",
+            metadata={"trigger": "voice_frame"},
+        )
+        assert qid is not None
+        pending = await review_queue.list_pending()
+        assert len(pending) == 1
+        assert pending[0]["queue_id"] == qid
+        assert pending[0]["title"] == "Staging catch-up"
+        assert pending[0]["status"] == review_queue.STATUS_PENDING
+
+    # Process B (API redeploy): new connections, same Postgres rows
+    with patch("psycopg.AsyncConnection.connect", side_effect=db.connect_factory()):
+        item = await review_queue.get_review_item(qid)
+        assert item is not None
+        assert item["title"] == "Staging catch-up"
+        assert item["metadata"] == {"trigger": "voice_frame"}
+        assert item["brief_url"].endswith(f"/{qid}")
+
+        dequeued = await review_queue.dequeue_review(qid)
+        assert dequeued is not None
+        assert dequeued["status"] == review_queue.STATUS_DEQUEUED
+        assert await review_queue.list_pending() == []
+
+        # Second dequeue is a no-op (already dequeued)
+        assert await review_queue.dequeue_review(qid) is None
+
+        # Get still returns historical row
+        after = await review_queue.get_review_item(qid)
+        assert after is not None
+        assert after["status"] == review_queue.STATUS_DEQUEUED
+
+
+@pytest.mark.asyncio
+async def test_ensure_table_uses_migration_runner(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test")
+    called: list[str] = []
+
+    async def _fake_apply(**_kwargs: Any):
+        called.append("apply")
+        from advoi.db.migrations import MigrationResult
+
+        return MigrationResult(ok=True, applied=["000_baseline_tables", "002_review_queue_status_idx"])
+
+    monkeypatch.setattr("advoi.db.migrations.apply_pending_migrations", _fake_apply)
+    assert await review_queue.ensure_table() is True
+    assert called == ["apply"]
+
+
+# ---------------------------------------------------------------------------
+# Frame runner + HTTP API
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -225,5 +442,33 @@ def test_api_review_queue_item_not_found(client, monkeypatch):
 
     with patch("advoi.memory.review_queue.get_review_item", AsyncMock(return_value=None)):
         resp = client.get("/api/review-queue/999")
+
+    assert resp.status_code == 404
+
+
+def test_api_review_queue_dequeue(client, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test")
+    item = {
+        "queue_id": 12,
+        "title": "Fleet governance review",
+        "source_frame": "queue_deep_review",
+        "status": "dequeued",
+        "metadata": {},
+        "brief_url": "https://advoi.keyteller.com/briefs/12",
+        "created_at": "2026-07-08T12:00:00+00:00",
+    }
+
+    with patch("advoi.memory.review_queue.dequeue_review", AsyncMock(return_value=item)):
+        resp = client.post("/api/review-queue/12/dequeue")
+
+    assert resp.status_code == 200
+    assert resp.json()["item"]["status"] == "dequeued"
+
+
+def test_api_review_queue_dequeue_not_found(client, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test")
+
+    with patch("advoi.memory.review_queue.dequeue_review", AsyncMock(return_value=None)):
+        resp = client.post("/api/review-queue/999/dequeue")
 
     assert resp.status_code == 404

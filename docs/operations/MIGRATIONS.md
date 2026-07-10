@@ -20,6 +20,7 @@ The runner sorts by the leading integer (`NNN`), then by full stem. Current chai
 |------:|------|-------------------|
 | 0 | `000_baseline_tables.sql` | `memory_events`, `decision_briefs`, `review_queue` |
 | 1 | `001_portfolio_events.sql` | `portfolio_events` + indexes + idempotent backfill from `memory_events` |
+| 2 | `002_review_queue_status_idx.sql` | Index `(status, created_at)` for pending FIFO |
 
 Tracking table (created by the runner, not a numbered file):
 
@@ -92,8 +93,9 @@ docker compose --profile app exec -T postgres \
 ```text
 version                 | applied_at
 ------------------------+-------------------------------
-000_baseline_tables     | <api boot timestamp>
-001_portfolio_events    | <api boot timestamp>
+000_baseline_tables          | <api boot timestamp>
+001_portfolio_events         | <api boot timestamp>
+002_review_queue_status_idx  | <api boot timestamp>
 ```
 
 ### Smoke that schema is live

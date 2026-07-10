@@ -28,18 +28,20 @@ def test_migrations_dir_contains_baseline_and_pel():
     names = {p.name for p in root.glob("*.sql")}
     assert "000_baseline_tables.sql" in names
     assert "001_portfolio_events.sql" in names
+    assert "002_review_queue_status_idx.sql" in names
 
 
 def test_list_migration_files_ordered_by_ordinal():
     files = list_migration_files()
-    assert len(files) >= 2
+    assert len(files) >= 3
     versions = [m.version for m in files]
     assert versions[0] == "000_baseline_tables"
     assert versions[1] == "001_portfolio_events"
+    assert versions[2] == "002_review_queue_status_idx"
     ordinals = [m.ordinal for m in files]
     assert ordinals == sorted(ordinals)
     # Apply order contract used by docs / staging verification
-    assert ordinals[0] < ordinals[1]
+    assert ordinals[0] < ordinals[1] < ordinals[2]
 
 
 def test_list_migration_files_ignores_non_versioned(tmp_path: Path):
@@ -212,12 +214,18 @@ async def test_apply_real_migrations_order_on_fake_cursor():
     assert result.ok is True
     assert result.applied[0] == "000_baseline_tables"
     assert result.applied[1] == "001_portfolio_events"
-    # Tracking inserts for both versions
-    assert cur._applied == {"000_baseline_tables", "001_portfolio_events"}
+    assert result.applied[2] == "002_review_queue_status_idx"
+    # Tracking inserts for all versions
+    assert cur._applied == {
+        "000_baseline_tables",
+        "001_portfolio_events",
+        "002_review_queue_status_idx",
+    }
     # Ensure CREATE TABLE fragments from both files were executed
     blob = "\n".join(q for q, _ in cur.executed).upper()
     assert "MEMORY_EVENTS" in blob
     assert "PORTFOLIO_EVENTS" in blob
+    assert "REVIEW_QUEUE_STATUS_CREATED_AT_IDX" in blob
     assert "SCHEMA_MIGRATIONS" in blob
 
 
@@ -240,9 +248,21 @@ async def test_ensure_portfolio_events_table_uses_runner(monkeypatch: pytest.Mon
 
 
 def test_apply_order_documented_contract():
-    """Documented apply order: baseline (000) then PEL (001)."""
+    """Documented apply order: baseline (000) then PEL (001) then review_queue idx (002)."""
     files = list_migration_files()
     by_version = {m.version: m for m in files}
     assert "000_baseline_tables" in by_version
     assert "001_portfolio_events" in by_version
+    assert "002_review_queue_status_idx" in by_version
     assert by_version["000_baseline_tables"].ordinal < by_version["001_portfolio_events"].ordinal
+    assert (
+        by_version["001_portfolio_events"].ordinal
+        < by_version["002_review_queue_status_idx"].ordinal
+    )
+
+
+def test_review_queue_index_migration_splits():
+    path = migrations_dir() / "002_review_queue_status_idx.sql"
+    stmts = split_sql_statements(path.read_text(encoding="utf-8"))
+    assert len(stmts) == 1
+    assert "review_queue_status_created_at_idx" in stmts[0]

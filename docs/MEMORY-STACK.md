@@ -72,7 +72,7 @@ bash scripts/memory-health.sh
 - [x] Voice turn retain to Redis
 - [x] Postgres `decision_briefs` canonical + Redis cache + optional Hindsight enrich
 - [x] `write_targets.py` — no duplicate writes per event type
-- [x] Review queue Postgres persistence (`review_queue.py` + `GET /api/review-queue`)
+- [x] Review queue Postgres persistence (`review_queue` table + enqueue/list/get/dequeue; survives API redeploy)
 - [x] Thin `GET /api/briefs` for PWA home (no Hindsight on passive load)
 - [ ] Shelve push for secrets (OPENAI key corruption on pull)
 - [ ] (v0.2) Letta container

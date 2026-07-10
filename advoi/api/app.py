@@ -277,6 +277,20 @@ async def review_queue_item(queue_id: int) -> dict[str, Any]:
     return {"item": item}
 
 
+@app.post("/api/review-queue/{queue_id}/dequeue")
+async def review_queue_dequeue(queue_id: int) -> dict[str, Any]:
+    """Mark a pending review item dequeued (Postgres status update)."""
+    from advoi.memory.review_queue import dequeue_review
+
+    item = await dequeue_review(queue_id)
+    if not item:
+        raise HTTPException(
+            status_code=404,
+            detail="Review queue item not found or already dequeued",
+        )
+    return {"item": item}
+
+
 @app.get("/api/agents")
 async def list_agents() -> dict[str, Any]:
     return agents_status_summary()

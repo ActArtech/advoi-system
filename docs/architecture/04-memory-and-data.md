@@ -15,7 +15,7 @@ Source for this matrix: [ARCHITECTURE-DATA-MEMORY-REVIEW § Data architecture](.
 | Entity / concern | Canonical store | Secondary / cache | Never authoritative in | Notes |
 |------------------|-----------------|-------------------|------------------------|-------|
 | Open decision briefs | **Postgres** `decision_briefs` | Redis `advoi:briefs:open` (cache fill + invalidate-on-write) | Hindsight titles, Redis alone | `EVENT_WRITE_MAP[decision_brief] = (postgres,)`. Hindsight may enrich only when PG empty. |
-| Deep review queue items | **Postgres** `review_queue` | Desktop brief URL / mock `/briefs/{id}` | Redis agent cache | Created via review frame + Guardian confirm; table ensured in `review_queue.py`. |
+| Deep review queue items | **Postgres** `review_queue` | Desktop brief URL / mock `/briefs/{id}` | Redis agent cache | Created via review frame + Guardian confirm; enqueue/list/get/dequeue in `review_queue.py`; index `002_review_queue_status_idx`. |
 | Control-plane / executive events | **Postgres** `portfolio_events` (PEL) | — | Hindsight (no per-event dual-write) | Append-only via `advoi.analytics.pel.append_event`. Moat R1. |
 | Structured memory retain mirror | Postgres `memory_events` (**legacy**) | — | PEL until cutover complete | Written by `retain_structured`; **not** the long-term SoR — migrate → PEL then deprecate. |
 | Strategic beliefs / portfolio facts | **Hindsight** (Hermes via memory-bridge) | Optional Postgres mirror for structured fields on some event types | Redis turns, fleet backlog text | Primary for `portfolio_fact`, governance, synthesis. |
@@ -58,6 +58,7 @@ Use this when choosing a read path. Source: arch data/memory review memory-tier 
 |--------------|-------------|-----------|
 | `memory_events`, `decision_briefs`, `review_queue` | Versioned SQL | `deploy/migrations/000_baseline_tables.sql` |
 | `portfolio_events` | Versioned SQL (+ indexes, memory_events backfill) | `deploy/migrations/001_portfolio_events.sql` |
+| `review_queue` pending FIFO index | Versioned SQL | `deploy/migrations/002_review_queue_status_idx.sql` |
 | `schema_migrations` | Runner bootstrap DDL | `advoi/db/migrations.py` (not a numbered file) |
 
 **Apply:** lexicographic `NNN_*.sql` order at API boot (`apply_pending_migrations`). Ops: [MIGRATIONS.md](../operations/MIGRATIONS.md).
