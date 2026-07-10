@@ -48,13 +48,19 @@ def test_store_skips_confirmation_required():
 async def test_duplicate_invoke_within_window_deduped():
     """T0: same idempotency_key within 60s returns prior result; no re-execution."""
     key = "t0-arm-clapart-once"
-    first = await invoke_fleet_trigger("arm", project="clapart", idempotency_key=key)
+    # Post-gate token (simulates fleet_trigger_from_voice after Guardian).
+    g = {"guardian_allowed": True}
+    first = await invoke_fleet_trigger(
+        "arm", project="clapart", idempotency_key=key, **g
+    )
     assert first["ok"] is True
     assert first["status"] == "mock"
     assert first.get("deduped") is not True
     assert first["idempotency_key"] == key
 
-    second = await invoke_fleet_trigger("arm", project="clapart", idempotency_key=key)
+    second = await invoke_fleet_trigger(
+        "arm", project="clapart", idempotency_key=key, **g
+    )
     assert second["ok"] is True
     assert second["status"] == "mock"
     assert second["deduped"] is True
@@ -67,13 +73,14 @@ async def test_duplicate_invoke_within_window_deduped():
         "arm",
         project="clapart",
         idempotency_key="t0-arm-clapart-other",
+        **g,
     )
     assert other["ok"] is True
     assert other.get("deduped") is not True
 
     # Without a key: always executes (two mock rows).
-    a = await invoke_fleet_trigger("arm", project="clapart")
-    b = await invoke_fleet_trigger("arm", project="clapart")
+    a = await invoke_fleet_trigger("arm", project="clapart", **g)
+    b = await invoke_fleet_trigger("arm", project="clapart", **g)
     assert a.get("deduped") is not True
     assert b.get("deduped") is not True
 

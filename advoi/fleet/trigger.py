@@ -210,6 +210,29 @@ async def _emit_fleet_gate_event(
     )
 
 
+def _guardian_permits_fleet_invoke(
+    *,
+    guardian_allowed: bool,
+    guardian_status: str | None,
+) -> bool:
+    """True when confirmation policy is off, or caller proved Guardian approval.
+
+    Production callers must either:
+    - use :func:`fleet_trigger_from_voice` (gates then sets guardian_status), or
+    - pass ``guardian_allowed=True`` / ``guardian_status="allowed"`` only after
+      :func:`advoi.guardian.confirmation.evaluate_fleet_confirmation` returned proceed.
+    """
+    from advoi.guardian.confirmation import global_confirmation_enabled
+
+    if not global_confirmation_enabled():
+        return True
+    if guardian_allowed:
+        return True
+    if (guardian_status or "").strip().lower() == "allowed":
+        return True
+    return False
+
+
 async def invoke_fleet_trigger(
     message: str,
     *,
@@ -217,9 +240,14 @@ async def invoke_fleet_trigger(
     caller: str = "api",
     action: str | None = None,
     guardian_status: str | None = None,
+    guardian_allowed: bool = False,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     """Invoke fm-bridge once. Optional ``idempotency_key`` dedupes for 60s.
+
+    When ``ADVOI_CONFIRMATION_REQUIRED`` is on, callers must pass
+    ``guardian_allowed=True`` or ``guardian_status="allowed"`` after a Guardian
+    gate. Prefer :func:`fleet_trigger_from_voice` for structured high-risk actions.
 
     See ``advoi.fleet.idempotency`` for the header/param contract.
     """
@@ -244,6 +272,30 @@ async def invoke_fleet_trigger(
             return {**result, "idempotency_key": key}
         return result
 
+    if not _guardian_permits_fleet_invoke(
+        guardian_allowed=guardian_allowed,
+        guardian_status=guardian_status,
+    ):
+        result = {
+            "ok": False,
+            "status": "guardian_required",
+            "message": msg,
+            "project": slug,
+            "bridge": exec_argv[1] if len(exec_argv) > 1 else None,
+            "guardian": True,
+            "output": "Guardian approval required before fm-bridge invoke.",
+        }
+        await _emit_fleet_trigger_event(
+            result,
+            action=action,
+            caller=caller,
+            guardian_status="pending",
+        )
+        return _finish(result)
+
+    # Post-gate: normalize PEL status so default emit is not silently "allowed".
+    effective_guardian = guardian_status or ("allowed" if guardian_allowed else None)
+
     if _fleet_mock():
         result = {
             "ok": True,
@@ -257,7 +309,7 @@ async def invoke_fleet_trigger(
             result,
             action=action,
             caller=caller,
-            guardian_status=guardian_status or "allowed",
+            guardian_status=effective_guardian or "allowed",
         )
         return _finish(result)
 
@@ -274,7 +326,7 @@ async def invoke_fleet_trigger(
             result,
             action=action,
             caller=caller,
-            guardian_status=guardian_status or "error",
+            guardian_status=effective_guardian or "error",
         )
         return _finish(result)
 
@@ -305,7 +357,7 @@ async def invoke_fleet_trigger(
         result,
         action=action,
         caller=caller,
-        guardian_status=guardian_status or ("allowed" if ok else "error"),
+        guardian_status=effective_guardian or ("allowed" if ok else "error"),
     )
     return _finish(result)
 

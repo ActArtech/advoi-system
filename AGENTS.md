@@ -14,6 +14,14 @@ Target import/write rules: `docs/architecture/06-vertical-boundaries.md`.
 - **aether** — read gate + portfolio; enrich frames; no fleet writes.
 - **ingestion** — `route → (approve) → guardian → fleet` (no auto-dispatch on upload).
 
+## Fleet / fm-bridge write path (Guardian)
+
+- Prefer `fleet_trigger_from_voice` for structured high-risk actions (`wake_firstmate`, `start_development`, `run_next_backlog`, `fleet_stop`).
+- Low-level `invoke_fleet_trigger` **requires** Guardian when `ADVOI_CONFIRMATION_REQUIRED` is on: pass `guardian_allowed=True` or `guardian_status="allowed"` only after `evaluate_fleet_confirmation` returned proceed. Otherwise returns `status=guardian_required` and does **not** shell.
+- `POST /api/fleet/trigger` must use `fleet_trigger_from_voice` only — never bare free-form `invoke_fleet_trigger`.
+- Sole subprocess bridge path: `advoi/fleet/trigger.py` → `resolve_fleet_exec` → `scripts/fm-bridge.sh`.
+- Guard: `tests/test_write_path_audit.py`. Inventory: `data/feedback-evidence/advoi-arch-write-path-audit-01/audit.md`.
+
 ## Memory retain (ADR-026)
 
 - All production retains go through `MemoryRouter.retain(MemoryEventType, …)`; routing is `EVENT_WRITE_MAP` in `advoi/memory/write_targets.py`.

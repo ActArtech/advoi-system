@@ -326,11 +326,7 @@ async def fleet_trigger(
     without re-executing the bridge (see ``advoi.fleet.idempotency``).
     """
     from advoi.fleet.idempotency import normalize_idempotency_key
-    from advoi.fleet.trigger import (
-        FleetVoiceAction,
-        fleet_trigger_from_voice,
-        invoke_fleet_trigger,
-    )
+    from advoi.fleet.trigger import FleetVoiceAction, fleet_trigger_from_voice
 
     allowed: tuple[FleetVoiceAction, ...] = (
         "wake_firstmate",
@@ -353,42 +349,14 @@ async def fleet_trigger(
     if body.task:
         transcript = f"{transcript} {body.task}"
 
-    if body.action == "wake_firstmate":
-        return await fleet_trigger_from_voice(
-            "wake_firstmate",
-            transcript=transcript,
-            confirmed=body.confirmed,
-            idempotency_key=idem_key,
-        )
-    if body.action == "start_development":
-        return await fleet_trigger_from_voice(
-            "start_development",
-            transcript=transcript,
-            confirmed=body.confirmed,
-            idempotency_key=idem_key,
-        )
-    if body.action == "run_next_backlog":
-        return await fleet_trigger_from_voice(
-            "run_next_backlog",
-            transcript=transcript,
-            confirmed=body.confirmed,
-            idempotency_key=idem_key,
-        )
-    if body.action == "fleet_stop":
-        return await fleet_trigger_from_voice(
-            "fleet_stop",
-            transcript=transcript,
-            confirmed=body.confirmed,
-            idempotency_key=idem_key,
-        )
-
-    if body.task:
-        return await invoke_fleet_trigger(
-            f"work {body.task}",
-            project=body.project,
-            idempotency_key=idem_key,
-        )
-    raise HTTPException(status_code=400, detail="task required for custom work dispatch")
+    # All live fleet writes go through the Guardian-gated voice/API action helper.
+    # Free-form low-level bridge invoke is not exposed on this endpoint.
+    return await fleet_trigger_from_voice(
+        body.action,  # type: ignore[arg-type]
+        transcript=transcript,
+        confirmed=body.confirmed,
+        idempotency_key=idem_key,
+    )
 
 
 class IngestDispatchRequest(BaseModel):

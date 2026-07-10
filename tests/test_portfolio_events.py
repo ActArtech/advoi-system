@@ -104,7 +104,11 @@ async def test_emit_frame_run_row(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.asyncio
 async def test_emit_fleet_trigger_row(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ADVOI_FLEET_MOCK", "true")
-    result = await invoke_fleet_trigger("arm", project="clapart")
+    result = await invoke_fleet_trigger(
+        "arm",
+        project="clapart",
+        guardian_allowed=True,
+    )
     assert result["ok"] is True
     rows = [r for r in memory_rows() if r["type"] == "fleet_trigger"]
     assert len(rows) == 1

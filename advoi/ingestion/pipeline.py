@@ -168,8 +168,25 @@ async def dispatch_item_dev(
             confirmed=True,
         )
     else:
-        arm = await invoke_fleet_trigger("arm", project=project)
-        work = await invoke_fleet_trigger(f"work {task}", project=project)
+        # Free-form work dispatch (ingestion task text). Guardian already
+        # proceeded above — pass guardian_allowed so invoke_fleet_trigger
+        # cannot be reached without that gate (write-path audit P0).
+        arm = await invoke_fleet_trigger(
+            "arm",
+            project=project,
+            caller="ingestion",
+            action=guardian_action,
+            guardian_allowed=True,
+            guardian_status="allowed",
+        )
+        work = await invoke_fleet_trigger(
+            f"work {task}",
+            project=project,
+            caller="ingestion",
+            action=guardian_action,
+            guardian_allowed=True,
+            guardian_status="allowed",
+        )
         result = {
             "ok": arm.get("ok") and work.get("ok"),
             "status": "dispatched" if arm.get("ok") and work.get("ok") else "failed",

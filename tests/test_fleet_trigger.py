@@ -43,10 +43,25 @@ def test_extract_project_slug():
 @pytest.mark.asyncio
 async def test_invoke_fleet_trigger_mock(monkeypatch):
     monkeypatch.setenv("ADVOI_FLEET_MOCK", "true")
-    result = await invoke_fleet_trigger("arm", project="clapart")
+    # Low-level invoke requires explicit post-gate token when confirmation is on.
+    result = await invoke_fleet_trigger(
+        "arm",
+        project="clapart",
+        guardian_allowed=True,
+    )
     assert result["ok"] is True
     assert result["status"] == "mock"
     assert result["project"] == "clapart"
+
+
+@pytest.mark.asyncio
+async def test_invoke_fleet_trigger_requires_guardian_when_confirmation_on(monkeypatch):
+    monkeypatch.setenv("ADVOI_FLEET_MOCK", "true")
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+    denied = await invoke_fleet_trigger("arm", project="clapart")
+    assert denied["ok"] is False
+    assert denied["status"] == "guardian_required"
+    assert denied.get("guardian") is True
 
 
 @pytest.mark.asyncio
