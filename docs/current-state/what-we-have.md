@@ -1,14 +1,14 @@
 # What we have
 
-Concrete inventory of `advoi-system` as of **2026-07-08**, commit `48e7645`.
+Concrete inventory of `advoi-system` (partial refresh **2026-07-10** for PWA home briefs surface; older rows may still lag full 6-agent API).
 
-**Staging verified live:** `https://advoi.keyteller.com` — API 200, 3/3 agents ready, voice diagnostics `ok: true`.
+**Staging:** `https://advoi.keyteller.com` / `https://advoi-staging.keyteller.com` — promote may lag develop (see gaps-and-blockers).
 
 ---
 
 ## Backend (Python)
 
-### API (`advoi/api/app.py`) — 14 routes, all wired
+### API (`advoi/api/app.py`) — core routes (not exhaustive; 30+ live)
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -21,6 +21,7 @@ Concrete inventory of `advoi-system` as of **2026-07-08**, commit `48e7645`.
 | POST | `/api/agents/prewarm` | Parallel cache warm for all specialists |
 | POST | `/api/voice/intent` | Classify transcript → frame or chat + preview |
 | POST | `/api/voice/respond` | Warm spoken reply for client voice loop |
+| GET | `/api/briefs` | Open decision briefs for PWA home (PG→Redis only; no frame/PEL) |
 | GET | `/api/review-queue` | Pending deep-review items (Postgres) |
 | GET | `/api/review-queue/{id}` | Single review item for desktop brief page |
 | GET | `/api/diagnostics/agents` | Agent cache readiness |
@@ -93,20 +94,29 @@ Startup prewarm when `ADVOI_PREWARM_AGENTS=true` (default).
 
 | Route | Component | Path |
 |-------|-----------|------|
-| `/` | `VoiceSession.tsx` | Path A — LiveKit PWA |
+| `/` | `PwaHomeOnboarding` + `PwaHomeBriefsSurface` + `VoiceSession` | Path A — home lists + LiveKit PWA |
 | `/voice-local` | `VoiceLoop.tsx` | Path B — client STT/TTS |
+| `/voice-server` | Server voice page | Path C — browser STT + API TTS |
+| `/dashboard` | Dashboard page | Squad/agent graph + run 6 |
 | `/briefs/[id]` | Brief page | Desktop deep-review follow-up from queue URLs |
+
+### Home surfaces (Path A `/`)
+
+- **Onboarding** — install strip + 60s morning pulse CTA (`PwaHomeOnboarding.tsx` / `pwaOnboarding.ts`)
+- **Briefs surface** — open briefs cards (`GET /api/briefs`) + review queue cards (`GET /api/review-queue`); pure model `pwaBriefsSurface.ts`; SWR 30s poll; `advoi:briefs-refresh` after relevant frames
+- VoiceSession does **not** own a separate review-queue list (single home UI)
 
 ### VoiceSession features (Path A)
 
 - Connect / disconnect LiveKit room
 - Mic publish with echo cancellation
 - Remote audio playback (server TTS)
-- 3 frame buttons from `/api/frames`
-- Confirmation flow for Option C
+- 6 frame buttons from `/api/frames` + operator bar
+- Confirmation flow for Option C (confirm parity: voice TTS + tap share copy)
+- UI state machine + SLA latency + Aether gate chips
+- Error recovery panel (mic / LiveKit / API)
 - Shift+click / double-click refresh for fleet
 - Agent freshness chips (30s poll)
-- Review queue panel (30s poll)
 - Voice intent hints when connected
 - `stripEmDash` on all user-facing copy
 

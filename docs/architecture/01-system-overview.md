@@ -41,8 +41,9 @@ ADVoi is a voice-first executive operating layer over an existing portfolio stac
 
 | Path | Status |
 |------|--------|
-| `web/` | **Built** — Next.js 15 PWA, `VoiceSession`, LiveKit client, frame buttons |
-| `web/voice-interface/` | **Planned** — Kokoro + Parakeet client loop (not in repo yet) |
+| `web/` | **Built** — Next.js 15 PWA; home `/` = onboarding + briefs surface + `VoiceSession` (LiveKit, 6 frames, chips) |
+| `web/components/PwaHomeBriefsSurface.tsx` | **Built** — open briefs + review queue cards (`GET /api/briefs`, `GET /api/review-queue`) |
+| `web/voice-interface/` | **Built** — Kokoro + Parakeet client loop at `/voice-local` |
 
 ## High-level diagram
 
@@ -51,7 +52,7 @@ Six specialist agent daemons (one per decision frame), plus API, voice, and memo
 ```mermaid
 flowchart TB
   subgraph client [Client]
-    PWA[PWA VoiceSession]
+    PWA[PWA home + VoiceSession]
   end
 
   subgraph advoi_stack [ADVoi Docker stack]

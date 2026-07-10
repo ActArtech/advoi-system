@@ -13,7 +13,7 @@ These passed against staging before human test. Re-run before you sign off:
 
 - [x] `voice-smoke-test.sh` — all journey checks, `sla_ok: true`
 - [x] `/api/diagnostics/voice` — `ok: true`, `llm_key: true`, `memory_bridge_mode: hermes`
-- [x] `/api/agents` — 3/3 ready
+- [x] `/api/agents` — 6/6 ready (re-verify after promote; older logs may say 3/3)
 - [x] VPS env — `PROJECT_SLUG=advoi`, `STOREFRONT_HOST=advoi.keyteller.com`, LLM key synced
 - [x] `staging-signoff-precheck.ps1` — passed 2026-07-08 at `c14c38d` (use `.ps1` on Windows, `.sh` on VPS)
 
@@ -34,7 +34,7 @@ bash scripts/staging-signoff-precheck.sh
 Or individually:
 
 - [ ] `bash scripts/voice-smoke-test.sh` → `/api/diagnostics/voice` reports `"ok": true`
-- [ ] `bash scripts/agents-smoke-test.sh` (or `.ps1`) → all 3 agents + 3 frames OK
+- [ ] `bash scripts/agents-smoke-test.sh` (or `.ps1`) → all 6 agents + 6 frames OK
 - [ ] `GET /api/diagnostics/latency` → `sla_ok: true` (API path under 800ms)
 - [ ] `docker compose --profile app ps` → `advoi-api`, `advoi-voice`, `advoi-web`, `livekit` up
 - [ ] `grep -E '^(OPENAI_API_KEY|OPENROUTER_API_KEY)=' deploy/.env` → non-empty on VPS
@@ -61,10 +61,12 @@ Not required for staging sign-off. Record only if tested.
 - [ ] `/voice-local` loads Kokoro + Parakeet models (WebGPU browser)
 - [ ] Speak short phrase → hear Kokoro TTS reply via `POST /api/voice/respond`
 
-## Review queue UI
+## Home briefs + review queue (A17)
 
-- [ ] PWA shows **Review queue (N)** when items pending (`GET /api/review-queue`)
-- [ ] Voice confirm on Option C updates queue list
+- [ ] On `/`, `pwa-home-briefs-surface` shows **Open briefs** + **Review queue** without navigating to `/briefs`
+- [ ] Open briefs cards from thin `GET /api/briefs` (or empty state); **Hear open briefs** runs the `open_briefs` frame
+- [ ] Pending review items appear under **Review queue** (`GET /api/review-queue`); cards link to `brief_url` or `/briefs/{id}`
+- [ ] Voice/tap confirm on Option C (`queue_deep_review`) updates the home review list (post-frame `advoi:briefs-refresh`)
 
 ## Sign-off
 

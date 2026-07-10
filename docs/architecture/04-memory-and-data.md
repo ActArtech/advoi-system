@@ -54,6 +54,8 @@ Single read order (ADR-026 ship #2b — no triple-merge):
 
 `EVENT_WRITE_MAP[decision_brief] = (postgres,)` only. Seed scripts write PG first; Redis is a cache mirror; Hindsight seed uses `portfolio_fact` for optional strategic enrich.
 
+**PWA thin read:** `GET /api/briefs` reuses `_load_open_briefs` (PG → Redis cache-only) for home cards — **no Hindsight enrich, no frame run, no PEL**. Voice frame `open_briefs` may still Hindsight-enrich when that load is empty. Home UI: `PwaHomeBriefsSurface` on `/` (see AGENTS.md / manual A17).
+
 Seed script: `scripts/seed-advoi-briefs.sh` (Postgres + Redis cache + optional Hermes enrich).
 
 Local seed without Hermes: `scripts/seed-local-briefs.py`

@@ -2,6 +2,8 @@
 
 How close ADVoi is to a **complete, testable staging system** and what to do next.
 
+> **Stale snapshot (2026-07-08).** Prefer [SYSTEM-STATUS.md](SYSTEM-STATUS.md) and [WHAT-WE-DID-2026-07-10.md](WHAT-WE-DID-2026-07-10.md) for current capability (6 agents, home briefs surface A17, etc.). Numbers below (3 agents / 105 tests) are historical.
+
 **Last verified:** 2026-07-08  
 **Commit:** `db5caeb` (pending next push with briefs + staging CI)  
 **Staging:** `https://advoi.keyteller.com`  
@@ -18,7 +20,7 @@ A human can use ADVoi as a voice-first executive OS slice on staging — not a s
 | Voice PWA (Path A) | Open PWA, connect voice, mic works, green status, greeting + frame TTS within ~10s | **Built** — human sign-off pending |
 | 3 decision frames | Tap or speak intent → spoken summary (fleet, briefs, review) | **Built** |
 | 3 background agents | Fleet-scout, brief-curator, review-queue tick and cache `last_run` | **Built** — 3/3 ready on staging |
-| Review queue | Postgres queue, PWA list, Option C two-turn confirm | **Built** — device confirm test pending |
+| Review queue | Postgres queue, home surface cards (`PwaHomeBriefsSurface` / A17), Option C two-turn confirm | **Built** — device confirm test pending |
 | Staging infra | Traefik, valid `.env`, LLM keys, all containers up | **Staging-ready** (verified 2026-07-08) |
 | Automated gates | pytest, agents-smoke, voice-smoke | **Built** — 105 pytest pass |
 | Human sign-off | Recorded mic → STT → LLM → TTS on real device | **Open** |

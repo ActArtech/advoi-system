@@ -9,6 +9,6 @@ Runbooks for local development and staging validation.
 | [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) | What to test / tested / bugs (does not block dev) |
 | [local-testing.md](local-testing.md) | Developers on Windows/Mac/Linux |
 | [staging-runbook.md](staging-runbook.md) | VPS deploy and smoke (T2: `scripts/t2-staging-smoke.sh`) |
-| [E2E-SIGNOFF.md](E2E-SIGNOFF.md) | Formal Path A sign-off template |
+| [E2E-SIGNOFF.md](E2E-SIGNOFF.md) | Formal Path A sign-off template (incl. home briefs A17) |
 
 See also: [../VPS-SETUP.md](../VPS-SETUP.md) (8-step Aether checklist).

@@ -5,7 +5,7 @@ System design for ADVoi as implemented in `advoi-system/`. These docs describe *
 | Doc | Topic |
 |-----|-------|
 | [01-system-overview.md](01-system-overview.md) | Verticals, horizontals, repo layout |
-| [02-voice-paths.md](02-voice-paths.md) | LiveKit server voice vs planned client voice |
+| [02-voice-paths.md](02-voice-paths.md) | LiveKit Path A (incl. home briefs surface) vs client Path B |
 | [03-multi-agent.md](03-multi-agent.md) | Specialist agents, frames, daemons |
 | [04-memory-and-data.md](04-memory-and-data.md) | Hindsight, Postgres, Redis, bridge |
 | [05-deployment-topology.md](05-deployment-topology.md) | Docker services, VPS, networking |

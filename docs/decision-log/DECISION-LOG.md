@@ -76,6 +76,7 @@
 
 | Date | Batch | Note |
 |------|-------|------|
+| 2026-07-10 | PWA home briefs surface | **No new ADR.** Thin `GET /api/briefs` reuses Brief Curator PG→Redis path (ADR-026); intentional split — home cards never Hindsight-merge; voice `open_briefs` may enrich when empty. Single home review-queue UI (not VoiceSession). Product surface under ADR-001/012. |
 | 2026-07-10 | wave 2 PWA/analytics/aether | **No new ADR.** PWA `POST /api/events` beacon extends ADR-027. OTEL + guardian `trace_id` implements roadmap M4.5–M4.6. fm-bridge 60s idempotency is operational hardening. UI state machine / recovery are PWA product implementation under ADR-001/002. |
 
 ---

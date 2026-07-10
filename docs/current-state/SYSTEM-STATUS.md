@@ -17,7 +17,7 @@ Milestones: [DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md)
 | Dimension | Status |
 |-----------|--------|
 | **Code (Build 1.5+)** | 6-agent control plane + operators + squads + dashboard |
-| **Automated tests** | **190** pytest across 25+ modules |
+| **Automated tests** | **415** pytest collected (includes PWA home / chips / PEL suites) |
 | **Staging** | Infra healthy; **code deploy pending** (BUG-005) |
 | **Human voice E2E** | Not recorded |
 | **Phase 4** | Aether, Guardian, squads, platform diagnostics shipped in code; Letta/OTel VPS enablement open |
@@ -79,11 +79,15 @@ PWA operator bar + `/dashboard` for visual multi-agent control.
 
 Core: health, session, frames, capabilities, agents, prewarm, stop, restart, orchestrate, run-six, voice intent/respond/speak, review queue.
 
+**Home thin reads:** `GET /api/briefs` (open decision briefs — Brief Curator PG→Redis only; read-only, no frame run / PEL); `GET /api/review-queue` (+ `/{id}`).
+
 Squads: `GET /api/squads`, `POST /api/squads/dispatch`, `POST /api/squads/dispatch-all`.
 
 Aether: portfolio, gate, routes, status, reload, ventures.
 
 Diagnostics: agents, guardian, memory, voice, latency (incl. `run_six_ms`), platform.
+
+Analytics: `POST /api/events` (PWA thin beacon → PEL).
 
 ---
 
@@ -91,8 +95,8 @@ Diagnostics: agents, guardian, memory, voice, latency (incl. `run_six_ms`), plat
 
 | Route | Purpose |
 |-------|---------|
-| `/` | LiveKit VoiceSession (6 frames + operators) |
-| `/dashboard` | Squad/agent graph, run 6, dispatch squads |
+| `/` | Home: `PwaHomeOnboarding` + `PwaHomeBriefsSurface` (open briefs + review queue cards) + LiveKit `VoiceSession` (6 frames + operators + chips) |
+| `/dashboard` | Squad/agent graph, run 6, dispatch squads, Aether gate metric |
 | `/voice-server` | Server STT + API TTS |
 | `/voice-local` | Client WASM voice |
 | `/briefs/[id]` | Desktop review follow-up |
@@ -103,7 +107,7 @@ Diagnostics: agents, guardian, memory, voice, latency (incl. `run_six_ms`), plat
 
 | Gate | Command |
 |------|---------|
-| Unit tests | `uv run pytest tests/ -q` (190) |
+| Unit tests | `uv run pytest tests/ -q` (415 collected) |
 | Multi-agent smoke | `.\scripts\agents-smoke-test.ps1` |
 | Run six | `.\scripts\run-six-agents.ps1 -Api -Refresh` |
 | Full stack | `.\scripts\run-multi-agent-stack.ps1 -WithRedis` |

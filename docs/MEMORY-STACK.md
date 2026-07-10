@@ -62,6 +62,7 @@ bash scripts/memory-health.sh
 - **Recall** at session start — `MemoryRouter.recall()` in `advoi/voice/agent.py`
 - **Retain** each turn — `VoiceMemoryProcessor` in pipeline → Redis (`VOICE_TURN`)
 - **Briefs** — seed via `seed-advoi-briefs.sh` (PG canonical → Redis cache → optional Hindsight `portfolio_fact` enrich); Brief Curator does **not** triple-merge
+- **PWA home list** — thin `GET /api/briefs` (PG→Redis only) feeds `PwaHomeBriefsSurface`; do not merge Hindsight into this endpoint
 
 ## Checklist
 
@@ -71,8 +72,9 @@ bash scripts/memory-health.sh
 - [x] Voice turn retain to Redis
 - [x] Postgres `decision_briefs` canonical + Redis cache + optional Hindsight enrich
 - [x] `write_targets.py` — no duplicate writes per event type
+- [x] Review queue Postgres persistence (`review_queue.py` + `GET /api/review-queue`)
+- [x] Thin `GET /api/briefs` for PWA home (no Hindsight on passive load)
 - [ ] Shelve push for secrets (OPENAI key corruption on pull)
-- [ ] Review queue Postgres persistence
 - [ ] (v0.2) Letta container
 
 ## What NOT to store as memory

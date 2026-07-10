@@ -135,9 +135,25 @@ OTel wiring exists (`OTEL_ENABLED=true` + optional `[observability]` deps). Not 
 ## 7. Dashboard (M6 MVP)
 
 **Route:** `/dashboard`  
-**Features:** Squad-grouped agent cards, warmth status, Run all 6, Dispatch squads, latency/SLA chips.
+**Features:** Squad-grouped agent cards, warmth status, Run all 6, Dispatch squads, latency/SLA chips, Aether gate metric.
 
 React Flow deferred; CSS grid graph ships first.
+
+---
+
+## 7b. PWA home surfaces (Path A `/`)
+
+Shipped after the multi-agent sprint (manual matrix **A11–A17**):
+
+| Surface | Components | Notes |
+|---------|------------|-------|
+| UI state + SLA + Aether gate chips | `voiceSessionState.ts`, `latencyChip.ts`, `aetherGateChip.ts` | Beside status in VoiceSession / dashboard |
+| Confirm parity (voice + tap) | `confirmParity.ts` | Identical Guardian copy on TTS and tap UI |
+| Error recovery | `errorRecovery.ts` | mic / LiveKit / API 502 panel |
+| Install strip + 60s morning pulse | `PwaHomeOnboarding.tsx` | Home only; pulse runs `systems_pulse` |
+| Open briefs + review queue cards | `PwaHomeBriefsSurface.tsx` + thin `GET /api/briefs` | Home only; single review-queue UI (not in VoiceSession); SWR + `advoi:briefs-refresh` after frame runs |
+
+T0: `tests/test_pwa_briefs_surface.py`, `test_pwa_onboarding.py`, `test_confirm_parity.py`, chip/recovery suites. Agent notes: `AGENTS.md` / `CLAUDE.md`.
 
 ---
 
@@ -167,7 +183,9 @@ CLI: `uv run advoi aether status`
 | POST | `/api/agents/orchestrate`, `/api/agents/run-all`, `/api/agents/run-six` |
 | POST | `/api/frames/{id}/run` |
 | POST | `/api/voice/intent`, `/api/voice/respond`, `/api/voice/speak` |
+| GET | `/api/briefs` (PWA home open briefs; PG→Redis only) |
 | GET | `/api/review-queue`, `/api/review-queue/{id}` |
+| POST | `/api/events` (PWA thin beacon → PEL) |
 | GET | `/api/squads` |
 | POST | `/api/squads/dispatch`, `/api/squads/dispatch-all` |
 | GET | `/api/aether/portfolio`, `/gate`, `/routes`, `/status`, `/ventures/{id}` |

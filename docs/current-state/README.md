@@ -26,7 +26,7 @@ Honest snapshot of ADVoi before planning next work.
 
 ## One-line status
 
-**6 agents + 4 squads built and orchestrable. Staging redeploy pending. Human E2E tracked, not blocking dev.** Run `.\scripts\run-six-agents.ps1 -Refresh` locally.
+**6 agents + 4 squads built and orchestrable. Home `/` shows open briefs + review queue cards (thin `/api/briefs`). Staging redeploy pending. Human E2E tracked, not blocking dev.** Run `.\scripts\run-six-agents.ps1 -Refresh` locally.
 
 ---
 
@@ -43,7 +43,7 @@ Honest snapshot of ADVoi before planning next work.
 |------|-------|
 | API + 6 frames + 6 agents + squads | Built |
 | LiveKit voice pipeline | Built |
-| PWA (Path A) | Built |
+| PWA (Path A) | Built (home briefs surface + chips) |
 | Client voice (Path B) | Built (auto fallback to server) |
 | Server voice (Path C) | Built |
 | Staging infra (Traefik, env) | Staging-ready |
@@ -83,7 +83,7 @@ Everything else (Path B, latency, Letta, dashboard) layers on a signed-off Path 
 These predate Build 1.5 and understate progress:
 
 - `docs/PLAN-SETUP-REVIEW.md` — banner points here
-- `web/README.md` — still says frame buttons are "Stage 2" (they are built)
+- `web/README.md` — updated for home briefs surface (2026-07-10); re-check if it drifts again
 - `docs/dev-log/DEV-LOG.md` — needs E2E sign-off entry
 
 **Source of truth:** this folder + `docs/architecture/` + `.aether/STAGE.md`.

@@ -46,6 +46,9 @@
 | Path C `/voice-server` spot check | Open |
 | Path A staging mic → TTS | Open |
 | Two-turn confirm on device | Open |
+| Home briefs + review queue (A17) | Open (T0 done) |
+| Chips / recovery / confirm parity (A11–A15) | Open (T0 done) |
+| Install + morning pulse (A16) | Open (T0 done) |
 | E2E-SIGNOFF.md PASS recorded | Open |
 
 ---

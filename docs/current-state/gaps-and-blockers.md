@@ -13,7 +13,7 @@
 | Priority | Open items | Blocks coding? |
 |----------|------------|----------------|
 | P0 ops | Staging promote (SSH host key); develop `ce6a8e2` vs staging `5d50805` | **No** (blocks T2 only) |
-| P0 validation | Human E2E sign-off (incl. A11–A13) | **No** |
+| P0 validation | Human E2E sign-off (incl. A11–A17 chips / home surfaces) | **No** |
 | P1 functional | Device confirm, Path B/iOS, mic latency human baseline | **No** |
 | P2 platform | Letta/OTel VPS apply, live squad webhooks, M10.4 PEL T2 | **No** |
 | P3 polish | React Flow, full Playwright connect smoke | **No** |
@@ -36,7 +36,7 @@ Staging remains @ `5d50805`; develop tip `ce6a8e2`. SSH host key verification fa
 
 **Status:** Open — [MANUAL-TEST-TRACKER.md](../operations/MANUAL-TEST-TRACKER.md)
 
-**Automated proof:** 366 pytest collected; wave2 suites 83 passed (state/latency/recovery/beacon/OTEL/idempotency/T2 fixtures/aether schema).
+**Automated proof:** 366+ pytest collected; wave2 suites 83 passed (state/latency/recovery/beacon/OTEL/idempotency/T2 fixtures/aether schema); later T0 for gate chip, confirm parity, onboarding, home briefs surface (A14–A17).
 
 ### 3. Operator fixes (BUG-006, BUG-007) — closed in staging bootstrap
 
@@ -66,7 +66,7 @@ Fixed earlier and verified on staging @ `5d50805`. Re-verify after next promote.
 | OTel traces | Done (`697b897`) | `OTEL_ENABLED=true` — **parked SSH** |
 | PEL + PWA beacon | Done (`7682b96` + `3b7df6c`) | M10.4 row proof after promote |
 | Dashboard MVP | Done (`/dashboard`) | Live bootstrap |
-| PWA state / latency / recovery | Done T0 | Human A11–A13 open |
+| PWA state / latency / recovery / gate / confirm / home briefs | Done T0 | Human A11–A17 open |
 
 ---
 
@@ -85,7 +85,7 @@ Fixed earlier and verified on staging @ `5d50805`. Re-verify after next promote.
 1. [x] Code: 6 agents, 3 voice paths, operators, squads, dashboard, PEL, PWA shell hardening
 2. [x] Automated: 366 pytest + T2 smoke script
 3. [~] Staging: bootstrap @ `5d50805`; wave2 promote **parked** (SSH)
-4. [ ] Human Path A sign-off recorded (A11–A13 included)
+4. [ ] Human Path A sign-off recorded (A11–A17 included)
 5. [ ] Letta/OTel enabled on VPS (product depth)
 6. [ ] M10.4 PEL staging row proof
 
@@ -94,7 +94,7 @@ Fixed earlier and verified on staging @ `5d50805`. Re-verify after next promote.
 ## Next priorities
 
 1. **GAP-013** Fix SSH host key → promote develop → staging T2
-2. **M2** Human E2E (15 min) including A11–A13
+2. **M2** Human E2E (15 min) including A11–A17
 3. **M4** Letta + OTel on VPS (code ready for OTel)
 4. **M5** Live squad webhooks
 5. **M7** Ingestion Phase 2 classifier polish

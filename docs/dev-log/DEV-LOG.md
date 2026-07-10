@@ -5,6 +5,41 @@
 
 ---
 
+## [2026-07-10] — PWA home briefs surface + Path A shell ships @ `f3cd1f1`
+
+**Version:** v0.5.2 (branch tip)  
+**Type:** Feature + Docs  
+**Status:** Complete in code (human A14–A17 open; staging promote may lag)  
+**Branch:** `fm/advoi-pwa-briefs-surface-01`
+
+### Summary
+
+Path A home (`/`) now surfaces **open decision briefs** and the **deep review queue** as list/card UI without navigating to `/briefs`. Thin read-only `GET /api/briefs` wraps Brief Curator `_load_open_briefs` (Postgres → Redis cache only; no Hindsight, no frame run, no PEL). Review queue uses existing `GET /api/review-queue`. Pure presentation model + Python mirror tests; VoiceSession no longer renders its own review-queue list. Post-frame `advoi:briefs-refresh` + SWR loading polish.
+
+Also on the Path A shell after wave 2: Aether gate chip, confirm parity (voice + tap), install strip + 60s morning pulse CTA.
+
+### Changes
+
+- [x] `GET /api/briefs` thin home read
+- [x] `PwaHomeBriefsSurface` + `pwaBriefsSurface.ts` (SWR, refresh event)
+- [x] Manual matrix **A17**; A9 points at home surface
+- [x] Agent notes in `AGENTS.md` / `CLAUDE.md`
+- [x] Docs sync: SYSTEM-STATUS, E2E-SIGNOFF, architecture 01/02/04, MEMORY-STACK, web/README
+- [ ] Human A17 on device/staging
+
+### Evidence
+
+- Tip: `f3cd1f1` · feature: `77baa4f` · review fixes: `eb8d50a` `f3cd1f1`
+- T0: `tests/test_pwa_briefs_surface.py`
+- Stub: `web/e2e/pwa-briefs-surface.spec.ts`
+
+### Next
+
+1. Human A14–A17 when staging has this SHA
+2. Staging promote when SSH host key unblocked (GAP-013)
+
+---
+
 ## [2026-07-10] — BATCH-DOCUMENTATION wave 2 — PWA / analytics / aether @ `ce6a8e2`
 
 **Version:** v0.5.1 (wave tip)  

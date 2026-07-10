@@ -38,6 +38,8 @@ sequenceDiagram
 | Piece | File / service |
 |-------|----------------|
 | PWA connect + frames | `web/components/VoiceSession.tsx` |
+| Home open briefs + review queue | `web/components/PwaHomeBriefsSurface.tsx` + pure model `pwaBriefsSurface.ts` (thin `GET /api/briefs` / `GET /api/review-queue`; not voice-critical) |
+| Home install + morning pulse CTA | `web/components/PwaHomeOnboarding.tsx` |
 | Token minting | `advoi/voice/tokens.py`, `advoi/api/app.py` |
 | Voice worker | `advoi/voice/agent.py` |
 | Frame → TTS | `advoi/voice/frame_dispatch.py` |

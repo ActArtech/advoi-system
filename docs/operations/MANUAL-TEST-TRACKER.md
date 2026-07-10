@@ -29,7 +29,7 @@ Update this file when you test. Do not wait for full sign-off to ship code.
 | Path A — LiveKit PWA | Partial | No | Mic + TTS E2E | 1 open |
 | Path B — Client voice | No | No | Kokoro/Parakeet load | 1 open |
 | Path C — Server voice | Partial | No | Browser STT + API TTS | 0 |
-| Review queue UI | Partial | No | Confirm on phone | 0 |
+| Review queue UI (home surface A17) | Partial | No | Confirm on phone; home cards | 0 |
 | Desktop briefs | Partial | No | `/briefs/[id]` click-through | 0 |
 | Staging deploy | Yes | Partial | Post-deploy phone spot-check | 0 |
 
@@ -41,7 +41,7 @@ These run in CI or via scripts. Re-run after every deploy.
 
 | Check | Command | Last known |
 |-------|---------|------------|
-| Full pytest | `uv run pytest tests/ -q` | **389** passed |
+| Full pytest | `uv run pytest tests/ -q` | **415** collected |
 | Agents smoke | `.\scripts\agents-smoke-test.ps1` | 6 agents + run-six + squads + platform |
 | Run six script | `.\scripts\run-six-agents.ps1 -Refresh` | 6 frames CLI |
 | Voice smoke | `.\scripts\voice-smoke-test.ps1` or `.sh` | Staging `ok: true` |
@@ -83,7 +83,7 @@ These run in CI or via scripts. Re-run after every deploy.
 | A6 | Option D pulse | Tap or say "systems pulse" → hear merged summary | **Not tested** | |
 | A7 | Voice intent | Say "fleet status" → hear reply without tapping | **Not tested** | |
 | A8 | Two-turn confirm | Say "queue review" then "yes" | **Not tested** | |
-| A9 | Review queue panel | Pending items show in PWA | **Not tested** | |
+| A9 | Review queue on home | Pending items show on `/` in **Review queue** section (`review-queue-section` via `PwaHomeBriefsSurface`; not inside VoiceSession). Superseded detail: **A17**. | **Not tested** | |
 | A10 | Agent freshness | `last_run` chips update after interval | **Automated** (API) | staging 2026-07-08 |
 | A11 | UI state machine chip | Open `/` — chip shows **Idle**; Connect → **Connecting** → **Connected**; tap a frame → **Frame running**; frame with Guardian confirm (e.g. deep review) → **Confirm pending**; force LiveKit/token fail → **Error**. Labels: idle, connecting, connected, frame_running, confirm_pending, error. Screenshot: `web/e2e/artifacts/ui-state-chip.png` (Playwright stub `web/e2e/voice-session-state.spec.ts`). Unit: `tests/test_voice_session_state.py`. | **Not tested** (automated reducer) | |
 | A12 | SLA latency chip | Open `/` — chip `data-testid="sla-latency-chip"` sits beside the UI state chip. Initial load may show **SLA —** (empty) or populated timings from `GET /api/diagnostics/latency`. After a frame run (or Run all 6), chip updates **without full page reload** with `frame_run_ms` and `run_six_ms` (e.g. `SLA ok · frame 0.4ms · six 42ms`). Kill/block diagnostics → **SLA —** or **SLA err** (no crash). Screenshot: `web/e2e/artifacts/sla-latency-chip.png`. Unit: `tests/test_latency_chip.py`. Stub: `web/e2e/voice-session-latency.spec.ts`. | **Not tested** (automated model) | |
@@ -91,7 +91,7 @@ These run in CI or via scripts. Re-run after every deploy.
 | A14 | Aether gate chip | Open `/` — chip `data-testid="aether-gate-chip"` sits beside UI state + SLA chips. Fed by `GET /api/aether/status` (`gate.verdict`, `gate.active_slug`). When gate found: label like **Gate pass · gem-dev-shop** (tones: pass=ok, hold=warn, fail=error). Missing gate / fetch fail → **Gate —** / **Gate err** (no crash). Dashboard `/dashboard` shows the same Gate metric in the platform metrics row. Screenshot: `web/e2e/artifacts/aether-gate-chip.png`. Unit: `tests/test_aether_gate_chip.py`. Model: `web/components/aetherGateChip.ts`. Stub: `web/e2e/voice-session-aether-gate.spec.ts`. | **Not tested** (automated model) | |
 | A15 | Confirm parity (voice + tap) | Guardian `confirmation_required` (frame deep review or fleet stop) → UI state **Confirm pending**; panel `data-testid="confirm-pending"` shows **identical** Guardian copy in `data-testid="confirm-copy"` for voice status/TTS and tap status; visible **Confirm** button `data-testid="confirm-accept"` (not only re-tap). Beacons: `confirm_shown` on enter, `confirm_accept` on Confirm. Unit/API: `tests/test_confirm_parity.py`. Model: `web/components/confirmParity.ts`. Stub: `web/e2e/voice-session-confirm-parity.spec.ts`. Screenshot: `web/e2e/artifacts/confirm-parity.png`. | **Not tested** (automated model + API) | |
 | A16 | Install strip + 60s morning pulse CTA | Open `/` in a **browser tab** (not installed): strip `data-testid="install-strip"` shows **Add to Home Screen** with dismiss; standalone/home-screen mode hides strip and may show `data-testid="install-strip-standalone"`. CTA `data-testid="morning-pulse-cta"` copy: **60s morning pulse** / portfolio voice pulse (fleet + briefs vs Discord/Paperclip streams); **Start morning pulse** (`data-testid="morning-pulse-start"`) runs `systems_pulse` (no new route). iOS: Share → Add to Home Screen hint. Unit: `tests/test_pwa_onboarding.py`. Model: `web/components/pwaOnboarding.ts`. UI: `web/components/PwaHomeOnboarding.tsx`. Stub: `web/e2e/pwa-onboarding.spec.ts`. Screenshot: `web/e2e/artifacts/pwa-onboarding.png`. | **Not tested** (automated model) |
-| A17 | Open briefs + review queue on home | Open `/` — surface `data-testid="pwa-home-briefs-surface"` shows **Open briefs** (`open-briefs-section`) and **Review queue** (`review-queue-section`) **without navigating to `/briefs`**. Cards from `GET /api/briefs` + `GET /api/review-queue` (empty states when none). Review cards link to `brief_url` or `/briefs/{id}`; **Hear open briefs** runs `open_briefs` frame. Refresh button reloads both. Unit: `tests/test_pwa_briefs_surface.py`. Model: `web/components/pwaBriefsSurface.ts`. UI: `web/components/PwaHomeBriefsSurface.tsx`. Stub: `web/e2e/pwa-briefs-surface.spec.ts`. Screenshot: `web/e2e/artifacts/pwa-briefs-surface.png`. | **Not tested** (automated model + API) | |
+| A17 | Open briefs + review queue on home | Open `/` — surface `data-testid="pwa-home-briefs-surface"` (between onboarding and VoiceSession) shows **Open briefs** (`open-briefs-section`) and **Review queue** (`review-queue-section`) **without navigating to `/briefs`**. Cards from thin `GET /api/briefs` (PG→Redis only; no Hindsight / no frame run / no PEL) + `GET /api/review-queue` (empty states when none). Review cards link to `brief_url` or `/briefs/{id}`; **Hear open briefs** runs `open_briefs` frame. Manual **Refresh** reloads both. **SWR:** loading only on first empty load; 30s poll keeps prior cards. After successful `queue_deep_review` or `open_briefs`, VoiceSession dispatches `advoi:briefs-refresh` so home reloads immediately (VoiceSession does **not** render its own review-queue list). Unit: `tests/test_pwa_briefs_surface.py`. Model: `web/components/pwaBriefsSurface.ts`. UI: `web/components/PwaHomeBriefsSurface.tsx`. Stub: `web/e2e/pwa-briefs-surface.spec.ts`. Screenshot: `web/e2e/artifacts/pwa-briefs-surface.png`. | **Not tested** (automated model + API) | |
 
 ### PWA confirm parity (A15)
 
