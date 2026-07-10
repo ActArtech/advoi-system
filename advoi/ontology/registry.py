@@ -1,8 +1,9 @@
 """Ontology registry — vocabulary enforcement for frames, agents, and ventures.
 
 Single read-only source of truth for valid identifiers used across voice,
-API, routing, and memory write paths. Validation is membership only;
-HTTP 422 enforcement is deferred (advoi-ontology-frame-validator-01).
+API, routing, and memory write paths. Membership helpers live here;
+structured raise-on-unknown validators are in ``advoi.ontology.validate``
+(HTTP 422 mapping is applied at the API / frame-runner boundary).
 
 Sources:
 - frame_id  → advoi.decision.frames.FRAMES

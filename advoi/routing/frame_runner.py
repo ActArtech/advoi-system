@@ -15,6 +15,7 @@ from advoi.cache.agent_cache import read_agent_cache
 from advoi.copy_style import format_briefs_spoken, normalize_brief_title, plain_copy
 from advoi.decision.frames import DecisionFrame, get_frame
 from advoi.memory import MemoryRouter
+from advoi.ontology import require_agent_id, require_frame_id
 from advoi.routing.agents import AGENTS
 from advoi.routing.diagnostic_frames import run_guardian_status, run_memory_health
 from advoi.routing.orchestrator import run_systems_pulse
@@ -536,13 +537,13 @@ async def run_frame(
     use_cache: bool = True,
     refresh: bool = False,
 ) -> FrameResult:
+    require_frame_id(frame_id)
     frame = get_frame(frame_id)
-    if not frame:
-        raise ValueError(f"Unknown frame: {frame_id}")
+    assert frame is not None  # require_frame_id guarantees catalog membership
 
+    require_agent_id(frame.agent_id)
     agent = AGENTS.get(frame.agent_id)
-    if not agent:
-        raise ValueError(f"Unknown agent for frame: {frame_id}")
+    assert agent is not None
 
     bypass_cache = refresh or confirmed
     if use_cache and not bypass_cache:

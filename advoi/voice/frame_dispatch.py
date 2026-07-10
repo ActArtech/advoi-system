@@ -35,5 +35,10 @@ async def handle_frame_message(raw: bytes | str) -> str | None:
 
     confirmed = bool(payload.get("confirmed", False))
     refresh = bool(payload.get("refresh", False))
-    result = await run_frame(str(frame_id), confirmed=confirmed, refresh=refresh)
+    from advoi.ontology import OntologyValidationError
+
+    try:
+        result = await run_frame(str(frame_id), confirmed=confirmed, refresh=refresh)
+    except OntologyValidationError:
+        return plain_copy(f"Unknown frame {frame_id}.")
     return plain_copy(result.spoken_summary)

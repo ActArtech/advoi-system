@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from advoi import __version__
@@ -33,6 +33,7 @@ from advoi.guardian.confirmation import (
 from advoi.llm.openrouter import resolve_llm_credentials
 from advoi.observability.otel_setup import setup_otel
 from advoi.observability.request_trace import RequestTraceMiddleware
+from advoi.ontology import OntologyValidationError, require_frame_id
 from advoi.routing.agent_bootstrap import prewarm_all_agents
 from advoi.routing.agents import AGENTS
 from advoi.routing.frame_runner import frame_to_dict, run_frame
@@ -81,6 +82,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestTraceMiddleware)
+
+
+@app.exception_handler(OntologyValidationError)
+async def ontology_validation_error_handler(
+    _request: Request,
+    exc: OntologyValidationError,
+) -> JSONResponse:
+    """Unregistered frame_id / agent_id → 422 with ``{detail, code}``."""
+    return JSONResponse(status_code=422, content=exc.as_dict())
 
 
 class LiveKitTokenRequest(BaseModel):
@@ -630,10 +640,8 @@ async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
     preview: FrameRunResponse | None = None
 
     if body.preview and frame_id:
-        try:
-            result = await run_frame(frame_id, confirmed=bool(confirmed))
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        require_frame_id(str(frame_id))
+        result = await run_frame(frame_id, confirmed=bool(confirmed))
         preview = _frame_run_response(result)
 
     return VoiceIntentResponse(
@@ -687,14 +695,13 @@ async def voice_respond(body: VoiceRespondRequest) -> VoiceRespondResponse:
 @app.post("/api/agents/orchestrate", response_model=OrchestrateResponse)
 async def orchestrate_agents(body: OrchestrateRequest) -> OrchestrateResponse:
     frame_ids = body.frame_ids or ["fleet_status", "open_briefs"]
-    try:
-        results = await run_frames_parallel(
-            frame_ids,  # type: ignore[arg-type]
-            confirmed=body.confirmed,
-            refresh=body.refresh,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    for fid in frame_ids:
+        require_frame_id(fid)
+    results = await run_frames_parallel(
+        frame_ids,  # type: ignore[arg-type]
+        confirmed=body.confirmed,
+        refresh=body.refresh,
+    )
 
     if not results:
         raise HTTPException(status_code=400, detail="No valid frame ids provided")
@@ -887,15 +894,14 @@ async def run_decision_frame(
     body: FrameRunRequest | None = None,
     refresh: bool = False,
 ) -> FrameRunResponse:
+    # Explicit registry check so unregistered ids never reach runners as 500/404.
+    require_frame_id(frame_id)
     req = body or FrameRunRequest()
-    try:
-        result = await run_frame(
-            frame_id,
-            confirmed=req.confirmed,
-            refresh=refresh or req.refresh,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    result = await run_frame(
+        frame_id,
+        confirmed=req.confirmed,
+        refresh=refresh or req.refresh,
+    )
     return _frame_run_response(result)
 
 
