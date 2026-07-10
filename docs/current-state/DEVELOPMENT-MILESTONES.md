@@ -1,7 +1,7 @@
 # Development milestones (prioritized)
 
 **Updated:** 2026-07-10  
-**Baseline:** Build 1.5+ with 6-agent control plane @ `25af012`
+**Baseline:** Build 1.5+ with 6-agent control plane @ `232e172`
 
 ---
 
@@ -30,10 +30,10 @@
 
 | Task | Status | Verify |
 |------|--------|--------|
-| `git pull` + `staging-redeploy.sh` on VPS | **Open** | 6 frames on PWA |
-| Post-deploy smoke | **Open** | agents-smoke + voice-smoke pass |
-| Aether APIs live | **Open** | `/api/aether/status` 200 |
-| Operator bar on staging | **Open** | Run all 6, stop/restart visible |
+| `git pull` + `staging-redeploy.sh` on VPS | **Done** | 6 frames on PWA |
+| Post-deploy smoke | **Done** | agents-smoke + voice-smoke pass |
+| Aether APIs live | **Partial** | `/api/aether/status` 200 on staging |
+| Operator bar on staging | **Done** | Run all 6, stop/restart visible |
 
 **Closes:** BUG-005, BUG-006, BUG-007
 
@@ -121,8 +121,8 @@ Development is **not blocked** on M2. Continue M4-M6 enablement in parallel with
 
 | Metric | Target | Actual |
 |--------|--------|--------|
-| pytest | 100% pass | **190/190** |
-| agents-smoke | 6 agents + run-six | Pass locally |
+| pytest | 100% pass | **224/224** |
+| agents-smoke | 6 agents + run-six | Pass locally + staging |
 | advoi-orchestrate six-squads | 6 frames + 4 squads | Pass (~6s) |
-| Staging parity | 6 frames live | **Open** (redeploy) |
+| Staging parity | 6 frames live | **Done** @ `71fd7ae` |
 | Human E2E | Recorded PASS | **Open** |

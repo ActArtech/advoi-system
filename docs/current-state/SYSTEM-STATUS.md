@@ -2,13 +2,15 @@
 
 **Authoritative snapshot** — what exists, what works, what is still open.  
 **Updated:** 2026-07-10  
-**Repo:** `advoi-system` @ `25af012`  
-**Staging:** https://advoi.keyteller.com (redeploy required for 6-agent build)
+**Repo:** `advoi-system` @ `232e172`  
+**Staging:** https://advoi.keyteller.com (6/6 agents, voice/fleet operators live)
 
 Manual testing does **not** block development. Track human checks in [MANUAL-TEST-TRACKER.md](../operations/MANUAL-TEST-TRACKER.md).
 
 Sprint summary: [WHAT-WE-DID-2026-07-10.md](WHAT-WE-DID-2026-07-10.md)  
-Milestones: [DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md)
+Milestones: [DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md)  
+Validation roadmap: [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md)  
+Portfolio strategy: [PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md)
 
 ---
 
@@ -17,8 +19,8 @@ Milestones: [DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md)
 | Dimension | Status |
 |-----------|--------|
 | **Code (Build 1.5+)** | 6-agent control plane + operators + squads + dashboard |
-| **Automated tests** | **190** pytest across 25+ modules |
-| **Staging** | Infra healthy; **code deploy pending** (BUG-005) |
+| **Automated tests** | **224** pytest across 25+ modules |
+| **Staging** | 6-agent build deployed; smoke pass (BUG-005 closed) |
 | **Human voice E2E** | Not recorded |
 | **Phase 4** | Aether, Guardian, squads, platform diagnostics shipped in code; Letta/OTel VPS enablement open |
 
@@ -103,7 +105,7 @@ Diagnostics: agents, guardian, memory, voice, latency (incl. `run_six_ms`), plat
 
 | Gate | Command |
 |------|---------|
-| Unit tests | `uv run pytest tests/ -q` (190) |
+| Unit tests | `uv run pytest tests/ -q` (224) |
 | Multi-agent smoke | `.\scripts\agents-smoke-test.ps1` |
 | Run six | `.\scripts\run-six-agents.ps1 -Api -Refresh` |
 | Full stack | `.\scripts\run-multi-agent-stack.ps1 -WithRedis` |
@@ -117,7 +119,6 @@ Diagnostics: agents, guardian, memory, voice, latency (incl. `run_six_ms`), plat
 
 | Gap | Action |
 |-----|--------|
-| Staging deploy drift | `bash scripts/staging-redeploy.sh` |
 | Human E2E | [E2E-SIGNOFF.md](../operations/E2E-SIGNOFF.md) |
 
 ### P1
@@ -162,3 +163,5 @@ uv run pytest tests/ -q
 | [what-we-have.md](what-we-have.md) | Module inventory |
 | [gaps-and-blockers.md](gaps-and-blockers.md) | Blockers |
 | [improvement-roadmap.md](improvement-roadmap.md) | Phase plan |
+| [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md) | Validation tiers + checklists |
+| [PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md) | Holistic moat strategy |

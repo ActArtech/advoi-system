@@ -1,8 +1,8 @@
 # What we did — multi-agent platform sprint (2026-07-09 to 2026-07-10)
 
 Chronological summary of development completed in this sprint.  
-**Repo:** `advoi-system` @ `25af012`  
-**Tests:** 190 pytest collected, all passing locally
+**Repo:** `advoi-system` @ `232e172`  
+**Tests:** 224 pytest collected, all passing locally
 
 ---
 
@@ -16,7 +16,7 @@ We went from a **3-frame voice demo** to a **6-agent executive control plane** w
 - Platform diagnostics (memory, OTel readiness, multi-agent latency)
 - Agent dashboard at `/dashboard`
 
-**Staging still needs redeploy** to pick up this code (BUG-005).
+**Staging redeployed** — 6/6 agents, operators, fleet voice @ `71fd7ae` (BUG-005 closed).
 
 ---
 
@@ -24,6 +24,12 @@ We went from a **3-frame voice demo** to a **6-agent executive control plane** w
 
 | Commit | Summary |
 |--------|---------|
+| `232e172` | Portfolio system moat holistic architecture review |
+| `5d50805` | Roadmap with validation tiers T0-T3, milestones M1-M9 |
+| `71fd7ae` | Voice operator run-six + fleet bridge confirm fix |
+| `04f9545` | fm-bridge voice wiring, bridge.py, PWA fleet buttons |
+| `bb5cc6c` | Guardian fleet confirmation for high-risk actions |
+| `d541636` | Ingestion MVP (`/ingest`, `/api/ingestion/*`) |
 | `25af012` | `six-squads` CLI mode + `run-six-agents.ps1` |
 | `2c48b5b` | M3-M6: squads orchestrate, platform diagnostics, dashboard |
 | `3ffcce5` | Tighter run-all spoken summary |
@@ -209,7 +215,7 @@ CLI: `uv run advoi aether status`
 ```powershell
 cd D:\Down\livekit-agent\deployment\advoi\advoi-system
 $env:ADVOI_FRAME_MOCK="true"
-uv run pytest tests/ -q                           # 190 pass
+uv run pytest tests/ -q                           # 224 pass
 .\scripts\run-six-agents.ps1 -Refresh             # CLI 6 agents
 .\scripts\run-multi-agent-stack.ps1 -WithRedis    # API + supervisor + smoke
 # Dashboard: http://localhost:3000/dashboard
@@ -217,9 +223,23 @@ uv run pytest tests/ -q                           # 190 pass
 
 ---
 
+## 13. Documentation and strategy (2026-07-10 evening)
+
+| Doc | Purpose |
+|-----|---------|
+| [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md) | Validation tiers T0-T3, milestone checklists, gap register, appendix commands |
+| [PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md) | Ecosystem map, connection matrix, shared state, moat thesis, R1-R10 recommendations |
+| [EXTERNAL-ENGINEERING-ARCHITECTURE-REVIEW.md](../reviews/EXTERNAL-ENGINEERING-ARCHITECTURE-REVIEW.md) | Independent review pack for external architects |
+
+Index docs updated: `docs/README.md`, `current-state/README.md`, `SYSTEM-STATUS.md`, `gaps-and-blockers.md`.
+
+---
+
 ## Related docs
 
 - [SYSTEM-STATUS.md](SYSTEM-STATUS.md) — authoritative snapshot (updated 2026-07-10)
 - [DEVELOPMENT-MILESTONES.md](DEVELOPMENT-MILESTONES.md) — prioritized roadmap
+- [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md) — validation gates
+- [PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md) — holistic strategy
 - [MANUAL-TEST-TRACKER.md](../operations/MANUAL-TEST-TRACKER.md) — human test matrix
 - [DEV-LOG.md](../dev-log/DEV-LOG.md) — chronological dev log

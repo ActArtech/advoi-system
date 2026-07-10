@@ -17,6 +17,8 @@ Honest snapshot of ADVoi before planning next work.
 | [what-we-have.md](what-we-have.md) | Module-level inventory |
 | [gaps-and-blockers.md](gaps-and-blockers.md) | Prioritized open work (dev not blocked) |
 | [improvement-roadmap.md](improvement-roadmap.md) | Phased plan (Phases 1-4) |
+| [ROADMAP-VALIDATION.md](../operations/ROADMAP-VALIDATION.md) | Milestones M1-M9, validation tiers T0-T3 |
+| [PORTFOLIO-SYSTEM-MOAT.md](../reviews/PORTFOLIO-SYSTEM-MOAT.md) | Holistic strategy, connections, moat thesis |
 | [MANUAL-TEST-TRACKER.md](../operations/MANUAL-TEST-TRACKER.md) | Human tests: tested / not tested / bugs |
 | [BUILD-1.5-FINAL.md](BUILD-1.5-FINAL.md) | Build exit criteria |
 | [path-to-full-system.md](path-to-full-system.md) | Path to full system |
@@ -26,7 +28,7 @@ Honest snapshot of ADVoi before planning next work.
 
 ## One-line status
 
-**6 agents + 4 squads built and orchestrable. Staging redeploy pending. Human E2E tracked, not blocking dev.** Run `.\scripts\run-six-agents.ps1 -Refresh` locally.
+**6 agents + 4 squads built and orchestrable. Staging at 6/6 @ `232e172`. Human E2E tracked, not blocking dev.** Run `.\scripts\run-six-agents.ps1 -Refresh` locally.
 
 ---
 
@@ -54,14 +56,14 @@ Honest snapshot of ADVoi before planning next work.
 
 ---
 
-## Live staging snapshot (2026-07-08)
+## Live staging snapshot (2026-07-10)
 
 ```
-https://advoi.keyteller.com/api/health     → 200 (redeploy for agents 4/4)
+https://advoi.keyteller.com/api/health     → 200 (6 agents)
 https://advoi.keyteller.com/api/diagnostics/voice → ok: true
-pytest local                               → 190 collected
+pytest local                               → 224 collected
 uv run advoi-orchestrate six-squads --refresh → 6 agents + 4 squads OK
-VPS containers                             → all Up
+VPS /opt/advoi                             → @ 232e172
 ADVOI_AGENT_INTERVAL_SECS                  → 15 (staging)
 ```
 
