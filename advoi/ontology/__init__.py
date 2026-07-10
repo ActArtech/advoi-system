@@ -12,6 +12,7 @@ from advoi.ontology.validate import (
     OntologyValidationError,
     require_agent_id,
     require_frame_id,
+    require_venture_id,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "list_ventures",
     "require_agent_id",
     "require_frame_id",
+    "require_venture_id",
 ]

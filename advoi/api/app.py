@@ -89,7 +89,7 @@ async def ontology_validation_error_handler(
     _request: Request,
     exc: OntologyValidationError,
 ) -> JSONResponse:
-    """Unregistered frame_id / agent_id → 422 with ``{detail, code}``."""
+    """Unregistered frame_id / agent_id / venture_id → 422 with ``{detail, code}``."""
     return JSONResponse(status_code=422, content=exc.as_dict())
 
 

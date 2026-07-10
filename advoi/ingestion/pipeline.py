@@ -20,6 +20,7 @@ from advoi.ingestion.models import IngestItem, IngestStatus
 from advoi.ingestion.parse import extract_text
 from advoi.ingestion.route import apply_route, route_document
 from advoi.ingestion.store import create_upload, get_item, list_items, read_original, save_item
+from advoi.ontology import OntologyValidationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +67,13 @@ async def ingest_upload(
         item = apply_route(item, route, text=text, set_routed=False)
         item.status = "uploaded"
         return save_item(_touch(item))
+    except OntologyValidationError as exc:
+        # Persist failed item (recoverable via re-route) then re-raise for API 422.
+        _LOGGER.warning("ingestion route rejected for %s: %s", filename, exc.detail)
+        item.status = "failed"
+        item.error = exc.detail
+        save_item(_touch(item))
+        raise
     except Exception as exc:
         _LOGGER.warning("ingestion failed for %s: %s", filename, exc)
         item.status = "failed"

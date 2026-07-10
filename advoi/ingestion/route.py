@@ -8,6 +8,7 @@ from typing import Any
 from advoi.aether.portfolio import VENTURES
 from advoi.fleet.trigger import resolve_active_project
 from advoi.ingestion.models import IngestItem, PriorityBand
+from advoi.ontology import require_venture_id
 
 _DEV_KEYWORDS = (
     "implement",
@@ -94,16 +95,31 @@ def route_document(
     project_hint: str | None = None,
     venture_hint: str | None = None,
 ) -> dict[str, Any]:
+    """Score text/filename into portfolio venture + fleet project slug.
+
+    Explicit ``venture_hint`` and any non-null resolved ``venture_id`` must be
+    registered in ``advoi.ontology.registry``; unknown ids raise
+    :class:`~advoi.ontology.OntologyValidationError` (API maps to HTTP 422).
+    """
+    # Fail closed on unregistered explicit venture — never silent bad metadata.
+    if venture_hint is not None:
+        require_venture_id(venture_hint)
+
     haystack = f"{filename}\n{text}".lower()
     tokens = _tokens(haystack)
 
     if project_hint:
         slug = _SLUG_ALIASES.get(project_hint.lower(), project_hint.lower())
-        venture_id = None
-        for v in VENTURES:
-            if v.id == venture_hint or v.id.replace("-", "") in slug.replace("-", ""):
-                venture_id = v.id
-                break
+        if venture_hint is not None:
+            venture_id: str | None = venture_hint
+        else:
+            venture_id = None
+            for v in VENTURES:
+                if v.id.replace("-", "") in slug.replace("-", ""):
+                    venture_id = v.id
+                    break
+        if venture_id is not None:
+            require_venture_id(venture_id)
         priority, score = _priority_band(haystack)
         return {
             "venture_id": venture_id,
@@ -116,16 +132,23 @@ def route_document(
             "task_hint": _task_hint(text, filename),
         }
 
-    best_venture: str | None = None
-    best_score = 0.0
-    for venture in VENTURES:
-        s = _score_venture(venture.id, venture.name, venture.tags, haystack)
-        for token in tokens:
-            if token in venture.id.lower() or token in "-".join(venture.tags):
-                s += 0.5
-        if s > best_score:
-            best_score = s
-            best_venture = venture.id
+    if venture_hint is not None:
+        best_venture: str | None = venture_hint
+        best_score = 5.0
+    else:
+        best_venture = None
+        best_score = 0.0
+        for venture in VENTURES:
+            s = _score_venture(venture.id, venture.name, venture.tags, haystack)
+            for token in tokens:
+                if token in venture.id.lower() or token in "-".join(venture.tags):
+                    s += 0.5
+            if s > best_score:
+                best_score = s
+                best_venture = venture.id
+
+    if best_venture is not None:
+        require_venture_id(best_venture)
 
     active_slug = resolve_active_project()
     slug_scores: dict[str, float] = {active_slug: 1.0}

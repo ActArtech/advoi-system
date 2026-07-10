@@ -19,6 +19,7 @@ from advoi.ingestion.store import (
     list_items,
     save_item,
 )
+from advoi.ontology import OntologyValidationError, require_venture_id
 
 
 @pytest.fixture
@@ -48,6 +49,80 @@ def test_route_project_hint(ingest_tmp):
     route = route_document("generic notes", "x.md", project_hint="advoi")
     assert route["project_slug"] == "advoi"
     assert route["route_confidence"] == 1.0
+
+
+def test_route_known_venture_hint(ingest_tmp):
+    """Registered venture_hint is accepted and written into route metadata."""
+    route = route_document(
+        "generic portfolio note",
+        "note.md",
+        venture_hint="advoi-system",
+    )
+    assert route["venture_id"] == "advoi-system"
+    assert route["route_confidence"] >= 0
+
+
+def test_route_unknown_venture_hint_rejected(ingest_tmp):
+    """Unregistered venture_id must fail closed (no silent bad metadata)."""
+    with pytest.raises(OntologyValidationError) as ei:
+        route_document(
+            "generic notes",
+            "x.md",
+            venture_hint="not-a-registered-venture",
+        )
+    exc = ei.value
+    assert exc.code == "UNKNOWN_VENTURE_ID"
+    assert exc.field == "venture_id"
+    assert "not-a-registered-venture" in exc.detail
+    assert exc.as_dict() == {"detail": exc.detail, "code": "UNKNOWN_VENTURE_ID"}
+
+
+def test_require_venture_id_known_and_unknown():
+    assert require_venture_id("advoi-system") == "advoi-system"
+    with pytest.raises(OntologyValidationError) as ei:
+        require_venture_id("ghost-venture")
+    assert ei.value.code == "UNKNOWN_VENTURE_ID"
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_unknown_venture_fails_and_422(client, ingest_tmp, monkeypatch):
+    """Pipeline persists failed item; API surfaces 422 structured ontology error."""
+    monkeypatch.setenv("ADVOI_INGESTION_PATH", str(ingest_tmp))
+    files = {"file": ("note.md", b"Some generic content", "text/markdown")}
+    resp = client.post(
+        "/api/ingestion/upload",
+        files=files,
+        data={"venture_hint": "totally-unknown-venture"},
+    )
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["code"] == "UNKNOWN_VENTURE_ID"
+    assert "totally-unknown-venture" in body["detail"]
+    assert not isinstance(body.get("detail"), list)
+
+    # Item remains in inbox as failed so a later fix/re-route is possible.
+    items = list_items()
+    assert len(items) == 1
+    assert items[0].status == "failed"
+    assert items[0].error is not None
+    assert "Unknown venture_id" in items[0].error
+
+
+@pytest.mark.asyncio
+async def test_ingest_upload_known_venture_still_routes(client, ingest_tmp, monkeypatch):
+    monkeypatch.setenv("ADVOI_INGESTION_PATH", str(ingest_tmp))
+    files = {"file": ("note.md", b"Ship advoi-system docs update", "text/markdown")}
+    resp = client.post(
+        "/api/ingestion/upload",
+        files=files,
+        data={"venture_hint": "advoi-system", "project_hint": "advoi"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["item"]["status"] == "uploaded"
+    assert data["item"]["venture_id"] == "advoi-system"
+    assert data["item"]["project_slug"] == "advoi"
 
 
 @pytest.mark.asyncio

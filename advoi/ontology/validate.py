@@ -6,11 +6,15 @@ the API composition root; this module stays FastAPI-free.
 
 from __future__ import annotations
 
-from advoi.ontology.registry import is_valid_agent_id, is_valid_frame_id
+from advoi.ontology.registry import (
+    is_valid_agent_id,
+    is_valid_frame_id,
+    is_valid_venture_id,
+)
 
 
 class OntologyValidationError(Exception):
-    """Unregistered ontology identifier (frame_id / agent_id / …)."""
+    """Unregistered ontology identifier (frame_id / agent_id / venture_id / …)."""
 
     def __init__(self, detail: str, *, code: str, field: str | None = None) -> None:
         super().__init__(detail)
@@ -43,3 +47,14 @@ def require_agent_id(agent_id: str) -> str:
             field="agent_id",
         )
     return agent_id
+
+
+def require_venture_id(venture_id: str) -> str:
+    """Return venture_id if registered; else raise OntologyValidationError."""
+    if not venture_id or not is_valid_venture_id(venture_id):
+        raise OntologyValidationError(
+            f"Unknown venture_id: {venture_id!r}",
+            code="UNKNOWN_VENTURE_ID",
+            field="venture_id",
+        )
+    return venture_id

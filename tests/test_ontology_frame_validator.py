@@ -8,6 +8,7 @@ from advoi.ontology import (
     OntologyValidationError,
     require_agent_id,
     require_frame_id,
+    require_venture_id,
 )
 from advoi.ontology.validate import OntologyValidationError as ValidateError
 
@@ -47,6 +48,26 @@ def test_require_agent_id_unknown():
 
 def test_package_export_matches_module():
     assert OntologyValidationError is ValidateError
+
+
+def test_require_venture_id_known():
+    assert require_venture_id("advoi-system") == "advoi-system"
+
+
+def test_require_venture_id_unknown():
+    with pytest.raises(OntologyValidationError) as ei:
+        require_venture_id("not_a_real_venture")
+    exc = ei.value
+    assert exc.code == "UNKNOWN_VENTURE_ID"
+    assert "not_a_real_venture" in exc.detail
+    assert exc.field == "venture_id"
+    assert exc.as_dict() == {"detail": exc.detail, "code": "UNKNOWN_VENTURE_ID"}
+
+
+def test_require_venture_id_empty():
+    with pytest.raises(OntologyValidationError) as ei:
+        require_venture_id("")
+    assert ei.value.code == "UNKNOWN_VENTURE_ID"
 
 
 @pytest.mark.asyncio
