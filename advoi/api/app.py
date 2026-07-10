@@ -444,8 +444,14 @@ async def ingestion_upload(
     project_hint: str | None = Form(None),
     venture_hint: str | None = Form(None),
     paperclip_ticket_id: str | None = Form(None),
+    auto_triage: bool = Form(False),
 ) -> dict[str, Any]:
-    """Upload only — status stays ``uploaded``; no auto-dispatch (M7 lifecycle)."""
+    """Upload — status stays ``uploaded`` unless ``auto_triage`` is set.
+
+    No auto-dispatch (M7 lifecycle). Optional ``auto_triage`` (default false)
+    runs the keyword classifier and may advance to ``triaged`` or
+    ``needs_review``.
+    """
     from advoi.ingestion.pipeline import ingest_upload
 
     data = await file.read()
@@ -458,6 +464,7 @@ async def ingestion_upload(
         project_hint=project_hint,
         venture_hint=venture_hint,
         paperclip_ticket_id=paperclip_ticket_id,
+        auto_triage=auto_triage,
     )
     payload: dict[str, Any] = {"ok": item.status != "failed", "item": item.to_dict()}
     if item.status == "failed":
@@ -470,7 +477,7 @@ async def ingestion_triage(
     item_id: str,
     body: IngestTriageRequest | None = None,
 ) -> dict[str, Any]:
-    """Transition ``uploaded`` → ``triaged``."""
+    """Run classifier and advance ``uploaded`` → ``triaged`` (or ``needs_review``)."""
     from advoi.ingestion.pipeline import triage_item
 
     try:

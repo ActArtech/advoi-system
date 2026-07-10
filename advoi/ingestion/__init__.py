@@ -17,14 +17,18 @@ from advoi.ingestion.pipeline import (
     triage_item,
 )
 from advoi.ingestion.store import get_item, list_items
+from advoi.ingestion.triage import TriageResult, classify_from_signals, classify_item
 
 __all__ = [
     "ALLOWED_TRANSITIONS",
     "HAPPY_PATH",
     "InvalidTransitionError",
+    "TriageResult",
     "approve_item",
     "can_dispatch",
     "can_transition",
+    "classify_from_signals",
+    "classify_item",
     "dispatch_item_dev",
     "get_item",
     "ingest_upload",

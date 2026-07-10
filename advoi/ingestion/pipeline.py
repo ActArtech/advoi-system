@@ -2,6 +2,9 @@
 
 Upload creates an ``uploaded`` item only (no auto-dispatch). Lifecycle
 transitions are explicit; dispatch requires ``approved`` (moat R4 / M7).
+
+Optional ``auto_triage`` on upload (default off) runs the M7.2 keyword
+classifier and may advance to ``triaged`` or ``needs_review``.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from advoi.ingestion.models import IngestItem, IngestStatus
 from advoi.ingestion.parse import extract_text
 from advoi.ingestion.route import apply_route, route_document
 from advoi.ingestion.store import create_upload, get_item, list_items, read_original, save_item
+from advoi.ingestion.triage import apply_triage_result, classify_item
 from advoi.ontology import OntologyValidationError
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,11 +47,16 @@ async def ingest_upload(
     project_hint: str | None = None,
     venture_hint: str | None = None,
     paperclip_ticket_id: str | None = None,
+    auto_triage: bool = False,
 ) -> IngestItem:
     """Create an inbox item and attach route metadata; leave status ``uploaded``.
 
     Does not auto-dispatch. Call :func:`triage_item` / :func:`approve_item` /
     :func:`dispatch_item_dev` for later lifecycle steps.
+
+    When ``auto_triage`` is True, run the keyword classifier after upload and
+    advance toward ``triaged`` or ``needs_review`` (still never to approved/
+    dispatched). Default is False so upload remains a pure intake step.
     """
     item = create_upload(
         filename,
@@ -66,7 +75,7 @@ async def ingest_upload(
         # Metadata only — status stays uploaded (no routed / no dispatch).
         item = apply_route(item, route, text=text, set_routed=False)
         item.status = "uploaded"
-        return save_item(_touch(item))
+        item = save_item(_touch(item))
     except OntologyValidationError as exc:
         # Persist failed item (recoverable via re-route) then re-raise for API 422.
         _LOGGER.warning("ingestion route rejected for %s: %s", filename, exc.detail)
@@ -80,20 +89,52 @@ async def ingest_upload(
         item.error = str(exc)
         return save_item(_touch(item))
 
+    if auto_triage and item.status == "uploaded":
+        return await triage_item(item.id, project_hint=project_hint)
+    return item
 
-async def triage_item(item_id: str, *, project_hint: str | None = None) -> IngestItem:
-    """Transition ``uploaded`` → ``triaged`` (re-route if original is present)."""
+
+async def triage_item(
+    item_id: str,
+    *,
+    project_hint: str | None = None,
+    apply_classifier: bool = True,
+) -> IngestItem:
+    """Transition ``uploaded`` → ``triaged``, optionally auto-advance further.
+
+    Re-routes when the original blob is present, then runs the M7.2 keyword
+    classifier (:mod:`advoi.ingestion.triage`). Classifier output is stored on
+    ``item.extra['triage']``.
+
+    When ``apply_classifier`` is True (default) and the classifier target is
+    ``needs_review``, the item advances ``uploaded → triaged → needs_review``
+    in one call. Clear routes stop at ``triaged``.
+    """
     item = get_item(item_id)
     if not item:
         raise ValueError(f"Unknown ingestion item: {item_id}")
 
+    text: str | None = None
     raw = read_original(item_id)
     if raw is not None:
         text = extract_text(item.filename, raw)
         route = route_document(text, item.filename, project_hint=project_hint)
         item = apply_route(item, route, text=text, set_routed=False)
 
-    item = _apply_status(item, "triaged")
+    if apply_classifier:
+        result = classify_item(item, text=text)
+        item = apply_triage_result(item, result)
+        target = result.target_status
+    else:
+        target = "triaged"
+
+    # Always step through triaged first (state machine forbids uploaded→needs_review).
+    if item.status == "uploaded":
+        item = _apply_status(item, "triaged")
+
+    if apply_classifier and target == "needs_review" and item.status == "triaged":
+        item = _apply_status(item, "needs_review")
+
     return save_item(item)
 
 
