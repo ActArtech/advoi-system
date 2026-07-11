@@ -1,17 +1,14 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
   DrawerDescription,
-  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import styles from "@/components/agents/agentsTheme.module.css";
 import { formatRelativeTime, type SliceRunLogEntry } from "@/lib/agents/sliceRunLog";
 import { Download, RefreshCw, Trash2, Upload } from "lucide-react";
 
@@ -38,105 +35,102 @@ export function SliceRunHistoryDrawer({
 }: SliceRunHistoryDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent data-testid="slice-run-history-drawer">
+      <DrawerContent
+        className={styles.drawerSurface}
+        data-testid="slice-run-history-drawer"
+      >
         <DrawerHeader>
           <DrawerTitle>Run history</DrawerTitle>
           <DrawerDescription>
             {entries.length} run{entries.length === 1 ? "" : "s"} this session
           </DrawerDescription>
         </DrawerHeader>
-        <div className="max-h-[50dvh] space-y-2 overflow-y-auto px-4">
+        <div className={styles.drawerList}>
           {entries.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
+            <p className={styles.drawerEmpty}>
               No runs yet. Start a slice batch to see history here.
             </p>
           ) : (
             entries.map((entry) => (
-              <Card key={entry.id} className="border-border/70">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 p-3 pb-1">
-                  <div className="min-w-0 space-y-0.5">
-                    <CardTitle className="truncate text-sm font-medium">{entry.label}</CardTitle>
-                    <p className="text-[10px] text-muted-foreground">
+              <div key={entry.id} className={styles.drawerItem}>
+                <div className={styles.drawerItemHeader}>
+                  <div className="min-w-0">
+                    <p className={styles.drawerItemTitle}>{entry.label}</p>
+                    <p className={styles.drawerItemMeta}>
                       {entry.mode} · {entry.frameCount} slice{entry.frameCount === 1 ? "" : "s"} ·{" "}
                       {formatRelativeTime(entry.ts)}
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <Badge variant="success" className="text-[10px]">
+                    <span className={`${styles.resultBadge} ${styles.resultBadgeOk}`}>
                       {entry.okCount} ok
-                    </Badge>
+                    </span>
                     {entry.failCount > 0 ? (
-                      <Badge variant="warning" className="text-[10px]">
+                      <span className={`${styles.resultBadge} ${styles.resultBadgeWarn}`}>
                         {entry.failCount} fail
-                      </Badge>
+                      </span>
                     ) : null}
                   </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2 p-3 pt-0">
-                  {entry.summary ? (
-                    <p className="text-xs leading-relaxed text-muted-foreground">{entry.summary}</p>
-                  ) : null}
+                </div>
+                <div className={styles.drawerItemBody}>
+                  {entry.summary ? <p className="m-0">{entry.summary}</p> : null}
                   {onRerun && entry.frameIds && entry.frameIds.length > 0 ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 w-fit text-[10px]"
+                    <button
+                      type="button"
+                      className={`${styles.ctaOutline} mt-2 !min-w-0 !flex-none`}
                       disabled={rerunDisabled}
                       onClick={() => onRerun(entry)}
                       data-testid={`rerun-history-${entry.id}`}
                     >
                       <RefreshCw className="h-3 w-3" />
                       Re-run
-                    </Button>
+                    </button>
                   ) : null}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))
           )}
         </div>
-        <DrawerFooter className="flex-row flex-wrap gap-2">
+        <div className={styles.drawerFooter}>
           {onExport ? (
-            <Button
-              variant="outline"
-              className="flex-1 min-w-[120px]"
+            <button
+              type="button"
+              className={styles.ctaOutline}
               onClick={onExport}
               data-testid="export-slice-run-history"
             >
               <Download className="h-4 w-4" />
               Export
-            </Button>
+            </button>
           ) : null}
           {onImport ? (
-            <Button
-              variant="outline"
-              className="flex-1 min-w-[120px]"
+            <button
+              type="button"
+              className={styles.ctaOutline}
               onClick={onImport}
               data-testid="import-slice-run-history"
             >
               <Upload className="h-4 w-4" />
               Import
-            </Button>
+            </button>
           ) : null}
           {entries.length > 0 ? (
-            <Button
-              variant="secondary"
-              className="flex-1 min-w-[120px]"
+            <button
+              type="button"
+              className={styles.ctaSecondary}
               onClick={onClear}
               data-testid="clear-slice-run-history"
             >
               <Trash2 className="h-4 w-4" />
               Clear
-            </Button>
+            </button>
           ) : null}
           <DrawerClose asChild>
-            <Button
-              variant="secondary"
-              className={entries.length > 0 ? "flex-1" : "w-full"}
-            >
+            <button type="button" className={styles.ctaOutline}>
               Close
-            </Button>
+            </button>
           </DrawerClose>
-        </DrawerFooter>
+        </div>
       </DrawerContent>
     </Drawer>
   );

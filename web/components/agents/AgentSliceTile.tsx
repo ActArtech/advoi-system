@@ -1,28 +1,25 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { useLongPress } from "@/hooks/useLongPress";
 import type { AgentSliceModel } from "@/lib/agents/types";
 import { formatRelativeTimeFromValue } from "@/lib/agents/sliceRunLog";
 import { cn } from "@/lib/utils";
+import styles from "./agentsTheme.module.css";
 
-const PHASE_STYLES: Record<AgentSliceModel["phase"], string> = {
-  idle: "border-border/70 bg-card/80",
-  queued: "border-amber-500/60 bg-amber-500/10 shadow-sm shadow-amber-500/10",
-  running: "border-primary bg-primary/15 shadow-md shadow-primary/20 animate-pulse",
-  ok: "border-emerald-500/60 bg-emerald-500/10 shadow-sm shadow-emerald-500/10",
-  error: "border-destructive/70 bg-destructive/15 shadow-sm shadow-destructive/10",
+const PHASE_TILE: Record<AgentSliceModel["phase"], string> = {
+  idle: styles.sliceTileIdle,
+  queued: styles.sliceTileQueued,
+  running: styles.sliceTileRunning,
+  ok: styles.sliceTileOk,
+  error: styles.sliceTileError,
 };
 
-const PHASE_BADGE: Record<
-  AgentSliceModel["phase"],
-  { label: string; variant: "outline" | "warning" | "default" | "success" | "destructive" }
-> = {
-  idle: { label: "idle", variant: "outline" },
-  queued: { label: "queued", variant: "warning" },
-  running: { label: "running", variant: "default" },
-  ok: { label: "ok", variant: "success" },
-  error: { label: "error", variant: "destructive" },
+const PHASE_CHIP: Record<AgentSliceModel["phase"], string> = {
+  idle: styles.phaseIdle,
+  queued: styles.phaseQueued,
+  running: styles.phaseRunning,
+  ok: styles.phaseOk,
+  error: styles.phaseError,
 };
 
 type AgentSliceTileProps = {
@@ -44,7 +41,6 @@ export function AgentSliceTile({
   onTap,
   onLongPressDispatch,
 }: AgentSliceTileProps) {
-  const phaseBadge = PHASE_BADGE[slice.phase];
   const longPress = useLongPress(
     () => {
       if (!busy && onLongPressDispatch && slice.squadIds.length > 0) {
@@ -53,6 +49,19 @@ export function AgentSliceTile({
     },
     { disabled: busy || !onLongPressDispatch || slice.squadIds.length === 0 },
   );
+
+  const meta =
+    slice.phase === "running"
+      ? "running..."
+      : slice.phase === "queued"
+        ? "queued..."
+        : slice.phase === "idle" && slice.lastRunAt
+          ? formatRelativeTimeFromValue(slice.lastRunAt)
+          : slice.lastStatus
+            ? slice.lastStatus
+            : slice.warm
+              ? "warm"
+              : "tap run · hold dispatch";
 
   return (
     <button
@@ -72,58 +81,33 @@ export function AgentSliceTile({
       data-warm={slice.warm ? "true" : "false"}
       data-squad-count={slice.squadIds.length}
       className={cn(
-        "rounded-xl border-2 p-3 text-left transition-all active:scale-[0.98]",
-        "min-h-[104px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        PHASE_STYLES[slice.phase],
-        slice.selected && multiMode && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-        focusFrameId === slice.frameId && "ring-2 ring-amber-400 ring-offset-2 animate-pulse",
+        styles.sliceTile,
+        PHASE_TILE[slice.phase],
+        slice.selected && multiMode && styles.sliceTileSelected,
+        focusFrameId === slice.frameId && styles.sliceTileFocus,
         !slice.warm && slice.phase === "idle" && "opacity-90",
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary text-[10px] font-bold text-secondary-foreground"
-            aria-label={`Keyboard shortcut ${index + 1}`}
-          >
+          <span className={styles.sliceKey} aria-label={`Keyboard shortcut ${index + 1}`}>
             {index + 1}
           </span>
-          <span className="truncate text-xs font-semibold uppercase tracking-wide text-primary">
-            {slice.shortLabel}
-          </span>
+          <span className={styles.sliceShort}>{slice.shortLabel}</span>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <Badge variant={phaseBadge.variant} className="h-5 px-1.5 text-[10px] capitalize">
-            {phaseBadge.label}
-          </Badge>
+          <span className={cn(styles.phaseChip, PHASE_CHIP[slice.phase])}>{slice.phase}</span>
           <span
-            className={cn(
-              "h-2 w-2 rounded-full",
-              slice.warm ? "bg-emerald-400" : "bg-muted-foreground/40",
-            )}
+            className={cn(styles.warmDot, slice.warm ? styles.warmDotHot : styles.warmDotCold)}
             title={slice.warm ? "Warm" : "Cold"}
             aria-hidden
           />
         </div>
       </div>
-      <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">{slice.label}</p>
-      <p className="mt-1.5 text-xs text-muted-foreground">
-        {slice.phase === "running"
-          ? "running..."
-          : slice.phase === "queued"
-            ? "queued..."
-            : slice.phase === "idle" && slice.lastRunAt
-              ? formatRelativeTimeFromValue(slice.lastRunAt)
-              : slice.lastStatus
-                ? slice.lastStatus
-                : slice.warm
-                  ? "warm"
-                  : "tap run · hold dispatch"}
-      </p>
+      <p className={styles.sliceLabel}>{slice.label}</p>
+      <p className={styles.sliceMeta}>{meta}</p>
       {slice.squadIds.length > 0 ? (
-        <p className="mt-0.5 text-[9px] text-muted-foreground/80">
-          {slice.squadIds.join(", ")}
-        </p>
+        <p className={cn(styles.sliceMeta, "mt-0.5 opacity-80")}>{slice.squadIds.join(", ")}</p>
       ) : null}
     </button>
   );

@@ -1,8 +1,8 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { describeWavePlan } from "@/lib/agents/agentSlices";
 import type { RunExecutionMode } from "@/lib/agents/types";
+import styles from "./agentsTheme.module.css";
 
 type SliceWavePreviewProps = {
   frameIds: string[];
@@ -15,16 +15,11 @@ export function SliceWavePreview({ frameIds, mode }: SliceWavePreviewProps) {
   const plan = describeWavePlan(frameIds, mode);
 
   return (
-    <div
-      className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/30 p-2.5"
-      data-testid="slice-wave-preview"
-      aria-label="Wave plan preview"
-    >
+    <div className={styles.wavePlan} data-testid="slice-wave-preview" aria-label="Wave plan preview">
       {plan.waves.map((wave) => (
-        <Badge key={wave.index} variant="secondary" className="text-xs font-normal">
-          {plan.waveCount > 1 ? `Wave ${wave.index + 1}` : "Parallel"}:{" "}
-          {wave.labels.join(" · ")}
-        </Badge>
+        <span key={wave.index} className={styles.waveBadge}>
+          {plan.waveCount > 1 ? `Wave ${wave.index + 1}` : "Parallel"}: {wave.labels.join(" · ")}
+        </span>
       ))}
     </div>
   );

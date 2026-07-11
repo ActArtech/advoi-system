@@ -16,9 +16,8 @@ import {
   History,
   ListPlus,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import styles from "@/components/agents/agentsTheme.module.css";
 import { AgentSliceTile } from "@/components/agents/AgentSliceTile";
 import { SlicePresetsBar } from "@/components/agents/SlicePresetsBar";
 import { SliceResultsDrawer } from "@/components/agents/SliceResultsDrawer";
@@ -1191,7 +1190,7 @@ export function AgentsOrchestrator() {
   const totalAgents = agents.length || 6;
 
   return (
-    <div className="space-y-4" data-testid="agents-orchestrator" data-ui-version="v2">
+    <div className={cn("stagger-children", styles.root)} data-testid="agents-orchestrator" data-ui-version="v2">
       <input
         ref={presetsFilePicker.inputRef}
         type="file"
@@ -1232,86 +1231,76 @@ export function AgentsOrchestrator() {
         onChange={bundleFilePicker.onChange}
         data-testid="import-bundle-file-input"
       />
-      <Card className="border-border/70 bg-card/90">
-        <CardContent className="flex flex-wrap items-center gap-2 p-3">
-          <Badge variant={warmCount === totalAgents ? "success" : "secondary"} className="text-xs">
+      <div className={cn(styles.panel, styles.panelBodyFlush)}>
+        <div className={styles.statusStrip}>
+          <span
+            className={cn(
+              styles.stateChip,
+              warmCount === totalAgents && styles.stateChipWarm,
+            )}
+          >
             {warmCount}/{totalAgents} warm
-          </Badge>
-          {busy ? (
-            <Badge variant="warning" className="animate-pulse text-xs">
-              Running
-            </Badge>
-          ) : null}
+          </span>
+          {busy ? <span className={cn(styles.stateChip, styles.stateChipRunning)}>Running</span> : null}
           {lastPayload?.squads?.dispatched != null ? (
-            <Badge variant="default" className="text-xs">
+            <span className={styles.stateChip}>
               Squads {lastPayload.squads.dispatched}/{lastPayload.squads.total}
-            </Badge>
+            </span>
           ) : null}
           {phaseCounts.running > 0 ? (
-            <Badge variant="warning" data-testid="active-slice-count" className="text-xs">
+            <span className={cn(styles.stateChip, styles.stateChipRunning)} data-testid="active-slice-count">
               {phaseCounts.running} running
-            </Badge>
+            </span>
           ) : null}
           {busy && runningFrames.size > 0 ? (
-            <Badge variant="outline" data-testid="concurrent-frame-count" className="text-xs">
+            <span className={styles.stateChip} data-testid="concurrent-frame-count">
               {runningFrames.size} active
-            </Badge>
+            </span>
           ) : null}
           {phaseCounts.queued > 0 ? (
-            <Badge variant="outline" className="text-xs">
-              {phaseCounts.queued} queued
-            </Badge>
+            <span className={styles.stateChip}>{phaseCounts.queued} queued</span>
           ) : null}
           {squadProgress && busy ? (
-            <Badge variant="default" data-testid="squad-run-progress" className="text-xs">
+            <span className={styles.stateChip} data-testid="squad-run-progress">
               Squads {squadProgress.done}/{squadProgress.total}
-            </Badge>
+            </span>
           ) : null}
           {queueDepth > 0 ? (
             <button
               type="button"
-              className="inline-flex"
+              className={cn(styles.stateChip, styles.stateChipQueue)}
               onClick={() => setQueueOpen(true)}
               data-testid="slice-run-queue-depth"
             >
-              <Badge variant="warning" className="cursor-pointer text-xs hover:bg-amber-500/25">
-                Queue: {queueDepth} waiting
-              </Badge>
+              Queue: {queueDepth} waiting
             </button>
           ) : null}
-          {progress && busy ? (
-            <div className="ml-auto min-w-[140px] flex-1 space-y-1" data-testid="slice-run-progress">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>
-                  Wave {Math.min(progress.waveIndex + 1, progress.waveCount)}/{progress.waveCount}
-                </span>
-                <span>{progress.percent}%</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-secondary">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${progress.percent}%` }}
-                />
-              </div>
+        </div>
+        {progress && busy ? (
+          <div className="mt-3 space-y-1" data-testid="slice-run-progress">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>
+                Wave {Math.min(progress.waveIndex + 1, progress.waveCount)}/{progress.waveCount}
+              </span>
+              <span>{progress.percent}%</span>
             </div>
-          ) : null}
-        </CardContent>
-      </Card>
+            <div className={styles.progressTrack}>
+              <div className={styles.progressFill} style={{ width: `${progress.percent}%` }} />
+            </div>
+          </div>
+        ) : null}
+      </div>
 
-      <Card className="border-primary/25 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Six agent slices</CardTitle>
-          <CardDescription>
+      <div className={cn(styles.panel, styles.panelAccent)}>
+        <div className={styles.panelHeader}>
+          <h3 className={styles.panelTitle}>Six agent slices</h3>
+          <p className={styles.panelDesc}>
             Tap to run · keys 1-6 · hold tile to dispatch squads
             {multiMode ? " · multi-select on" : ""}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div
-            className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
-            data-testid="agent-slice-grid"
-            aria-label="Agent slices"
-          >
+          </p>
+        </div>
+        <div className={styles.panelBody}>
+          <div className={styles.sliceGrid} data-testid="agent-slice-grid" aria-label="Agent slices">
             {agentSlices.map((slice, index) => (
               <AgentSliceTile
                 key={slice.agentId}
@@ -1325,24 +1314,30 @@ export function AgentsOrchestrator() {
               />
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Quick actions</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2 pt-0">
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <h3 className={styles.panelTitle}>Quick actions</h3>
+        </div>
+        <div className={cn(styles.panelBody, styles.actionRow)}>
           {busy ? (
-            <Button size="default" variant="destructive" onClick={cancelRun} data-testid="cancel-slice-run">
+            <Button size="sm" variant="destructive" onClick={cancelRun} data-testid="cancel-slice-run">
               <XCircle className="h-4 w-4" />
               Cancel
             </Button>
           ) : null}
-          <Button size="default" disabled={busy} onClick={() => void runParallel("all_six")} data-testid="run-all-six-slices">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void runParallel("all_six")}
+            data-testid="run-all-six-slices"
+            className={styles.ctaPrimary}
+          >
             <Play className="h-4 w-4" />
             Run all 6
-          </Button>
+          </button>
           <Button
             size="default"
             variant="secondary"
@@ -1401,60 +1396,67 @@ export function AgentsOrchestrator() {
               </Button>
             </>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Run mode</CardTitle>
-          <CardDescription>How slices execute when you run a batch</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-0">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Run mode">
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <h3 className={styles.panelTitle}>Run mode</h3>
+          <p className={styles.panelDesc}>How slices execute when you run a batch</p>
+        </div>
+        <div className={cn(styles.panelBody, "space-y-3")}>
+          <div className={styles.modeRow} role="group" aria-label="Run mode">
             {MODE_OPTIONS.map(({ mode, label, icon: Icon }) => (
-              <Button
+              <button
                 key={mode}
-                size="sm"
-                variant={runMode === mode ? "default" : "outline"}
+                type="button"
                 disabled={busy}
                 onClick={() => {
                   setRunMode(mode);
                   savePreferredRunMode(mode);
                 }}
                 data-testid={`run-mode-${mode}`}
+                className={cn(styles.modeBtn, runMode === mode && styles.modeBtnActive)}
               >
                 <Icon className="h-4 w-4" />
                 {label}
-              </Button>
+              </button>
             ))}
           </div>
           <SliceWavePreview frameIds={previewFrameIds} mode={runMode} />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {chainSuggestion && !busy ? (
-        <Card className="border-primary/50 bg-primary/10 shadow-md" data-testid="voice-chain-suggestion">
-          <CardContent className="flex flex-wrap items-center gap-3 p-4">
-            <p className="text-sm font-medium text-foreground">
-              Morning pulse synced — run <span className="text-primary">{chainSuggestion.label}</span> next?
+        <div className={styles.suggestion} data-testid="voice-chain-suggestion">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className={styles.suggestionText}>
+              Morning pulse synced — run{" "}
+              <span className={styles.suggestionAccent}>{chainSuggestion.label}</span> next?
             </p>
-            <Button size="sm" disabled={busy} onClick={() => void runSuggestedChain()} data-testid="run-voice-chain-suggestion">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void runSuggestedChain()}
+              data-testid="run-voice-chain-suggestion"
+              className={styles.ctaPrimary}
+            >
               <Play className="h-4 w-4" />
               Run chain
-            </Button>
+            </button>
             <Button size="sm" variant="ghost" onClick={() => setChainSuggestion(null)} data-testid="dismiss-voice-chain-suggestion">
               Dismiss
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : null}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Presets & chains</CardTitle>
-          <CardDescription>One-tap batches and multi-stage sequences</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <h3 className={styles.panelTitle}>Presets & chains</h3>
+          <p className={styles.panelDesc}>One-tap batches and multi-stage sequences</p>
+        </div>
+        <div className={styles.panelBody}>
           <SlicePresetsBar
         disabled={busy}
         userPresets={userPresets}
@@ -1493,16 +1495,16 @@ export function AgentsOrchestrator() {
         onImportBundle={importBundle}
         onSelect={(preset) => void runPreset(preset)}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {squads.length > 0 ? (
-        <Card>
-          <CardHeader className="pb-2">
+        <div className={styles.panel}>
+          <div className={styles.panelHeader}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <CardTitle className="text-base">Squad crews</CardTitle>
-                <CardDescription>Run or dispatch per squad channel</CardDescription>
+                <h3 className={styles.panelTitle}>Squad crews</h3>
+                <p className={styles.panelDesc}>Run or dispatch per squad channel</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => void dispatchAllSquadsOnly()} data-testid="dispatch-all-squads">
@@ -1532,32 +1534,27 @@ export function AgentsOrchestrator() {
                   </span>
                   <span>{squadFrameProgress.percent}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-300"
-                    style={{ width: `${squadFrameProgress.percent}%` }}
-                  />
+                <div className={styles.progressTrack}>
+                  <div className={styles.progressFill} style={{ width: `${squadFrameProgress.percent}%` }} />
                 </div>
               </div>
             ) : null}
-          </CardHeader>
-          <CardContent className="flex gap-2 overflow-x-auto pb-1 pt-0 snap-x">
+          </div>
+          <div className={cn(styles.panelBody, styles.squadScroll)}>
             {squadSlices.map((squad) => (
-              <Card
+              <div
                 key={squad.squadId}
                 className={cn(
-                  "min-w-[160px] shrink-0 snap-start border-border/80 transition-colors",
-                  activeSquadId === squad.squadId && "border-primary ring-1 ring-primary/40",
+                  styles.squadCard,
+                  activeSquadId === squad.squadId && styles.squadCardActive,
                 )}
                 data-testid={`squad-slice-${squad.squadId}`}
               >
-                <CardHeader className="p-3 pb-2">
-                  <CardTitle className="text-sm">{squad.name}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {squad.channel} · {squadWarmLabel(squad)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex gap-1 p-3 pt-0">
+                <p className="text-sm font-semibold text-foreground">{squad.name}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {squad.channel} · {squadWarmLabel(squad)}
+                </p>
+                <div className="mt-2 flex gap-1">
                   <Button
                     size="sm"
                     variant="secondary"
@@ -1580,20 +1577,18 @@ export function AgentsOrchestrator() {
                     <Send className="h-3 w-3" />
                     Dispatch
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : null}
 
-      <Card className="border-border/60 bg-card/50">
-        <CardContent className="p-3 text-sm text-muted-foreground" role="status">
-          {status}
-        </CardContent>
-      </Card>
+      <div className={styles.statusFooter} role="status">
+        {status}
+      </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className={styles.hint}>
         {runMode === "parallel"
           ? "Parallel: all slices at once. "
           : runMode === "wave"

@@ -1,13 +1,13 @@
 "use client";
 
 import { BookmarkPlus, Download, GitBranch, Upload, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { allPresetsForBar } from "@/lib/agents/slicePresets";
 import type { SlicePreset } from "@/lib/agents/slicePresets";
 import type { UserSlicePreset } from "@/lib/agents/customUserPresets";
 import type { UserPresetChain } from "@/lib/agents/customUserChains";
 import { cn } from "@/lib/utils";
+import styles from "./agentsTheme.module.css";
 
 type SlicePresetsBarProps = {
   onSelect: (preset: SlicePreset) => void;
@@ -67,10 +67,8 @@ export function SlicePresetsBar({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Presets
-        </p>
+      <div>
+        <p className={styles.sectionLabel}>Presets</p>
         <div
           className="flex flex-wrap gap-2"
           role="group"
@@ -96,17 +94,14 @@ export function SlicePresetsBar({
                   data-testid={testId}
                   data-chain-draft={inDraft ? "true" : "false"}
                   className={cn(
-                    "rounded-full border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    styles.presetPill,
+                    inDraft && styles.presetPillActive,
+                    isUser && !inDraft && styles.presetPillUser,
                     disabled && "pointer-events-none opacity-50",
                   )}
                 >
-                  <Badge
-                    variant={inDraft ? "default" : isUser ? "secondary" : "outline"}
-                    className="cursor-pointer px-2.5 py-1 text-xs font-medium transition-colors hover:bg-secondary/80"
-                  >
-                    {inDraft ? `${chainDraftIds.indexOf(preset.id) + 1}. ` : ""}
-                    {preset.label}
-                  </Badge>
+                  {inDraft ? `${chainDraftIds.indexOf(preset.id) + 1}. ` : ""}
+                  {preset.label}
                 </button>
                 {isUser && onDeleteUserPreset ? (
                   <button
@@ -127,14 +122,7 @@ export function SlicePresetsBar({
             );
           })}
           {onSavePreset ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={disabled || !canSavePreset}
-              onClick={onSavePreset}
-              data-testid="save-slice-preset"
-            >
+            <Button type="button" size="sm" variant="ghost" disabled={disabled || !canSavePreset} onClick={onSavePreset} data-testid="save-slice-preset">
               <BookmarkPlus className="h-3.5 w-3.5" />
               Save
             </Button>
@@ -165,51 +153,40 @@ export function SlicePresetsBar({
             </Button>
           ) : null}
           {chainBuilderMode && onSaveChain ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={disabled || !canSaveChain}
-              onClick={onSaveChain}
-              data-testid="save-slice-chain"
-            >
+            <Button type="button" size="sm" variant="secondary" disabled={disabled || !canSaveChain} onClick={onSaveChain} data-testid="save-slice-chain">
               Save chain
             </Button>
           ) : null}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Chains
-        </p>
+      <div>
+        <p className={styles.sectionLabel}>Chains</p>
         <div className="flex flex-wrap items-center gap-2">
           {chainButtons.map((chain) => (
-            <Button
+            <button
               key={chain.id}
               type="button"
-              size="sm"
-              variant="outline"
               disabled={disabled}
               onClick={chain.onRun}
               data-testid={`slice-preset-chain-${chain.id}`}
+              className={cn(styles.chainBtn, disabled && "opacity-50")}
             >
               {chain.label}
-            </Button>
+            </button>
           ))}
           {userChains.map((chain) => (
             <span key={chain.id} className="inline-flex items-center gap-0.5">
-              <Button
+              <button
                 type="button"
-                size="sm"
-                variant="secondary"
                 disabled={disabled}
                 onClick={() => onRunUserChain?.(chain)}
                 data-testid={`slice-user-chain-${chain.id}`}
+                className={cn(styles.chainBtn, styles.chainBtnUser, disabled && "opacity-50")}
               >
                 {chain.label}
                 {chain.dispatchAfter ? " → Dispatch" : ""}
-              </Button>
+              </button>
               {onDeleteUserChain ? (
                 <button
                   type="button"
@@ -225,88 +202,50 @@ export function SlicePresetsBar({
             </span>
           ))}
           {chainButtons.length === 0 && userChains.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No chains yet. Use Chain builder to add one.</p>
+            <p className={styles.hint}>No custom chains yet. Use Chain builder to add one.</p>
           ) : null}
         </div>
       </div>
 
       {onExportBundle || onImportBundle || onExportPresets ? (
-        <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/20 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Backup & restore
-          </p>
-          <div className="flex flex-wrap gap-2">
+        <div className={styles.backupBox}>
+          <p className={styles.sectionLabel}>Backup & restore</p>
+          <div className={styles.actionRow}>
             {onExportBundle ? (
-              <Button
+              <button
                 type="button"
-                size="sm"
-                variant="default"
                 disabled={disabled}
                 onClick={onExportBundle}
                 data-testid="export-orchestration-bundle"
+                className={styles.ctaPrimary}
               >
                 <Download className="h-3.5 w-3.5" />
                 Export all
-              </Button>
+              </button>
             ) : null}
             {onImportBundle ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={disabled}
-                onClick={onImportBundle}
-                data-testid="import-orchestration-bundle"
-              >
+              <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={onImportBundle} data-testid="import-orchestration-bundle">
                 <Upload className="h-3.5 w-3.5" />
                 Import all
               </Button>
             ) : null}
             {onExportPresets ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={disabled}
-                onClick={onExportPresets}
-                data-testid="export-user-presets"
-              >
+              <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={onExportPresets} data-testid="export-user-presets">
                 Presets
               </Button>
             ) : null}
             {onImportPresets ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={disabled}
-                onClick={onImportPresets}
-                data-testid="import-user-presets"
-              >
+              <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={onImportPresets} data-testid="import-user-presets">
                 Import presets
               </Button>
             ) : null}
             {onExportChains ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={disabled}
-                onClick={onExportChains}
-                data-testid="export-user-chains"
-              >
+              <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={onExportChains} data-testid="export-user-chains">
                 Chains
               </Button>
             ) : null}
             {onImportChains ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={disabled}
-                onClick={onImportChains}
-                data-testid="import-user-chains"
-              >
+              <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={onImportChains} data-testid="import-user-chains">
                 Import chains
               </Button>
             ) : null}
