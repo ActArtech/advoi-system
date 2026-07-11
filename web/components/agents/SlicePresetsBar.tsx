@@ -31,6 +31,8 @@ type SlicePresetsBarProps = {
   onImportPresets?: () => void;
   onExportChains?: () => void;
   onImportChains?: () => void;
+  onExportBundle?: () => void;
+  onImportBundle?: () => void;
   disabled?: boolean;
 };
 
@@ -56,6 +58,8 @@ export function SlicePresetsBar({
   onImportPresets,
   onExportChains,
   onImportChains,
+  onExportBundle,
+  onImportBundle,
   disabled,
 }: SlicePresetsBarProps) {
   const allPresets = allPresetsForBar(userPresets);
@@ -270,6 +274,34 @@ export function SlicePresetsBar({
           >
             <Upload className="h-3 w-3" />
             Import chains
+          </Button>
+        ) : null}
+        {onExportBundle ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-[10px]"
+            disabled={disabled}
+            onClick={onExportBundle}
+            data-testid="export-orchestration-bundle"
+          >
+            <Download className="h-3 w-3" />
+            Export all
+          </Button>
+        ) : null}
+        {onImportBundle ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-[10px]"
+            disabled={disabled}
+            onClick={onImportBundle}
+            data-testid="import-orchestration-bundle"
+          >
+            <Upload className="h-3 w-3" />
+            Import all
           </Button>
         ) : null}
       </div>

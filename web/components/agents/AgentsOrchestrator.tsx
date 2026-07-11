@@ -114,14 +114,21 @@ import {
   type SliceQueueItem,
 } from "@/lib/agents/sliceRunQueue";
 import {
+  describeBundleImport,
+  exportOrchestrationBundle,
+  parseOrchestrationImport,
+} from "@/lib/agents/sliceOrchestrationBundle";
+import {
   detectVoiceMirrorComplete,
   isFailedMirrorStatus,
   shouldMirrorVoiceFrame,
+  voiceMirrorChainSuggestion,
   voiceMirrorLogLabel,
   voiceMirrorLogMode,
   voiceMirrorResultFromAgent,
   voiceMirrorStatusLabel,
   type RunFrameDetail,
+  type VoiceChainSuggestion,
 } from "@/lib/agents/voiceFrameBridge";
 import { cn } from "@/lib/utils";
 
@@ -187,6 +194,7 @@ export function AgentsOrchestrator() {
   const [chainBuilderMode, setChainBuilderMode] = useState(false);
   const [chainDraftIds, setChainDraftIds] = useState<string[]>([]);
   const [chainDispatchDraft, setChainDispatchDraft] = useState(false);
+  const [chainSuggestion, setChainSuggestion] = useState<VoiceChainSuggestion | null>(null);
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -231,8 +239,11 @@ export function AgentsOrchestrator() {
           }),
         );
         setResultsOpen(true);
+        const suggestion = voiceMirrorChainSuggestion(frameId, mirrored.status);
+        setChainSuggestion(suggestion);
       } else {
         setStatus(`Voice sync complete: ${frameId}`);
+        setChainSuggestion(null);
       }
       return true;
     },
@@ -1078,6 +1089,31 @@ export function AgentsOrchestrator() {
     onError: (msg) => setStatus(msg),
   });
 
+  const bundleFilePicker = useJsonFilePicker({
+    onJson: (raw) => {
+      try {
+        const result = parseOrchestrationImport(raw);
+        if (result.importedSections.includes("presets")) {
+          setUserPresets(result.presets);
+        }
+        if (result.importedSections.includes("chains")) {
+          setUserChains(result.chains);
+        }
+        if (result.importedSections.includes("history")) {
+          setHistoryLog(result.history);
+        }
+        if (result.runMode) {
+          setRunMode(result.runMode);
+          savePreferredRunMode(result.runMode);
+        }
+        setStatus(describeBundleImport(result.importedSections));
+      } catch {
+        setStatus("Invalid orchestration bundle JSON");
+      }
+    },
+    onError: (msg) => setStatus(msg),
+  });
+
   const historyFilePicker = useJsonFilePicker({
     onJson: (raw) => {
       try {
@@ -1128,6 +1164,29 @@ export function AgentsOrchestrator() {
     chainsFilePicker.openPicker();
   }, [chainsFilePicker]);
 
+  const exportBundle = useCallback(() => {
+    downloadJsonFile(
+      "advoi-orchestration-bundle.json",
+      exportOrchestrationBundle({
+        presets: userPresets,
+        chains: userChains,
+        history: historyLog,
+        runMode,
+      }),
+    );
+    setStatus("Orchestration bundle exported");
+  }, [userPresets, userChains, historyLog, runMode]);
+
+  const importBundle = useCallback(() => {
+    bundleFilePicker.openPicker();
+  }, [bundleFilePicker]);
+
+  const runSuggestedChain = useCallback(() => {
+    if (!chainSuggestion) return;
+    setChainSuggestion(null);
+    void runPresetChain(chainSuggestion.chainId);
+  }, [chainSuggestion, runPresetChain]);
+
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
 
@@ -1162,6 +1221,16 @@ export function AgentsOrchestrator() {
         tabIndex={-1}
         onChange={chainsFilePicker.onChange}
         data-testid="import-chains-file-input"
+      />
+      <input
+        ref={bundleFilePicker.inputRef}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={bundleFilePicker.onChange}
+        data-testid="import-bundle-file-input"
       />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={warmCount === totalAgents ? "success" : "secondary"}>
@@ -1242,6 +1311,37 @@ export function AgentsOrchestrator() {
 
       <SliceWavePreview frameIds={previewFrameIds} mode={runMode} />
 
+      {chainSuggestion && !busy ? (
+        <Card
+          className="border-primary/40 bg-primary/5"
+          data-testid="voice-chain-suggestion"
+        >
+          <CardContent className="flex flex-wrap items-center gap-2 p-3">
+            <p className="text-sm text-foreground">
+              Morning pulse synced. Run{" "}
+              <span className="font-medium">{chainSuggestion.label}</span> next?
+            </p>
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => void runSuggestedChain()}
+              data-testid="run-voice-chain-suggestion"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Run chain
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setChainSuggestion(null)}
+              data-testid="dismiss-voice-chain-suggestion"
+            >
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <SlicePresetsBar
         disabled={busy}
         userPresets={userPresets}
@@ -1276,6 +1376,8 @@ export function AgentsOrchestrator() {
         onImportPresets={importPresets}
         onExportChains={exportChains}
         onImportChains={importChains}
+        onExportBundle={exportBundle}
+        onImportBundle={importBundle}
         onSelect={(preset) => void runPreset(preset)}
       />
 
@@ -1529,7 +1631,7 @@ export function AgentsOrchestrator() {
             : "Stagger: one slice at a time. "}
         {multiMode
           ? "Multi-select then Run selected or Save preset."
-          : "Tap slice to run (1-6). Chain mode: tap presets in order, Save chain. Queue while busy. R retry · Esc cancel."}
+          : "Tap slice to run (1-6). Chain mode: tap presets in order, Save chain. Export all backs up presets, chains, and history. R retry · Esc cancel."}
       </p>
 
       <SliceResultsDrawer

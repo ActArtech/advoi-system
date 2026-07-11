@@ -963,6 +963,44 @@ def export_user_chains_json(chains: list[dict]) -> str:
     return json.dumps({"version": 1, "exportedAt": 0, "chains": chains}, indent=2)
 
 
+def export_orchestration_bundle(
+    presets: list[dict],
+    chains: list[dict],
+    history: list[dict],
+    run_mode: str | None = None,
+) -> str:
+    import json
+
+    payload: dict = {
+        "version": 1,
+        "exportedAt": 0,
+        "presets": presets,
+        "chains": chains,
+        "history": history,
+    }
+    if run_mode:
+        payload["runMode"] = run_mode
+    return json.dumps(payload, indent=2)
+
+
+def voice_mirror_chain_suggestion(frame_id: str, status: str | None = None) -> dict | None:
+    if is_failed_mirror_status(status):
+        return None
+    if frame_id_to_preset_id(frame_id) != "morning_pulse":
+        return None
+    chain = chain_by_id("morning_then_ops")
+    if not chain:
+        return None
+    return {"chainId": chain["id"], "label": chain["label"]}
+
+
+def describe_bundle_import(sections: list[str]) -> str:
+    labels = {"presets": "presets", "chains": "chains", "history": "history", "runMode": "run mode"}
+    if not sections:
+        return "Nothing imported"
+    return f"Imported {', '.join(labels.get(s, s) for s in sections)}"
+
+
 def chain_draft_label(preset_ids: list[str], presets: list[dict]) -> str:
     by_id = {p["id"]: p["label"] for p in presets}
     return " → ".join(by_id.get(pid, pid) for pid in preset_ids)
@@ -1038,6 +1076,33 @@ def test_export_user_chains_json() -> None:
     assert '"version": 1' in raw
     assert "uchain_ops_intel" in raw
     assert "dispatchAfter" in raw
+
+
+def test_export_orchestration_bundle() -> None:
+    raw = export_orchestration_bundle(
+        presets=[{"id": "user_test", "label": "Test", "frameIds": ["fleet_status"], "mode": "wave"}],
+        chains=[],
+        history=[{"id": "run-1", "label": "Ops", "mode": "wave", "frameCount": 1, "okCount": 1, "failCount": 0}],
+        run_mode="wave",
+    )
+    assert '"presets"' in raw
+    assert '"chains"' in raw
+    assert '"history"' in raw
+    assert '"runMode": "wave"' in raw
+
+
+def test_voice_mirror_chain_suggestion() -> None:
+    suggestion = voice_mirror_chain_suggestion(MORNING_PULSE_FRAME_ID, "ok")
+    assert suggestion is not None
+    assert suggestion["chainId"] == "morning_then_ops"
+    assert "Pulse" in suggestion["label"]
+    assert voice_mirror_chain_suggestion(MORNING_PULSE_FRAME_ID, "error") is None
+    assert voice_mirror_chain_suggestion("fleet_status", "ok") is None
+
+
+def test_describe_bundle_import() -> None:
+    assert "presets" in describe_bundle_import(["presets", "chains"])
+    assert describe_bundle_import([]) == "Nothing imported"
 
 
 def test_chain_draft_label() -> None:

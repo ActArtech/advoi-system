@@ -14,6 +14,11 @@ import {
   DEFAULT_SIX_FRAME_IDS,
 } from "../lib/agents/agentSlices";
 import { chainDraftLabel, exportUserChainsJson } from "../lib/agents/customUserChains";
+import {
+  describeBundleImport,
+  exportOrchestrationBundle,
+  parseOrchestrationImport,
+} from "../lib/agents/sliceOrchestrationBundle";
 import { SLICE_PRESETS, presetById } from "../lib/agents/slicePresets";
 import { PRESET_CHAINS, chainById } from "../lib/agents/presetChain";
 import {
@@ -29,6 +34,7 @@ import {
   frameIdToPresetId,
   isFailedMirrorStatus,
   shouldMirrorVoiceFrame,
+  voiceMirrorChainSuggestion,
   voiceMirrorLogLabel,
   voiceMirrorLogMode,
   voiceMirrorResultFromAgent,
@@ -158,6 +164,46 @@ test("exportUserChainsJson includes dispatchAfter", async () => {
   ]);
   expect(json).toContain("uchain_test");
   expect(json).toContain("dispatchAfter");
+});
+
+test("orchestration bundle export and import round-trip", async () => {
+  const json = exportOrchestrationBundle({
+    presets: [],
+    chains: [
+      {
+        id: "uchain_test",
+        label: "Pulse → Ops",
+        presetIds: ["morning_pulse", "ops_core"],
+        source: "user",
+      },
+    ],
+    history: [
+      {
+        id: "run-1",
+        ts: 1000,
+        label: "Morning pulse",
+        mode: "stagger",
+        frameCount: 1,
+        okCount: 1,
+        failCount: 0,
+        frameIds: ["systems_pulse"],
+      },
+    ],
+    runMode: "wave",
+  });
+  const result = parseOrchestrationImport(json);
+  expect(result.importedSections).toContain("chains");
+  expect(result.importedSections).toContain("history");
+  expect(result.importedSections).toContain("runMode");
+  expect(result.runMode).toBe("wave");
+  expect(describeBundleImport(result.importedSections)).toContain("chains");
+});
+
+test("voice mirror suggests morning_then_ops after pulse", async () => {
+  const suggestion = voiceMirrorChainSuggestion("systems_pulse", "ok");
+  expect(suggestion?.chainId).toBe("morning_then_ops");
+  expect(suggestion?.label).toContain("Pulse");
+  expect(voiceMirrorChainSuggestion("systems_pulse", "error")).toBeNull();
 });
 
 test("agents tab shows orchestrator and wave preview", async ({ page }) => {

@@ -4,6 +4,7 @@
  */
 
 import { MORNING_PULSE_FRAME_ID } from "@/components/pwaOnboarding";
+import { chainById } from "./presetChain";
 import { presetById } from "./slicePresets";
 
 export type RunFrameDetail = {
@@ -98,4 +99,21 @@ export function voiceMirrorLogLabel(frameId: string, source?: string): string {
 export function voiceMirrorLogMode(frameId: string): "parallel" | "wave" | "stagger" {
   const presetId = frameIdToPresetId(frameId);
   return presetById(presetId ?? "")?.mode ?? "stagger";
+}
+
+export type VoiceChainSuggestion = {
+  chainId: string;
+  label: string;
+};
+
+/** Suggest a follow-up preset chain after a successful voice mirror completes. */
+export function voiceMirrorChainSuggestion(
+  frameId: string,
+  status?: string,
+): VoiceChainSuggestion | null {
+  if (isFailedMirrorStatus(status)) return null;
+  if (frameIdToPresetId(frameId) !== "morning_pulse") return null;
+  const chain = chainById("morning_then_ops");
+  if (!chain) return null;
+  return { chainId: chain.id, label: chain.label };
 }
