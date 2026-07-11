@@ -77,3 +77,19 @@ export function moveQueueItem(
   [next[idx], next[target]] = [next[target], next[idx]];
   return next;
 }
+
+/** Move queue item to an absolute index (for drag-and-drop reorder). */
+export function reorderQueueItem(
+  queue: SliceQueueEntry[],
+  id: string,
+  toIndex: number,
+): SliceQueueEntry[] {
+  const fromIndex = queue.findIndex((q) => q.id === id);
+  if (fromIndex < 0) return queue;
+  const clamped = Math.max(0, Math.min(toIndex, queue.length - 1));
+  if (fromIndex === clamped) return queue;
+  const next = [...queue];
+  const [item] = next.splice(fromIndex, 1);
+  next.splice(clamped, 0, item);
+  return next;
+}

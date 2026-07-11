@@ -106,14 +106,24 @@ export type VoiceChainSuggestion = {
   label: string;
 };
 
-/** Suggest a follow-up preset chain after a successful voice mirror completes. */
+const MORNING_PULSE_CHAIN_IDS = ["morning_then_ops", "morning_then_full"] as const;
+
+/** Suggest follow-up preset chains after a successful morning pulse voice mirror. */
+export function voiceMirrorChainSuggestions(
+  frameId: string,
+  status?: string,
+): VoiceChainSuggestion[] {
+  if (isFailedMirrorStatus(status)) return [];
+  if (frameIdToPresetId(frameId) !== "morning_pulse") return [];
+  return MORNING_PULSE_CHAIN_IDS.map((id) => chainById(id))
+    .filter((chain): chain is NonNullable<ReturnType<typeof chainById>> => chain != null)
+    .map((chain) => ({ chainId: chain.id, label: chain.label }));
+}
+
+/** Primary follow-up chain (first suggestion). */
 export function voiceMirrorChainSuggestion(
   frameId: string,
   status?: string,
 ): VoiceChainSuggestion | null {
-  if (isFailedMirrorStatus(status)) return null;
-  if (frameIdToPresetId(frameId) !== "morning_pulse") return null;
-  const chain = chainById("morning_then_ops");
-  if (!chain) return null;
-  return { chainId: chain.id, label: chain.label };
+  return voiceMirrorChainSuggestions(frameId, status)[0] ?? null;
 }

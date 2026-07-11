@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Drawer,
   DrawerClose,
@@ -10,7 +11,8 @@ import {
 } from "@/components/ui/drawer";
 import styles from "@/components/agents/agentsTheme.module.css";
 import type { SliceQueueItem } from "@/lib/agents/sliceRunQueue";
-import { ArrowDown, ArrowUp, Trash2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ArrowDown, ArrowUp, GripVertical, Trash2, X } from "lucide-react";
 
 type SliceQueueDrawerProps = {
   open: boolean;
@@ -20,6 +22,7 @@ type SliceQueueDrawerProps = {
   onRemove: (id: string) => void;
   onBump: (id: string) => void;
   onMove: (id: string, direction: "up" | "down") => void;
+  onReorder?: (id: string, toIndex: number) => void;
   onClear: () => void;
 };
 
@@ -31,8 +34,26 @@ export function SliceQueueDrawer({
   onRemove,
   onBump,
   onMove,
+  onReorder,
   onClear,
 }: SliceQueueDrawerProps) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+  const finishDrag = () => {
+    setDragId(null);
+    setDropIndex(null);
+  };
+
+  const handleDrop = (toIndex: number) => {
+    if (!dragId || !onReorder) {
+      finishDrag();
+      return;
+    }
+    onReorder(dragId, toIndex);
+    finishDrag();
+  };
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent
@@ -44,6 +65,7 @@ export function SliceQueueDrawer({
           <DrawerDescription>
             {items.length} batch{items.length === 1 ? "" : "es"} waiting
             {busy ? " · active run in progress" : " · next starts when idle"}
+            {onReorder ? " · drag to reorder" : ""}
           </DrawerDescription>
         </DrawerHeader>
         <div className={styles.drawerList}>
@@ -53,9 +75,37 @@ export function SliceQueueDrawer({
             </p>
           ) : (
             items.map((item, index) => (
-              <div key={item.id} className={styles.drawerItem} data-testid={`queue-item-${item.id}`}>
+              <div
+                key={item.id}
+                className={cn(
+                  styles.drawerItem,
+                  dragId === item.id && styles.drawerItemDragging,
+                  dropIndex === index && styles.drawerItemDragOver,
+                )}
+                data-testid={`queue-item-${item.id}`}
+                draggable={Boolean(onReorder)}
+                onDragStart={() => {
+                  if (!onReorder) return;
+                  setDragId(item.id);
+                }}
+                onDragEnd={finishDrag}
+                onDragOver={(ev) => {
+                  if (!onReorder || !dragId) return;
+                  ev.preventDefault();
+                  setDropIndex(index);
+                }}
+                onDrop={(ev) => {
+                  ev.preventDefault();
+                  handleDrop(index);
+                }}
+              >
                 <div className={styles.drawerItemHeader}>
                   <div className="flex min-w-0 items-center gap-2">
+                    {onReorder ? (
+                      <span className={styles.dragHandle} aria-hidden>
+                        <GripVertical className="h-3.5 w-3.5" />
+                      </span>
+                    ) : null}
                     <span className={styles.drawerIndex}>{index + 1}</span>
                     <p className={styles.drawerItemTitle}>{item.label}</p>
                   </div>

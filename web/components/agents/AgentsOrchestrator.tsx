@@ -109,6 +109,7 @@ import {
   moveQueueItem,
   queueItemSnapshots,
   removeQueueItem,
+  reorderQueueItem,
   type SliceQueueEntry,
   type SliceQueueItem,
 } from "@/lib/agents/sliceRunQueue";
@@ -121,7 +122,7 @@ import {
   detectVoiceMirrorComplete,
   isFailedMirrorStatus,
   shouldMirrorVoiceFrame,
-  voiceMirrorChainSuggestion,
+  voiceMirrorChainSuggestions,
   voiceMirrorLogLabel,
   voiceMirrorLogMode,
   voiceMirrorResultFromAgent,
@@ -193,7 +194,7 @@ export function AgentsOrchestrator() {
   const [chainBuilderMode, setChainBuilderMode] = useState(false);
   const [chainDraftIds, setChainDraftIds] = useState<string[]>([]);
   const [chainDispatchDraft, setChainDispatchDraft] = useState(false);
-  const [chainSuggestion, setChainSuggestion] = useState<VoiceChainSuggestion | null>(null);
+  const [chainSuggestions, setChainSuggestions] = useState<VoiceChainSuggestion[]>([]);
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -238,11 +239,10 @@ export function AgentsOrchestrator() {
           }),
         );
         setResultsOpen(true);
-        const suggestion = voiceMirrorChainSuggestion(frameId, mirrored.status);
-        setChainSuggestion(suggestion);
+        setChainSuggestions(voiceMirrorChainSuggestions(frameId, mirrored.status));
       } else {
         setStatus(`Voice sync complete: ${frameId}`);
-        setChainSuggestion(null);
+        setChainSuggestions([]);
       }
       return true;
     },
@@ -398,6 +398,15 @@ export function AgentsOrchestrator() {
       runQueueRef.current = moveQueueItem(runQueueRef.current, id, direction);
       syncQueueUi();
       setStatus(direction === "up" ? "Moved batch up." : "Moved batch down.");
+    },
+    [syncQueueUi],
+  );
+
+  const reorderInQueue = useCallback(
+    (id: string, toIndex: number) => {
+      runQueueRef.current = reorderQueueItem(runQueueRef.current, id, toIndex);
+      syncQueueUi();
+      setStatus("Reordered queue.");
     },
     [syncQueueUi],
   );
@@ -1130,10 +1139,22 @@ export function AgentsOrchestrator() {
     slices: agentSlices,
     busy,
     failedCount,
+    selectedCount: selected.size,
+    chainSuggestionCount: chainSuggestions.length,
+    queueDepth,
     onRunSlice: runOneSlice,
     onRetryFailed: retryFailed,
     onCancel: cancelRun,
     onToggleMulti: () => setMultiMode((m) => !m),
+    onRunAll: () => void runParallel("all_six"),
+    onRunSelected: () => void runParallel("selected"),
+    onRunChainSuggestion: () => {
+      const primary = chainSuggestions[0];
+      if (!primary) return;
+      setChainSuggestions([]);
+      void runPresetChain(primary.chainId);
+    },
+    onOpenQueue: () => setQueueOpen(true),
   });
 
   const exportHistory = useCallback(() => {
@@ -1180,11 +1201,13 @@ export function AgentsOrchestrator() {
     bundleFilePicker.openPicker();
   }, [bundleFilePicker]);
 
-  const runSuggestedChain = useCallback(() => {
-    if (!chainSuggestion) return;
-    setChainSuggestion(null);
-    void runPresetChain(chainSuggestion.chainId);
-  }, [chainSuggestion, runPresetChain]);
+  const runSuggestedChain = useCallback(
+    (chainId: string) => {
+      setChainSuggestions([]);
+      void runPresetChain(chainId);
+    },
+    [runPresetChain],
+  );
 
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
@@ -1427,27 +1450,39 @@ export function AgentsOrchestrator() {
         </div>
       </div>
 
-      {chainSuggestion && !busy ? (
+      {chainSuggestions.length > 0 && !busy ? (
         <div className={styles.suggestion} data-testid="voice-chain-suggestion">
-          <div className="flex flex-wrap items-center gap-3">
-            <p className={styles.suggestionText}>
-              Morning pulse synced — run{" "}
-              <span className={styles.suggestionAccent}>{chainSuggestion.label}</span> next?
-            </p>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void runSuggestedChain()}
-              data-testid="run-voice-chain-suggestion"
-              className={styles.ctaPrimary}
+          <p className={styles.suggestionText}>
+            Morning pulse synced — continue with a multi-agent chain?
+          </p>
+          <div className={styles.suggestionChips}>
+            {chainSuggestions.map((suggestion, index) => (
+              <button
+                key={suggestion.chainId}
+                type="button"
+                disabled={busy}
+                onClick={() => void runSuggestedChain(suggestion.chainId)}
+                data-testid={
+                  index === 0
+                    ? "run-voice-chain-suggestion"
+                    : `run-voice-chain-suggestion-${suggestion.chainId}`
+                }
+                className={index === 0 ? styles.ctaPrimary : styles.ctaOutline}
+              >
+                <Play className="h-4 w-4" />
+                {suggestion.label}
+              </button>
+            ))}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setChainSuggestions([])}
+              data-testid="dismiss-voice-chain-suggestion"
             >
-              <Play className="h-4 w-4" />
-              Run chain
-            </button>
-            <Button size="sm" variant="ghost" onClick={() => setChainSuggestion(null)} data-testid="dismiss-voice-chain-suggestion">
               Dismiss
             </Button>
           </div>
+          <p className={styles.suggestionHint}>Press C for {chainSuggestions[0]?.label}</p>
         </div>
       ) : null}
 
@@ -1596,7 +1631,7 @@ export function AgentsOrchestrator() {
             : "Stagger: one slice at a time. "}
         {multiMode
           ? "Multi-select then Run selected or Save preset."
-          : "Tap slice to run (1-6). Chain mode: tap presets in order, Save chain. Export all backs up presets, chains, and history. R retry · Esc cancel."}
+          : "Tap slice to run (1-6). Enter run all/selected · C chain · Q queue · R retry · Esc cancel."}
       </p>
 
       <SliceResultsDrawer
@@ -1615,6 +1650,7 @@ export function AgentsOrchestrator() {
         onRemove={removeFromQueue}
         onBump={bumpInQueue}
         onMove={moveInQueue}
+        onReorder={reorderInQueue}
         onClear={() => {
           clearRunQueue();
           setQueueOpen(false);

@@ -28,6 +28,7 @@ import {
   moveQueueItem,
   queueItemSnapshots,
   removeQueueItem,
+  reorderQueueItem,
 } from "../lib/agents/sliceRunQueue";
 import {
   detectVoiceMirrorComplete,
@@ -35,6 +36,7 @@ import {
   isFailedMirrorStatus,
   shouldMirrorVoiceFrame,
   voiceMirrorChainSuggestion,
+  voiceMirrorChainSuggestions,
   voiceMirrorLogLabel,
   voiceMirrorLogMode,
   voiceMirrorResultFromAgent,
@@ -121,6 +123,15 @@ test("slice run queue move up and down", async () => {
   expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["B", "C", "A"]);
 });
 
+test("slice run queue reorder to index", async () => {
+  const a = createQueueEntry("A", async () => {});
+  const b = createQueueEntry("B", async () => {});
+  const c = createQueueEntry("C", async () => {});
+  let q = enqueueSliceRun(enqueueSliceRun(enqueueSliceRun([], a), b), c);
+  q = reorderQueueItem(q, c.id, 0);
+  expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["C", "A", "B"]);
+});
+
 test("chainDraftLabel joins preset labels", async () => {
   const label = chainDraftLabel(["morning_pulse", "ops_core"], SLICE_PRESETS);
   expect(label).toContain("Morning pulse");
@@ -204,6 +215,14 @@ test("voice mirror suggests morning_then_ops after pulse", async () => {
   expect(suggestion?.chainId).toBe("morning_then_ops");
   expect(suggestion?.label).toContain("Pulse");
   expect(voiceMirrorChainSuggestion("systems_pulse", "error")).toBeNull();
+});
+
+test("voice mirror suggests ops and full six chains", async () => {
+  const suggestions = voiceMirrorChainSuggestions("systems_pulse", "ok");
+  expect(suggestions).toHaveLength(2);
+  expect(suggestions[0].chainId).toBe("morning_then_ops");
+  expect(suggestions[1].chainId).toBe("morning_then_full");
+  expect(voiceMirrorChainSuggestions("systems_pulse", "error")).toHaveLength(0);
 });
 
 test("agents tab shows orchestrator and wave preview", async ({ page }) => {

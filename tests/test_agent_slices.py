@@ -939,6 +939,19 @@ def move_queue_item(queue: list[dict], item_id: str, direction: str) -> list[dic
     return next_q
 
 
+def reorder_queue_item(queue: list[dict], item_id: str, to_index: int) -> list[dict]:
+    from_index = next((i for i, q in enumerate(queue) if q.get("id") == item_id), -1)
+    if from_index < 0:
+        return queue
+    clamped = max(0, min(to_index, len(queue) - 1))
+    if from_index == clamped:
+        return queue
+    next_q = list(queue)
+    item = next_q.pop(from_index)
+    next_q.insert(clamped, item)
+    return next_q
+
+
 def is_failed_mirror_status(status: str | None) -> bool:
     return status in ("error", "failed")
 
@@ -983,15 +996,25 @@ def export_orchestration_bundle(
     return json.dumps(payload, indent=2)
 
 
-def voice_mirror_chain_suggestion(frame_id: str, status: str | None = None) -> dict | None:
+MORNING_PULSE_CHAIN_IDS = ("morning_then_ops", "morning_then_full")
+
+
+def voice_mirror_chain_suggestions(frame_id: str, status: str | None = None) -> list[dict]:
     if is_failed_mirror_status(status):
-        return None
+        return []
     if frame_id_to_preset_id(frame_id) != "morning_pulse":
-        return None
-    chain = chain_by_id("morning_then_ops")
-    if not chain:
-        return None
-    return {"chainId": chain["id"], "label": chain["label"]}
+        return []
+    out: list[dict] = []
+    for chain_id in MORNING_PULSE_CHAIN_IDS:
+        chain = chain_by_id(chain_id)
+        if chain:
+            out.append({"chainId": chain["id"], "label": chain["label"]})
+    return out
+
+
+def voice_mirror_chain_suggestion(frame_id: str, status: str | None = None) -> dict | None:
+    suggestions = voice_mirror_chain_suggestions(frame_id, status)
+    return suggestions[0] if suggestions else None
 
 
 def describe_bundle_import(sections: list[str]) -> str:
@@ -1098,6 +1121,24 @@ def test_voice_mirror_chain_suggestion() -> None:
     assert "Pulse" in suggestion["label"]
     assert voice_mirror_chain_suggestion(MORNING_PULSE_FRAME_ID, "error") is None
     assert voice_mirror_chain_suggestion("fleet_status", "ok") is None
+
+
+def test_voice_mirror_chain_suggestions_plural() -> None:
+    suggestions = voice_mirror_chain_suggestions(MORNING_PULSE_FRAME_ID, "ok")
+    assert len(suggestions) == 2
+    assert suggestions[0]["chainId"] == "morning_then_ops"
+    assert suggestions[1]["chainId"] == "morning_then_full"
+    assert voice_mirror_chain_suggestions(MORNING_PULSE_FRAME_ID, "error") == []
+
+
+def test_reorder_queue_item() -> None:
+    q = [
+        {"id": "a", "label": "A"},
+        {"id": "b", "label": "B"},
+        {"id": "c", "label": "C"},
+    ]
+    reordered = reorder_queue_item(q, "c", 0)
+    assert [x["label"] for x in reordered] == ["C", "A", "B"]
 
 
 def test_describe_bundle_import() -> None:
