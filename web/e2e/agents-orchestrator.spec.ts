@@ -20,6 +20,7 @@ import {
   DEFAULT_SIX_FRAME_IDS,
 } from "../lib/agents/agentSlices";
 import { SLICE_PRESETS, presetById } from "../lib/agents/slicePresets";
+import { PRESET_CHAINS, chainById } from "../lib/agents/presetChain";
 
 type Locator = {
   getAttribute: (name: string) => Promise<string | null>;
@@ -68,6 +69,12 @@ test("frameIdsFromFailedResults filters errors", async () => {
 test("resolveOrchestrateFrameIds defaults to six", async () => {
   const ids = resolveOrchestrateFrameIds([], "selected");
   expect(ids).toHaveLength(6);
+});
+
+test("preset chain ops_then_intel resolves two stages", async () => {
+  const chain = chainById("ops_then_intel");
+  expect(chain?.presetIds).toHaveLength(2);
+  expect(PRESET_CHAINS.length).toBe(1);
 });
 
 test("slice presets cover morning pulse and full six", async () => {

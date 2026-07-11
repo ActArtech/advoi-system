@@ -79,8 +79,36 @@ def format_last_run_relative(ts: str | int | float | None) -> str | None:
     return f"{days}d ago"
 
 
+PRESET_CHAINS = [
+    {
+        "id": "ops_then_intel",
+        "label": "Ops → Intel",
+        "presetIds": ["ops_core", "intel"],
+    },
+]
+
+MAX_USER_PRESETS = 8
+
+
 def preset_by_id(preset_id: str) -> dict | None:
     return next((p for p in SLICE_PRESETS if p["id"] == preset_id), None)
+
+
+def chain_by_id(chain_id: str) -> dict | None:
+    return next((c for c in PRESET_CHAINS if c["id"] == chain_id), None)
+
+
+def resolve_chain_presets(chain: dict) -> list[dict]:
+    return [p for pid in chain["presetIds"] if (p := preset_by_id(pid)) is not None]
+
+
+def slugify_user_preset_id(label: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:32]
+    return f"user_{base}" if base else "user_custom"
+
+
+def trim_user_presets(presets: list[dict], max_count: int = MAX_USER_PRESETS) -> list[dict]:
+    return presets[:max_count]
 
 
 def is_failed_result_status(status: str | None) -> bool:
@@ -725,3 +753,31 @@ def test_build_result_rows() -> None:
         "status": "ok",
         "spokenSummary": "All clear",
     }
+
+
+def test_preset_chain_ops_then_intel() -> None:
+    chain = chain_by_id("ops_then_intel")
+    assert chain is not None
+    presets = resolve_chain_presets(chain)
+    assert len(presets) == 2
+    assert presets[0]["id"] == "ops_core"
+    assert presets[1]["id"] == "intel"
+    assert chain_by_id("missing") is None
+
+
+def test_slugify_user_preset_id() -> None:
+    assert slugify_user_preset_id("Fleet + Briefs") == "user_fleet_briefs"
+    assert slugify_user_preset_id("!!!") == "user_custom"
+
+
+def test_trim_user_presets_max_eight() -> None:
+    presets = [{"id": f"user_{i}"} for i in range(12)]
+    trimmed = trim_user_presets(presets)
+    assert len(trimmed) == MAX_USER_PRESETS
+
+
+def test_all_presets_for_bar_merges() -> None:
+    user = [{"id": "user_custom", "label": "Custom", "frameIds": ["fleet_status"], "mode": "wave"}]
+    merged = [*SLICE_PRESETS, *user]
+    assert len(merged) == len(SLICE_PRESETS) + 1
+    assert merged[-1]["id"] == "user_custom"

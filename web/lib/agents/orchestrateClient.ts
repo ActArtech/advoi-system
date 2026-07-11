@@ -102,3 +102,18 @@ export async function dispatchSquad(
   if (!res.ok) throw new Error(`squad dispatch ${res.status}`);
   return res.json();
 }
+
+export async function dispatchAllSquads(
+  opts: { signal?: AbortSignal; confirmed?: boolean } = {},
+  base = apiBaseUrl(),
+): Promise<OrchestratePayload> {
+  const qs = new URLSearchParams({ confirmed: String(opts.confirmed ?? true) });
+  const res = await fetch(`${base}/squads/dispatch-all?${qs}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+    signal: opts.signal,
+  });
+  if (!res.ok) throw new Error(`dispatch-all ${res.status}`);
+  return res.json();
+}

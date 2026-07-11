@@ -36,7 +36,18 @@ import {
   squadRunProgressModel,
   squadWarmLabel,
 } from "@/lib/agents/agentSlices";
+import {
+  readUserPresets,
+  saveUserPreset,
+  type UserSlicePreset,
+} from "@/lib/agents/customUserPresets";
 import type { SlicePreset } from "@/lib/agents/slicePresets";
+import {
+  chainById,
+  executePresetChain,
+  PRESET_CHAINS,
+  resolveChainPresets,
+} from "@/lib/agents/presetChain";
 import {
   appendSliceRunLog,
   clearSliceRunLog,
@@ -50,11 +61,13 @@ import {
 } from "@/lib/agents/runPlan";
 import { useSliceWaveCallbacks } from "@/lib/agents/useSliceWaveCallbacks";
 import {
+  dispatchAllSquads,
   fetchAgents,
   fetchFrames,
   fetchSquads,
   runSixParallel,
 } from "@/lib/agents/orchestrateClient";
+import { useTabNavigation } from "@/components/shell/TabContext";
 import type {
   AgentSliceModel,
   FrameRunResult,
@@ -81,7 +94,14 @@ const MODE_OPTIONS: { mode: RunExecutionMode; label: string; icon: typeof Zap }[
   { mode: "stagger", label: "Stagger", icon: ListOrdered },
 ];
 
+type RunFrameDetail = {
+  frameId?: string;
+  refresh?: boolean;
+  source?: string;
+};
+
 export function AgentsOrchestrator() {
+  const tabNav = useTabNavigation();
   const [agents, setAgents] = useState<Awaited<ReturnType<typeof fetchAgents>>>([]);
   const [frames, setFrames] = useState<Awaited<ReturnType<typeof fetchFrames>>>([]);
   const [squads, setSquads] = useState<Awaited<ReturnType<typeof fetchSquads>>>([]);
@@ -105,6 +125,8 @@ export function AgentsOrchestrator() {
   > | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLog, setHistoryLog] = useState<SliceRunLogEntry[]>([]);
+  const [userPresets, setUserPresets] = useState<UserSlicePreset[]>([]);
+  const [focusFrameId, setFocusFrameId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runLogMetaRef = useRef<{ label: string; mode: RunExecutionMode }>({
     label: "Run",
@@ -136,15 +158,25 @@ export function AgentsOrchestrator() {
 
   useEffect(() => {
     setHistoryLog(readSliceRunLog());
+    setUserPresets(readUserPresets());
     void reload();
-    const onFrame = () => void reload();
-    window.addEventListener(RUN_FRAME_EVENT, onFrame);
     const t = window.setInterval(() => void reload(), 20_000);
-    return () => {
-      window.removeEventListener(RUN_FRAME_EVENT, onFrame);
-      window.clearInterval(t);
-    };
+    return () => window.clearInterval(t);
   }, [reload]);
+
+  useEffect(() => {
+    const onFrame = (ev: Event) => {
+      void reload();
+      const detail = (ev as CustomEvent<RunFrameDetail>).detail;
+      if (detail?.frameId) {
+        tabNav?.scrollToTab("agents");
+        setFocusFrameId(detail.frameId);
+        window.setTimeout(() => setFocusFrameId(null), 3000);
+      }
+    };
+    window.addEventListener(RUN_FRAME_EVENT, onFrame);
+    return () => window.removeEventListener(RUN_FRAME_EVENT, onFrame);
+  }, [reload, tabNav]);
 
   const squadMap = useMemo(() => squadMembershipMap(squads), [squads]);
 
@@ -451,6 +483,76 @@ export function AgentsOrchestrator() {
     [busy, runWithPlan],
   );
 
+  const runPresetChain = useCallback(
+    async (chainId: string) => {
+      if (busy) return;
+      const chain = chainById(chainId);
+      if (!chain) return;
+      const presets = resolveChainPresets(chain);
+      if (presets.length === 0) return;
+      const controller = beginRun();
+      runLogMetaRef.current = { label: chain.label, mode: presets[0].mode };
+      setBusy(true);
+      setLastResults([]);
+      setStatus(`${chain.label}: ${presets.length} stages...`);
+      try {
+        const payload = await executePresetChain(chain, async (preset) => {
+          const frameIds = [...preset.frameIds];
+          const waves = chunkFrameWaves(frameIds, preset.mode);
+          setRunMode(preset.mode);
+          setStatus(`${chain.label}: ${preset.label}...`);
+          return executeSlicePlan(
+            frameIds,
+            preset.mode,
+            createWaveCallbacks(waves, preset.mode),
+            { signal: controller.signal },
+          );
+        });
+        const allFrameIds = presets.flatMap((p) => [...p.frameIds]);
+        finishRun(payload, allFrameIds);
+      } catch (err) {
+        resetRunUi();
+        setStatus(
+          isAbortError(err) ? "Run cancelled." : err instanceof Error ? err.message : "Chain failed",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, createWaveCallbacks],
+  );
+
+  const dispatchAllSquadsOnly = useCallback(async () => {
+    if (busy || squads.length === 0) return;
+    const controller = beginRun();
+    runLogMetaRef.current = { label: "Dispatch all squads", mode: runMode };
+    setBusy(true);
+    setStatus("Dispatching all squads...");
+    try {
+      const data = await dispatchAllSquads({ signal: controller.signal });
+      finishRun(data, []);
+      setStatus(
+        `Dispatched ${data.squads?.dispatched ?? 0}/${data.squads?.total ?? squads.length} squads`,
+      );
+    } catch (err) {
+      resetRunUi();
+      setStatus(
+        isAbortError(err) ? "Run cancelled." : err instanceof Error ? err.message : "Dispatch-all failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, squads.length, runMode]);
+
+  const saveCustomPreset = useCallback(() => {
+    const picked = agentSlices.filter((s) => selected.has(s.agentId));
+    if (picked.length === 0) return;
+    const label = picked.map((s) => s.shortLabel).join(" + ");
+    const frameIds = picked.map((s) => s.frameId);
+    setUserPresets(saveUserPreset({ label, frameIds, mode: runMode }));
+    setStatus(`Saved preset "${label}"`);
+  }, [agentSlices, selected, runMode]);
+
   const retryFailed = useCallback(async () => {
     const frameIds = frameIdsFromFailedResults(lastResults);
     if (frameIds.length === 0 || busy) return;
@@ -534,7 +636,18 @@ export function AgentsOrchestrator() {
 
       <SliceWavePreview frameIds={previewFrameIds} mode={runMode} />
 
-      <SlicePresetsBar disabled={busy} onSelect={(preset) => void runPreset(preset)} />
+      <SlicePresetsBar
+        disabled={busy}
+        userPresets={userPresets}
+        canSavePreset={multiMode && selected.size > 0}
+        onSavePreset={saveCustomPreset}
+        chainButtons={PRESET_CHAINS.map((chain) => ({
+          id: chain.id,
+          label: chain.label,
+          onRun: () => void runPresetChain(chain.id),
+        }))}
+        onSelect={(preset) => void runPreset(preset)}
+      />
 
       {squadFrameProgress && busy ? (
         <div className="space-y-1" data-testid="squad-frame-run-progress">
@@ -642,6 +755,16 @@ export function AgentsOrchestrator() {
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Squad slices — Run or Dispatch per crew
             </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void dispatchAllSquadsOnly()}
+              data-testid="dispatch-all-squads"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Dispatch all
+            </Button>
             {squads.length > 1 ? (
               <>
                 <Button
@@ -733,6 +856,7 @@ export function AgentsOrchestrator() {
               "min-h-[88px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               PHASE_STYLES[slice.phase],
               slice.selected && multiMode && "ring-2 ring-primary",
+              focusFrameId === slice.frameId && "ring-2 ring-amber-400 animate-pulse",
               !slice.warm && slice.phase === "idle" && "opacity-80",
             )}
           >

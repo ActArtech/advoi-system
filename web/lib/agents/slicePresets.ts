@@ -48,3 +48,10 @@ export const SLICE_PRESETS: readonly SlicePreset[] = [
 export function presetById(id: string): SlicePreset | undefined {
   return SLICE_PRESETS.find((p) => p.id === id);
 }
+
+/** Built-in + user presets for the presets bar (user entries last). */
+export function allPresetsForBar(
+  userPresets: readonly SlicePreset[] = [],
+): readonly SlicePreset[] {
+  return [...SLICE_PRESETS, ...userPresets];
+}

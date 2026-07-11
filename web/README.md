@@ -25,7 +25,7 @@ Four swipe/tap tabs via `AppShell`:
 
 Agent slices use `POST /api/agents/orchestrate`, `POST /api/agents/run-six`, `POST /api/frames/{id}/run`, and `POST /api/squads/dispatch`. Pure models in `web/lib/agents/` (Python mirror: `tests/test_agent_slices.py`).
 
-**Agents tab coverage:** 6-slice grid (warm/idle/queued/running/ok/error); run modes parallel | wave x2 | stagger; wave preview; multi-select; presets (morning pulse, ops core, intel, full six); cancel + retry failed; results + session history drawers; squad run/dispatch; run all squads (+ dispatch); 6 + squads via run-six. E2E stub: `web/e2e/agents-orchestrator.spec.ts` (not CI yet).
+**Agents tab coverage:** 6-slice grid; parallel | wave x2 | stagger; wave preview; multi-select + save custom presets; built-in presets + Ops→Intel chain; cancel + retry failed; results + session history; squad run/dispatch + dispatch-all; run all squads (+ dispatch); Voice morning pulse switches to Agents tab with slice highlight. E2E stub: `web/e2e/agents-orchestrator.spec.ts` (not CI yet).
 
 Legacy CSS modules remain on `VoiceSession` and briefs cards; migrate incrementally to Tailwind/shadcn.
 
