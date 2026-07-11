@@ -51,9 +51,12 @@ export type AgentSliceModel = {
   warm: boolean;
   phase: SliceRunPhase;
   lastStatus?: string;
+  lastRunAt?: string;
   selected: boolean;
   squadIds: string[];
 };
+
+export type { SliceRunLogEntry } from "./sliceRunLog";
 
 export type SquadSliceModel = {
   squadId: string;

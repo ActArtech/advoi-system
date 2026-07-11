@@ -55,18 +55,30 @@ export async function executeSlicePlan(
 
     const runOneFrame = async (fid: string): Promise<FrameRunResult> => {
       assertNotAborted(signal);
-      const row = await runSingleFrame(fid, {
-        refresh: true,
-        confirmed: true,
-        signal,
-      });
-      const result: FrameRunResult = {
-        frame_id: fid,
-        status: row.status ?? "ok",
-        spoken_summary: row.spoken_summary,
-      };
-      callbacks?.onFrameDone?.(fid, result);
-      return result;
+      try {
+        const row = await runSingleFrame(fid, {
+          refresh: true,
+          confirmed: true,
+          signal,
+        });
+        const result: FrameRunResult = {
+          frame_id: fid,
+          status: row.status ?? "ok",
+          spoken_summary: row.spoken_summary,
+        };
+        callbacks?.onFrameDone?.(fid, result);
+        return result;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") throw err;
+        const message = err instanceof Error ? err.message : String(err);
+        const result: FrameRunResult = {
+          frame_id: fid,
+          status: "error",
+          spoken_summary: message,
+        };
+        callbacks?.onFrameDone?.(fid, result);
+        return result;
+      }
     };
 
     if (mode === "stagger") {

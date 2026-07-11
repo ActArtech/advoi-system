@@ -39,6 +39,21 @@ export function shortFrameLabel(frameId: string): string {
   return FRAME_SHORT[frameId] ?? frameId.replace(/_/g, " ").slice(0, 8);
 }
 
+/** Relative label for agent.last_run.timestamp (e.g. "just now", "5m ago"). */
+export function formatLastRunRelative(ts: string | number | undefined | null): string | undefined {
+  if (ts == null || ts === "") return undefined;
+  const ms = typeof ts === "number" ? ts : Date.parse(ts);
+  if (Number.isNaN(ms)) return undefined;
+  const diffMs = Date.now() - ms;
+  if (diffMs < 60_000) return "just now";
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export function buildSquadSlices(
   squads: SquadRow[],
   agents: AgentRow[],
@@ -95,6 +110,9 @@ export function buildAgentSlices(
     else if (result?.status === "ok" || result?.status === "success") phase = "ok";
     else if (result?.status) phase = result.status === "error" ? "error" : "ok";
 
+    const lastRunTs =
+      "last_run" in agent ? agent.last_run?.timestamp : undefined;
+
     return {
       agentId: agent.id,
       frameId,
@@ -105,6 +123,7 @@ export function buildAgentSlices(
       lastStatus:
         result?.status ??
         ("last_run" in agent ? agent.last_run?.status : undefined),
+      lastRunAt: lastRunTs != null ? String(lastRunTs) : undefined,
       selected: selected.has(agent.id),
       squadIds: options?.squadByAgent?.get(agent.id) ?? [],
     };

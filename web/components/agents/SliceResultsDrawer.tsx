@@ -30,7 +30,8 @@ export function SliceResultsDrawer({
   summary,
   onRetryFailed,
 }: SliceResultsDrawerProps) {
-  const hasErrors = rows.some((row) => row.status === "error");
+  const isFailedStatus = (status?: string) => status === "error" || status === "failed";
+  const hasErrors = rows.some((row) => isFailedStatus(row.status));
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -52,7 +53,7 @@ export function SliceResultsDrawer({
                   <span className="text-primary">{row.shortLabel}</span>
                   <span className="text-muted-foreground"> · {row.label}</span>
                 </CardTitle>
-                <Badge variant={row.status === "error" ? "warning" : "success"}>
+                <Badge variant={isFailedStatus(row.status) ? "warning" : "success"}>
                   {row.status ?? "ok"}
                 </Badge>
               </CardHeader>

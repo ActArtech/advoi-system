@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+import time
+
 FRAME_SHORT = {
     "fleet_status": "fleet",
     "open_briefs": "briefs",
@@ -20,9 +23,64 @@ DEFAULT_SIX = [
     "guardian_status",
 ]
 
+SLICE_PRESETS = [
+    {
+        "id": "morning_pulse",
+        "label": "Morning pulse",
+        "frameIds": ["systems_pulse"],
+        "mode": "stagger",
+    },
+    {
+        "id": "ops_core",
+        "label": "Ops core",
+        "frameIds": ["fleet_status", "open_briefs", "guardian_status"],
+        "mode": "wave",
+    },
+    {
+        "id": "intel",
+        "label": "Intel",
+        "frameIds": ["open_briefs", "queue_deep_review", "memory_health"],
+        "mode": "wave",
+    },
+    {
+        "id": "full_six",
+        "label": "Full six",
+        "frameIds": list(DEFAULT_SIX),
+        "mode": "parallel",
+    },
+]
+
 
 def short_frame_label(frame_id: str) -> str:
     return FRAME_SHORT.get(frame_id, frame_id.replace("_", " ")[:8])
+
+
+def format_last_run_relative(ts: str | int | float | None) -> str | None:
+    if ts is None or ts == "":
+        return None
+    if isinstance(ts, (int, float)):
+        ms = int(ts)
+    else:
+        try:
+            ms = int(ts)
+        except (ValueError, TypeError):
+            return None
+    now_ms = int(time.time() * 1000)
+    diff_ms = now_ms - ms
+    if diff_ms < 60_000:
+        return "just now"
+    minutes = diff_ms // 60_000
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h ago"
+    days = hours // 24
+    return f"{days}d ago"
+
+
+def preset_by_id(preset_id: str) -> dict | None:
+    return next((p for p in SLICE_PRESETS if p["id"] == preset_id), None)
 
 
 def frame_ids_from_selected(slices: list[dict]) -> list[str]:
@@ -85,19 +143,20 @@ def build_agent_slices(
                 phase = "error" if status == "error" else "ok"
 
         last_run = agent.get("last_run") or {}
-        out.append(
-            {
-                "agentId": agent["id"],
-                "frameId": frame_id,
-                "label": (frame or {}).get("label") or agent.get("name") or agent["id"],
-                "shortLabel": short_frame_label(frame_id),
-                "warm": bool(agent.get("cached")),
-                "phase": phase,
-                "lastStatus": result.get("status") if result else last_run.get("status"),
-                "selected": agent["id"] in selected_ids,
-                "squadIds": squad_by_agent.get(agent["id"], []),
-            }
-        )
+        row = {
+            "agentId": agent["id"],
+            "frameId": frame_id,
+            "label": (frame or {}).get("label") or agent.get("name") or agent["id"],
+            "shortLabel": short_frame_label(frame_id),
+            "warm": bool(agent.get("cached")),
+            "phase": phase,
+            "lastStatus": result.get("status") if result else last_run.get("status"),
+            "selected": agent["id"] in selected_ids,
+            "squadIds": squad_by_agent.get(agent["id"], []),
+        }
+        if last_run.get("timestamp") is not None:
+            row["lastRunAt"] = str(last_run["timestamp"])
+        out.append(row)
     return out
 
 
@@ -544,6 +603,77 @@ def test_squad_run_progress_model() -> None:
     }
     assert squad_run_progress_model(0, 0, 0, 0)["percent"] == 0
     assert squad_run_progress_model(0, 0, 0, 0)["squadPercent"] == 0
+
+
+def test_format_last_run_relative_just_now() -> None:
+    now_ms = int(time.time() * 1000)
+    assert format_last_run_relative(now_ms) == "just now"
+    assert format_last_run_relative(now_ms - 30_000) == "just now"
+
+
+def test_format_last_run_relative_minutes() -> None:
+    now_ms = int(time.time() * 1000)
+    label = format_last_run_relative(now_ms - 5 * 60_000)
+    assert label is not None
+    assert re.fullmatch(r"\d+m ago", label)
+    assert label == "5m ago"
+
+
+def test_format_last_run_relative_invalid() -> None:
+    assert format_last_run_relative(None) is None
+    assert format_last_run_relative("") is None
+    assert format_last_run_relative("not-a-timestamp") is None
+
+
+def test_preset_by_id_morning_pulse() -> None:
+    preset = preset_by_id("morning_pulse")
+    assert preset is not None
+    assert preset["frameIds"] == ["systems_pulse"]
+    assert preset["mode"] == "stagger"
+
+
+def test_preset_ops_core_and_intel_frames() -> None:
+    ops = preset_by_id("ops_core")
+    assert ops is not None
+    assert ops["frameIds"] == [
+        "fleet_status",
+        "open_briefs",
+        "guardian_status",
+    ]
+    assert ops["mode"] == "wave"
+    intel = preset_by_id("intel")
+    assert intel is not None
+    assert intel["frameIds"] == [
+        "open_briefs",
+        "queue_deep_review",
+        "memory_health",
+    ]
+
+
+def test_preset_full_six_parallel() -> None:
+    preset = preset_by_id("full_six")
+    assert preset is not None
+    assert preset["frameIds"] == DEFAULT_SIX
+    assert preset["mode"] == "parallel"
+    assert preset_by_id("missing") is None
+
+
+def test_build_slices_last_run_at() -> None:
+    agents = [
+        {
+            "id": "fleet-scout",
+            "last_run": {"status": "ok", "timestamp": 1710000000000},
+        }
+    ]
+    frames = [
+        {
+            "id": "fleet_status",
+            "label": "Fleet status",
+            "agent_id": "fleet-scout",
+        }
+    ]
+    slices = build_agent_slices(agents, frames)
+    assert slices[0]["lastRunAt"] == "1710000000000"
 
 
 def test_build_result_rows() -> None:

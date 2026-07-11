@@ -13,11 +13,14 @@ import {
   ListOrdered,
   Send,
   XCircle,
+  History,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SlicePresetsBar } from "@/components/agents/SlicePresetsBar";
 import { SliceResultsDrawer } from "@/components/agents/SliceResultsDrawer";
+import { SliceRunHistoryDrawer } from "@/components/agents/SliceRunHistoryDrawer";
 import { SliceWavePreview } from "@/components/agents/SliceWavePreview";
 import {
   buildAgentSlices,
@@ -30,8 +33,16 @@ import {
   frameIdsForSquadSlice,
   resolveOrchestrateFrameIds,
   squadMembershipMap,
+  squadRunProgressModel,
   squadWarmLabel,
 } from "@/lib/agents/agentSlices";
+import type { SlicePreset } from "@/lib/agents/slicePresets";
+import {
+  appendSliceRunLog,
+  clearSliceRunLog,
+  formatRelativeTimeFromValue,
+  readSliceRunLog,
+} from "@/lib/agents/sliceRunLog";
 import {
   executeAllSquadsPlan,
   executeSlicePlan,
@@ -49,6 +60,7 @@ import type {
   FrameRunResult,
   OrchestratePayload,
   RunExecutionMode,
+  SliceRunLogEntry,
   SliceRunProgress,
   SquadSliceModel,
 } from "@/lib/agents/types";
@@ -88,7 +100,18 @@ export function AgentsOrchestrator() {
   const [squadProgress, setSquadProgress] = useState<{ done: number; total: number } | null>(
     null,
   );
+  const [squadFrameProgress, setSquadFrameProgress] = useState<ReturnType<
+    typeof squadRunProgressModel
+  > | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLog, setHistoryLog] = useState<SliceRunLogEntry[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const runLogMetaRef = useRef<{ label: string; mode: RunExecutionMode }>({
+    label: "Run",
+    mode: "parallel",
+  });
+  const squadFramesDoneRef = useRef(0);
+  const squadSquadsDoneRef = useRef(0);
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -112,6 +135,7 @@ export function AgentsOrchestrator() {
   }, [busy]);
 
   useEffect(() => {
+    setHistoryLog(readSliceRunLog());
     void reload();
     const onFrame = () => void reload();
     window.addEventListener(RUN_FRAME_EVENT, onFrame);
@@ -174,6 +198,9 @@ export function AgentsOrchestrator() {
     setProgress(null);
     setActiveSquadId(null);
     setSquadProgress(null);
+    setSquadFrameProgress(null);
+    squadFramesDoneRef.current = 0;
+    squadSquadsDoneRef.current = 0;
   };
 
   const isAbortError = (err: unknown) =>
@@ -188,14 +215,26 @@ export function AgentsOrchestrator() {
 
   const finishRun = (data: OrchestratePayload, frameIds: string[]) => {
     setLastPayload(data);
-    setLastResults(data.results ?? []);
+    const results = data.results ?? [];
+    setLastResults(results);
+    const failCount = countFailedResults(results);
+    setHistoryLog(
+      appendSliceRunLog({
+        label: runLogMetaRef.current.label,
+        mode: runLogMetaRef.current.mode,
+        frameCount: frameIds.length,
+        okCount: results.length - failCount,
+        failCount,
+        summary: data.spoken_summary,
+      }),
+    );
     resetRunUi();
     const squadNote =
       data.squads?.dispatched != null
         ? ` · Squads ${data.squads.dispatched}/${data.squads.total}`
         : "";
     setStatus((data.spoken_summary || `Completed ${frameIds.length} slices.`) + squadNote);
-    if ((data.results?.length ?? 0) > 1) setResultsOpen(true);
+    if (results.length > 1) setResultsOpen(true);
     void reload();
   };
 
@@ -204,6 +243,7 @@ export function AgentsOrchestrator() {
       if (busy || frameIds.length === 0) return;
       const waves = chunkFrameWaves(frameIds, mode);
       const controller = beginRun();
+      runLogMetaRef.current = { label, mode };
       setBusy(true);
       setLastResults([]);
       setStatus(`${label} (${mode}, ${frameIds.length} slices)...`);
@@ -232,6 +272,7 @@ export function AgentsOrchestrator() {
       if (scope === "six_squads") {
         const frameIds = [...resolveOrchestrateFrameIds(agentSlices, "all_six")];
         const controller = beginRun();
+        runLogMetaRef.current = { label: "6 + squads", mode: runMode };
         setBusy(true);
         setRunningFrames(new Set(frameIds));
         setStatus("Running all 6 + dispatching squads...");
@@ -272,6 +313,10 @@ export function AgentsOrchestrator() {
       setActiveSquadId(squad.squadId);
       const waves = chunkFrameWaves(frameIds, runMode);
       const controller = beginRun();
+      runLogMetaRef.current = {
+        label: dispatchAfter ? `Squad ${squad.name} + dispatch` : `Squad ${squad.name}`,
+        mode: runMode,
+      };
       setBusy(true);
       setLastResults([]);
       setStatus(
@@ -300,55 +345,111 @@ export function AgentsOrchestrator() {
     [busy, frames, runMode, createWaveCallbacks],
   );
 
-  const runAllSquads = useCallback(async () => {
-    if (busy || squads.length <= 1) return;
+  const runAllSquadsInternal = useCallback(
+    async (dispatchAfter: boolean) => {
+      if (busy || squads.length <= 1) return;
 
-    const plans = squadSlices
-      .map((squad) => ({
-        squad,
-        frameIds: frameIdsForSquadSlice(squad, frames),
-      }))
-      .filter((p) => p.frameIds.length > 0);
+      const plans = squadSlices
+        .map((squad) => ({
+          squad,
+          frameIds: frameIdsForSquadSlice(squad, frames),
+        }))
+        .filter((p) => p.frameIds.length > 0);
 
-    if (plans.length === 0) {
-      setStatus("No frames mapped for squads");
-      return;
-    }
+      if (plans.length === 0) {
+        setStatus("No frames mapped for squads");
+        return;
+      }
 
-    const allFrameIds = plans.flatMap((p) => p.frameIds);
-    const controller = beginRun();
-    setBusy(true);
-    setLastResults([]);
-    setRunningFrames(new Set(allFrameIds));
-    setQueuedFrames(new Set());
-    setProgress(null);
-    setSquadProgress({ done: 0, total: plans.length });
-    setStatus(`Running ${plans.length} squads in parallel (${allFrameIds.length} slices)...`);
-
-    try {
-      const payload = await executeAllSquadsPlan(
-        plans.map(({ squad, frameIds }) => ({ squadId: squad.squadId, frameIds })),
-        runMode,
-        { signal: controller.signal },
-        {
-          onSquadStart: (squadId) => setActiveSquadId(squadId),
-          onSquadDone: () => {
-            setSquadProgress((prev) =>
-              prev ? { ...prev, done: Math.min(prev.done + 1, prev.total) } : null,
-            );
-          },
-        },
-      );
-      finishRun(payload, allFrameIds);
-    } catch (err) {
-      resetRunUi();
+      const allFrameIds = plans.flatMap((p) => p.frameIds);
+      const controller = beginRun();
+      runLogMetaRef.current = {
+        label: dispatchAfter ? "All squads + dispatch" : "All squads",
+        mode: runMode,
+      };
+      squadFramesDoneRef.current = 0;
+      squadSquadsDoneRef.current = 0;
+      setBusy(true);
+      setLastResults([]);
+      setRunningFrames(new Set(allFrameIds));
+      setQueuedFrames(new Set());
+      setProgress(null);
+      setSquadProgress({ done: 0, total: plans.length });
+      setSquadFrameProgress(squadRunProgressModel(0, plans.length, 0, allFrameIds.length));
       setStatus(
-        isAbortError(err) ? "Run cancelled." : err instanceof Error ? err.message : "Run all squads failed",
+        dispatchAfter
+          ? `Running ${plans.length} squads + dispatch (${allFrameIds.length} slices)...`
+          : `Running ${plans.length} squads in parallel (${allFrameIds.length} slices)...`,
       );
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, squads.length, squadSlices, frames, runMode]);
+
+      const updateSquadFrameProgress = () => {
+        setSquadFrameProgress(
+          squadRunProgressModel(
+            squadSquadsDoneRef.current,
+            plans.length,
+            squadFramesDoneRef.current,
+            allFrameIds.length,
+          ),
+        );
+      };
+
+      try {
+        const payload = await executeAllSquadsPlan(
+          plans.map(({ squad, frameIds }) => ({ squadId: squad.squadId, frameIds })),
+          runMode,
+          { signal: controller.signal, dispatchAfter },
+          {
+            onSquadStart: (squadId) => setActiveSquadId(squadId),
+            onSquadFrameDone: () => {
+              squadFramesDoneRef.current += 1;
+              updateSquadFrameProgress();
+            },
+            onSquadDone: () => {
+              squadSquadsDoneRef.current += 1;
+              setSquadProgress((prev) =>
+                prev ? { ...prev, done: Math.min(prev.done + 1, prev.total) } : null,
+              );
+              updateSquadFrameProgress();
+            },
+          },
+        );
+        finishRun(payload, allFrameIds);
+      } catch (err) {
+        resetRunUi();
+        setStatus(
+          isAbortError(err)
+            ? "Run cancelled."
+            : err instanceof Error
+              ? err.message
+              : dispatchAfter
+                ? "Run all squads + dispatch failed"
+                : "Run all squads failed",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, squads.length, squadSlices, frames, runMode],
+  );
+
+  const runAllSquads = useCallback(
+    () => runAllSquadsInternal(false),
+    [runAllSquadsInternal],
+  );
+
+  const runAllSquadsDispatch = useCallback(
+    () => runAllSquadsInternal(true),
+    [runAllSquadsInternal],
+  );
+
+  const runPreset = useCallback(
+    async (preset: SlicePreset) => {
+      if (busy) return;
+      setRunMode(preset.mode);
+      await runWithPlan([...preset.frameIds], preset.mode, preset.label);
+    },
+    [busy, runWithPlan],
+  );
 
   const retryFailed = useCallback(async () => {
     const frameIds = frameIdsFromFailedResults(lastResults);
@@ -433,6 +534,26 @@ export function AgentsOrchestrator() {
 
       <SliceWavePreview frameIds={previewFrameIds} mode={runMode} />
 
+      <SlicePresetsBar disabled={busy} onSelect={(preset) => void runPreset(preset)} />
+
+      {squadFrameProgress && busy ? (
+        <div className="space-y-1" data-testid="squad-frame-run-progress">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>
+              Squads {squadFrameProgress.completedSquads}/{squadFrameProgress.totalSquads} · Frames{" "}
+              {squadFrameProgress.completedFrames}/{squadFrameProgress.totalFrames}
+            </span>
+            <span>{squadFrameProgress.percent}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${squadFrameProgress.percent}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         {busy ? (
           <Button
@@ -491,6 +612,16 @@ export function AgentsOrchestrator() {
             Results
           </Button>
         ) : null}
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => setHistoryOpen(true)}
+          data-testid="slice-run-history"
+        >
+          <History className="h-4 w-4" />
+          History
+        </Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void reload()}>
           <RefreshCw className="h-4 w-4" />
         </Button>
@@ -512,16 +643,28 @@ export function AgentsOrchestrator() {
               Squad slices — tap run, long-press dispatch
             </p>
             {squads.length > 1 ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={busy}
-                onClick={() => void runAllSquads()}
-                data-testid="run-all-squads"
-              >
-                <Layers className="h-3.5 w-3.5" />
-                Run all squads
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => void runAllSquads()}
+                  data-testid="run-all-squads"
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  Run all squads
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void runAllSquadsDispatch()}
+                  data-testid="run-all-squads-dispatch"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  All squads + dispatch
+                </Button>
+              </>
             ) : null}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
@@ -611,11 +754,13 @@ export function AgentsOrchestrator() {
                 ? "running..."
                 : slice.phase === "queued"
                   ? "queued..."
-                  : slice.lastStatus
-                    ? slice.lastStatus
-                    : slice.warm
-                      ? "warm"
-                      : "tap to run"}
+                  : slice.phase === "idle" && slice.lastRunAt
+                    ? formatRelativeTimeFromValue(slice.lastRunAt)
+                    : slice.lastStatus
+                      ? slice.lastStatus
+                      : slice.warm
+                        ? "warm"
+                        : "tap to run"}
             </p>
             {slice.squadIds.length > 0 ? (
               <p className="mt-0.5 text-[9px] text-muted-foreground/80">
@@ -649,6 +794,16 @@ export function AgentsOrchestrator() {
         rows={resultRows}
         summary={lastPayload?.spoken_summary}
         onRetryFailed={failedCount > 0 && !busy ? () => void retryFailed() : undefined}
+      />
+
+      <SliceRunHistoryDrawer
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        entries={historyLog}
+        onClear={() => {
+          clearSliceRunLog();
+          setHistoryLog([]);
+        }}
       />
     </div>
   );

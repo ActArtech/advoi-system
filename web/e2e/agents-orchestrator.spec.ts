@@ -19,7 +19,7 @@ import {
   resolveOrchestrateFrameIds,
   DEFAULT_SIX_FRAME_IDS,
 } from "../lib/agents/agentSlices";
-import type { RunExecutionMode } from "../lib/agents/types";
+import { SLICE_PRESETS, presetById } from "../lib/agents/slicePresets";
 
 type Locator = {
   getAttribute: (name: string) => Promise<string | null>;
@@ -68,6 +68,16 @@ test("frameIdsFromFailedResults filters errors", async () => {
 test("resolveOrchestrateFrameIds defaults to six", async () => {
   const ids = resolveOrchestrateFrameIds([], "selected");
   expect(ids).toHaveLength(6);
+});
+
+test("slice presets cover morning pulse and full six", async () => {
+  expect(SLICE_PRESETS.length).toBe(4);
+  const morning = presetById("morning_pulse");
+  expect(morning?.frameIds).toContain("systems_pulse");
+  expect(morning?.mode).toBe("stagger");
+  const full = presetById("full_six");
+  expect(full?.frameIds).toHaveLength(6);
+  expect(full?.mode).toBe("parallel");
 });
 
 test.skip?.("agents tab shows orchestrator and wave preview", async ({ page }) => {
