@@ -14,6 +14,7 @@ import {
   Send,
   XCircle,
   History,
+  ListPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,19 @@ import type {
   SquadSliceModel,
 } from "@/lib/agents/types";
 import { RUN_FRAME_EVENT } from "@/components/pwaOnboarding";
+import { useJsonFilePicker } from "@/hooks/useJsonFilePicker";
+import { useSliceKeyboard } from "@/hooks/useSliceKeyboard";
+import {
+  createQueueEntry,
+  dequeueSliceRun,
+  enqueueSliceRun,
+  type SliceQueueEntry,
+} from "@/lib/agents/sliceRunQueue";
+import {
+  shouldMirrorVoiceFrame,
+  voiceMirrorStatusLabel,
+  type RunFrameDetail,
+} from "@/lib/agents/voiceFrameBridge";
 import { cn } from "@/lib/utils";
 
 function downloadJsonFile(filename: string, json: string) {
@@ -103,12 +117,6 @@ const MODE_OPTIONS: { mode: RunExecutionMode; label: string; icon: typeof Zap }[
   { mode: "wave", label: "Wave x2", icon: Waves },
   { mode: "stagger", label: "Stagger", icon: ListOrdered },
 ];
-
-type RunFrameDetail = {
-  frameId?: string;
-  refresh?: boolean;
-  source?: string;
-};
 
 export function AgentsOrchestrator() {
   const tabNav = useTabNavigation();
@@ -138,12 +146,15 @@ export function AgentsOrchestrator() {
   const [userPresets, setUserPresets] = useState<UserSlicePreset[]>([]);
   const [focusFrameId, setFocusFrameId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const runQueueRef = useRef<SliceQueueEntry[]>([]);
+  const voiceMirrorPollRef = useRef<number | null>(null);
   const runLogMetaRef = useRef<{ label: string; mode: RunExecutionMode }>({
     label: "Run",
     mode: "parallel",
   });
   const squadFramesDoneRef = useRef(0);
   const squadSquadsDoneRef = useRef(0);
+  const [queueDepth, setQueueDepth] = useState(0);
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -175,20 +186,6 @@ export function AgentsOrchestrator() {
     const t = window.setInterval(() => void reload(), 20_000);
     return () => window.clearInterval(t);
   }, [reload]);
-
-  useEffect(() => {
-    const onFrame = (ev: Event) => {
-      void reload();
-      const detail = (ev as CustomEvent<RunFrameDetail>).detail;
-      if (detail?.frameId) {
-        tabNav?.scrollToTab("agents");
-        setFocusFrameId(detail.frameId);
-        window.setTimeout(() => setFocusFrameId(null), 3000);
-      }
-    };
-    window.addEventListener(RUN_FRAME_EVENT, onFrame);
-    return () => window.removeEventListener(RUN_FRAME_EVENT, onFrame);
-  }, [reload, tabNav]);
 
   const squadMap = useMemo(() => squadMembershipMap(squads), [squads]);
 
@@ -247,11 +244,89 @@ export function AgentsOrchestrator() {
     squadSquadsDoneRef.current = 0;
   };
 
+  const clearVoiceMirrorPoll = useCallback(() => {
+    if (voiceMirrorPollRef.current != null) {
+      window.clearInterval(voiceMirrorPollRef.current);
+      voiceMirrorPollRef.current = null;
+    }
+  }, []);
+
+  const processRunQueue = useCallback(() => {
+    if (busy) return;
+    const { queue, next } = dequeueSliceRun(runQueueRef.current);
+    runQueueRef.current = queue;
+    setQueueDepth(queue.length);
+    if (!next) return;
+    const waiting = queue.length;
+    setStatus(
+      waiting > 0 ? `Dequeuing: ${next.label} · ${waiting} queued` : `Dequeuing: ${next.label}`,
+    );
+    void next.run();
+  }, [busy]);
+
+  const scheduleRun = useCallback(
+    (label: string, runFn: () => Promise<void>) => {
+      if (busy) {
+        runQueueRef.current = enqueueSliceRun(
+          runQueueRef.current,
+          createQueueEntry(label, runFn),
+        );
+        setQueueDepth(runQueueRef.current.length);
+        setStatus(`Queued "${label}" · ${runQueueRef.current.length} waiting`);
+        return;
+      }
+      void runFn();
+    },
+    [busy],
+  );
+
+  const clearRunQueue = useCallback(() => {
+    runQueueRef.current = [];
+    setQueueDepth(0);
+    setStatus("Run queue cleared.");
+  }, []);
+
+  useEffect(() => {
+    if (!busy) processRunQueue();
+  }, [busy, processRunQueue]);
+
+  useEffect(() => {
+    return () => clearVoiceMirrorPoll();
+  }, [clearVoiceMirrorPoll]);
+
+  useEffect(() => {
+    const onFrame = (ev: Event) => {
+      const detail = (ev as CustomEvent<RunFrameDetail>).detail;
+      if (detail?.frameId) {
+        tabNav?.scrollToTab("agents");
+        setFocusFrameId(detail.frameId);
+        window.setTimeout(() => setFocusFrameId(null), 3000);
+      }
+      if (shouldMirrorVoiceFrame(detail)) {
+        clearVoiceMirrorPoll();
+        setRunningFrames(new Set(detail?.frameId ? [detail.frameId] : []));
+        setStatus(voiceMirrorStatusLabel(detail!));
+        void reload();
+        voiceMirrorPollRef.current = window.setInterval(() => void reload(), 2000);
+        window.setTimeout(() => {
+          clearVoiceMirrorPoll();
+          setRunningFrames(new Set());
+          void reload();
+        }, 30_000);
+        return;
+      }
+      void reload();
+    };
+    window.addEventListener(RUN_FRAME_EVENT, onFrame);
+    return () => window.removeEventListener(RUN_FRAME_EVENT, onFrame);
+  }, [reload, tabNav, clearVoiceMirrorPoll]);
+
   const isAbortError = (err: unknown) =>
     err instanceof DOMException && err.name === "AbortError";
 
   const cancelRun = () => {
     abortRef.current?.abort();
+    clearVoiceMirrorPoll();
     setBusy(false);
     resetRunUi();
     setStatus("Run cancelled.");
@@ -283,9 +358,9 @@ export function AgentsOrchestrator() {
     void reload();
   };
 
-  const runWithPlan = useCallback(
+  const runWithPlanInternal = useCallback(
     async (frameIds: string[], mode: RunExecutionMode, label: string) => {
-      if (busy || frameIds.length === 0) return;
+      if (frameIds.length === 0) return;
       const waves = chunkFrameWaves(frameIds, mode);
       const controller = beginRun();
       runLogMetaRef.current = { label, mode };
@@ -308,12 +383,19 @@ export function AgentsOrchestrator() {
         setBusy(false);
       }
     },
-    [busy, createWaveCallbacks],
+    [createWaveCallbacks],
   );
 
-  const runParallel = useCallback(
+  const runWithPlan = useCallback(
+    (frameIds: string[], mode: RunExecutionMode, label: string) => {
+      if (frameIds.length === 0) return;
+      scheduleRun(label, () => runWithPlanInternal(frameIds, mode, label));
+    },
+    [scheduleRun, runWithPlanInternal],
+  );
+
+  const runParallelInternal = useCallback(
     async (scope: "selected" | "all_six" | "six_squads") => {
-      if (busy) return;
       if (scope === "six_squads") {
         const frameIds = [...resolveOrchestrateFrameIds(agentSlices, "all_six")];
         const controller = beginRun();
@@ -342,14 +424,26 @@ export function AgentsOrchestrator() {
         agentSlices,
         scope === "selected" ? "selected" : "all_six",
       );
-      await runWithPlan(frameIds, runMode, scope === "selected" ? "Selected run" : "All six");
+      await runWithPlanInternal(
+        frameIds,
+        runMode,
+        scope === "selected" ? "Selected run" : "All six",
+      );
     },
-    [agentSlices, busy, runMode, runWithPlan],
+    [agentSlices, runMode, runWithPlanInternal],
   );
 
-  const runSquadSlice = useCallback(
+  const runParallel = useCallback(
+    (scope: "selected" | "all_six" | "six_squads") => {
+      const label =
+        scope === "selected" ? "Selected run" : scope === "six_squads" ? "6 + squads" : "All six";
+      scheduleRun(label, () => runParallelInternal(scope));
+    },
+    [scheduleRun, runParallelInternal],
+  );
+
+  const runSquadSliceInternal = useCallback(
     async (squad: SquadSliceModel, dispatchAfter: boolean) => {
-      if (busy) return;
       const frameIds = frameIdsForSquadSlice(squad, frames);
       if (frameIds.length === 0) {
         setStatus(`No frames mapped for ${squad.name}`);
@@ -387,12 +481,20 @@ export function AgentsOrchestrator() {
         setBusy(false);
       }
     },
-    [busy, frames, runMode, createWaveCallbacks],
+    [frames, runMode, createWaveCallbacks],
+  );
+
+  const runSquadSlice = useCallback(
+    (squad: SquadSliceModel, dispatchAfter: boolean) => {
+      const label = dispatchAfter ? `Squad ${squad.name} + dispatch` : `Squad ${squad.name}`;
+      scheduleRun(label, () => runSquadSliceInternal(squad, dispatchAfter));
+    },
+    [scheduleRun, runSquadSliceInternal],
   );
 
   const runAllSquadsInternal = useCallback(
     async (dispatchAfter: boolean) => {
-      if (busy || squads.length <= 1) return;
+      if (squads.length <= 1) return;
 
       const plans = squadSlices
         .map((squad) => ({
@@ -474,31 +576,29 @@ export function AgentsOrchestrator() {
         setBusy(false);
       }
     },
-    [busy, squads.length, squadSlices, frames, runMode],
+    [squads.length, squadSlices, frames, runMode],
   );
 
   const runAllSquads = useCallback(
-    () => runAllSquadsInternal(false),
-    [runAllSquadsInternal],
+    () => scheduleRun("All squads", () => runAllSquadsInternal(false)),
+    [scheduleRun, runAllSquadsInternal],
   );
 
   const runAllSquadsDispatch = useCallback(
-    () => runAllSquadsInternal(true),
-    [runAllSquadsInternal],
+    () => scheduleRun("All squads + dispatch", () => runAllSquadsInternal(true)),
+    [scheduleRun, runAllSquadsInternal],
   );
 
   const runPreset = useCallback(
-    async (preset: SlicePreset) => {
-      if (busy) return;
+    (preset: SlicePreset) => {
       setRunMode(preset.mode);
-      await runWithPlan([...preset.frameIds], preset.mode, preset.label);
+      runWithPlan([...preset.frameIds], preset.mode, preset.label);
     },
-    [busy, runWithPlan],
+    [runWithPlan],
   );
 
-  const runPresetChain = useCallback(
+  const runPresetChainInternal = useCallback(
     async (chainId: string) => {
-      if (busy) return;
       const chain = chainById(chainId);
       if (!chain) return;
       const presets = resolveChainPresets(chain);
@@ -541,11 +641,20 @@ export function AgentsOrchestrator() {
         setBusy(false);
       }
     },
-    [busy, createWaveCallbacks],
+    [createWaveCallbacks],
   );
 
-  const dispatchAllSquadsOnly = useCallback(async () => {
-    if (busy || squads.length === 0) return;
+  const runPresetChain = useCallback(
+    (chainId: string) => {
+      const chain = chainById(chainId);
+      if (!chain) return;
+      scheduleRun(chain.label, () => runPresetChainInternal(chainId));
+    },
+    [scheduleRun, runPresetChainInternal],
+  );
+
+  const dispatchAllSquadsInternal = useCallback(async () => {
+    if (squads.length === 0) return;
     const controller = beginRun();
     runLogMetaRef.current = { label: "Dispatch all squads", mode: runMode };
     setBusy(true);
@@ -564,7 +673,12 @@ export function AgentsOrchestrator() {
     } finally {
       setBusy(false);
     }
-  }, [busy, squads.length, runMode]);
+  }, [squads.length, runMode]);
+
+  const dispatchAllSquadsOnly = useCallback(
+    () => scheduleRun("Dispatch all squads", () => dispatchAllSquadsInternal()),
+    [scheduleRun, dispatchAllSquadsInternal],
+  );
 
   const saveCustomPreset = useCallback(() => {
     const picked = agentSlices.filter((s) => selected.has(s.agentId));
@@ -582,17 +696,17 @@ export function AgentsOrchestrator() {
 
   const rerunFromHistory = useCallback(
     (entry: SliceRunLogEntry) => {
-      if (!entry.frameIds?.length || busy) return;
+      if (!entry.frameIds?.length) return;
       setHistoryOpen(false);
       setRunMode(entry.mode);
-      void runWithPlan([...entry.frameIds], entry.mode, `Re-run: ${entry.label}`);
+      runWithPlan([...entry.frameIds], entry.mode, `Re-run: ${entry.label}`);
     },
-    [busy, runWithPlan],
+    [runWithPlan],
   );
 
-  const runAllSquadsSequential = useCallback(
+  const runAllSquadsSequentialInternal = useCallback(
     async (dispatchAfter: boolean) => {
-      if (busy || squads.length <= 1) return;
+      if (squads.length <= 1) return;
 
       const plans = squadSlices
         .map((squad) => ({
@@ -668,18 +782,26 @@ export function AgentsOrchestrator() {
         setBusy(false);
       }
     },
-    [busy, squads.length, squadSlices, frames, runMode],
+    [squads.length, squadSlices, frames, runMode],
   );
 
-  const retryFailed = useCallback(async () => {
+  const runAllSquadsSequential = useCallback(
+    (dispatchAfter: boolean) => {
+      const label = dispatchAfter ? "All squads sequential + dispatch" : "All squads sequential";
+      scheduleRun(label, () => runAllSquadsSequentialInternal(dispatchAfter));
+    },
+    [scheduleRun, runAllSquadsSequentialInternal],
+  );
+
+  const retryFailed = useCallback(() => {
     const frameIds = frameIdsFromFailedResults(lastResults);
-    if (frameIds.length === 0 || busy) return;
-    await runWithPlan(frameIds, runMode, "Retry failed");
-  }, [lastResults, busy, runMode, runWithPlan]);
+    if (frameIds.length === 0) return;
+    runWithPlan(frameIds, runMode, "Retry failed");
+  }, [lastResults, runMode, runWithPlan]);
 
   const runOneSlice = useCallback(
-    async (slice: AgentSliceModel) => {
-      await runWithPlan([slice.frameId], "stagger", slice.shortLabel);
+    (slice: AgentSliceModel) => {
+      runWithPlan([slice.frameId], "stagger", slice.shortLabel);
     },
     [runWithPlan],
   );
@@ -692,9 +814,9 @@ export function AgentsOrchestrator() {
     void runOneSlice(slice);
   };
 
-  const dispatchSliceSquads = useCallback(
+  const dispatchSliceSquadsInternal = useCallback(
     async (slice: AgentSliceModel) => {
-      if (busy || slice.squadIds.length === 0) return;
+      if (slice.squadIds.length === 0) return;
       const controller = beginRun();
       runLogMetaRef.current = {
         label: `Dispatch ${slice.shortLabel} squads`,
@@ -723,8 +845,50 @@ export function AgentsOrchestrator() {
         setBusy(false);
       }
     },
-    [busy, squads, runMode],
+    [squads, runMode],
   );
+
+  const dispatchSliceSquads = useCallback(
+    (slice: AgentSliceModel) => {
+      scheduleRun(`Dispatch ${slice.shortLabel} squads`, () => dispatchSliceSquadsInternal(slice));
+    },
+    [scheduleRun, dispatchSliceSquadsInternal],
+  );
+
+  const presetsFilePicker = useJsonFilePicker({
+    onJson: (raw) => {
+      try {
+        setUserPresets(importUserPresetsJson(raw));
+        setStatus("Presets imported");
+      } catch {
+        setStatus("Invalid presets JSON");
+      }
+    },
+    onError: (msg) => setStatus(msg),
+  });
+
+  const historyFilePicker = useJsonFilePicker({
+    onJson: (raw) => {
+      try {
+        const entries = importRunLogJson(raw);
+        setHistoryLog(entries);
+        setStatus(`Imported ${entries.length} history entries`);
+      } catch {
+        setStatus("Invalid history JSON");
+      }
+    },
+    onError: (msg) => setStatus(msg),
+  });
+
+  useSliceKeyboard({
+    slices: agentSlices,
+    busy,
+    failedCount,
+    onRunSlice: runOneSlice,
+    onRetryFailed: retryFailed,
+    onCancel: cancelRun,
+    onToggleMulti: () => setMultiMode((m) => !m),
+  });
 
   const exportHistory = useCallback(() => {
     downloadJsonFile("advoi-slice-history.json", exportRunLogJson(historyLog));
@@ -732,16 +896,8 @@ export function AgentsOrchestrator() {
   }, [historyLog]);
 
   const importHistory = useCallback(() => {
-    const raw = window.prompt("Paste slice run history JSON");
-    if (!raw?.trim()) return;
-    try {
-      const entries = importRunLogJson(raw);
-      setHistoryLog(entries);
-      setStatus(`Imported ${entries.length} history entries`);
-    } catch {
-      setStatus("Invalid history JSON");
-    }
-  }, []);
+    historyFilePicker.openPicker();
+  }, [historyFilePicker]);
 
   const exportPresets = useCallback(() => {
     downloadJsonFile("advoi-slice-presets.json", exportUserPresetsJson(userPresets));
@@ -749,21 +905,34 @@ export function AgentsOrchestrator() {
   }, [userPresets]);
 
   const importPresets = useCallback(() => {
-    const raw = window.prompt("Paste user presets JSON");
-    if (!raw?.trim()) return;
-    try {
-      setUserPresets(importUserPresetsJson(raw));
-      setStatus("Presets imported");
-    } catch {
-      setStatus("Invalid presets JSON");
-    }
-  }, []);
+    presetsFilePicker.openPicker();
+  }, [presetsFilePicker]);
 
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
 
   return (
     <div className="space-y-4" data-testid="agents-orchestrator">
+      <input
+        ref={presetsFilePicker.inputRef}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={presetsFilePicker.onChange}
+        data-testid="import-presets-file-input"
+      />
+      <input
+        ref={historyFilePicker.inputRef}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={historyFilePicker.onChange}
+        data-testid="import-history-file-input"
+      />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={warmCount === totalAgents ? "success" : "secondary"}>
           {warmCount}/{totalAgents} warm
@@ -789,6 +958,11 @@ export function AgentsOrchestrator() {
         {squadProgress && busy ? (
           <Badge variant="default" data-testid="squad-run-progress">
             Squads {squadProgress.done}/{squadProgress.total}
+          </Badge>
+        ) : null}
+        {queueDepth > 0 ? (
+          <Badge variant="outline" data-testid="slice-run-queue-depth">
+            {queueDepth} queued
           </Badge>
         ) : null}
       </div>
@@ -945,6 +1119,17 @@ export function AgentsOrchestrator() {
           {multiMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
           Multi
         </Button>
+        {queueDepth > 0 ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearRunQueue}
+            data-testid="clear-slice-run-queue"
+          >
+            <ListPlus className="h-4 w-4" />
+            Clear queue ({queueDepth})
+          </Button>
+        ) : null}
       </div>
 
       {squads.length > 0 ? (
@@ -1076,7 +1261,7 @@ export function AgentsOrchestrator() {
             : "Stagger: one slice at a time. "}
         {multiMode
           ? "Multi-select then Run selected or Save preset."
-          : "Tap slice to run. Hold 0.5s to dispatch its squads. Export/import presets and history."}
+          : "Tap slice to run (1-6 keys). Hold 0.5s to dispatch squads. R retry · Esc cancel · M multi. Queue runs while busy."}
       </p>
 
       <SliceResultsDrawer

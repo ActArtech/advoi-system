@@ -91,12 +91,26 @@ PRESET_CHAINS = [
         "presetIds": ["morning_pulse", "ops_core"],
     },
     {
+        "id": "morning_then_full",
+        "label": "Pulse → Full 6",
+        "presetIds": ["morning_pulse", "full_six"],
+    },
+    {
+        "id": "intel_then_dispatch",
+        "label": "Intel → Dispatch",
+        "presetIds": ["intel"],
+        "dispatchAfter": True,
+    },
+    {
         "id": "full_six_then_dispatch",
         "label": "Full 6 → Dispatch",
         "presetIds": ["full_six"],
         "dispatchAfter": True,
     },
 ]
+
+MAX_SLICE_QUEUE_DEPTH = 5
+MORNING_PULSE_FRAME_ID = "systems_pulse"
 
 MAX_USER_PRESETS = 8
 
@@ -792,6 +806,86 @@ def test_preset_chain_full_six_dispatch_after() -> None:
     presets = resolve_chain_presets(chain)
     assert len(presets) == 1
     assert presets[0]["id"] == "full_six"
+
+
+def test_preset_chain_morning_then_full() -> None:
+    chain = chain_by_id("morning_then_full")
+    assert chain is not None
+    presets = resolve_chain_presets(chain)
+    assert len(presets) == 2
+    assert presets[0]["id"] == "morning_pulse"
+    assert presets[1]["id"] == "full_six"
+
+
+def test_preset_chain_intel_then_dispatch() -> None:
+    chain = chain_by_id("intel_then_dispatch")
+    assert chain is not None
+    assert chain.get("dispatchAfter") is True
+    presets = resolve_chain_presets(chain)
+    assert len(presets) == 1
+    assert presets[0]["id"] == "intel"
+
+
+def test_preset_chains_count_five() -> None:
+    assert len(PRESET_CHAINS) == 5
+
+
+def enqueue_slice_run(queue: list[dict], entry: dict, max_depth: int = MAX_SLICE_QUEUE_DEPTH) -> list[dict]:
+    next_q = [*queue, entry]
+    if len(next_q) <= max_depth:
+        return next_q
+    return next_q[len(next_q) - max_depth :]
+
+
+def dequeue_slice_run(queue: list[dict]) -> tuple[list[dict], dict | None]:
+    if not queue:
+        return queue, None
+    head, *rest = queue
+    return rest, head
+
+
+def should_mirror_voice_frame(detail: dict | None) -> bool:
+    if not detail or not detail.get("frameId"):
+        return False
+    if detail.get("source") == "agents_orchestrator":
+        return False
+    return True
+
+
+def frame_id_to_preset_id(frame_id: str) -> str | None:
+    if frame_id == MORNING_PULSE_FRAME_ID:
+        return "morning_pulse"
+    return None
+
+
+def test_slice_run_queue_enqueue_dequeue() -> None:
+    q: list[dict] = []
+    q = enqueue_slice_run(q, {"id": "1", "label": "A"})
+    q = enqueue_slice_run(q, {"id": "2", "label": "B"})
+    assert len(q) == 2
+    q, nxt = dequeue_slice_run(q)
+    assert nxt is not None
+    assert nxt["label"] == "A"
+    assert len(q) == 1
+
+
+def test_slice_run_queue_caps_at_max_depth() -> None:
+    q: list[dict] = []
+    for i in range(7):
+        q = enqueue_slice_run(q, {"id": str(i), "label": f"run-{i}"})
+    assert len(q) == MAX_SLICE_QUEUE_DEPTH
+    assert q[0]["label"] == "run-2"
+
+
+def test_should_mirror_voice_frame() -> None:
+    assert should_mirror_voice_frame({"frameId": "systems_pulse", "source": "morning_pulse_cta"})
+    assert not should_mirror_voice_frame({"frameId": "systems_pulse", "source": "agents_orchestrator"})
+    assert not should_mirror_voice_frame(None)
+
+
+def test_frame_id_to_preset_id_morning_pulse() -> None:
+    assert frame_id_to_preset_id(MORNING_PULSE_FRAME_ID) == "morning_pulse"
+    assert frame_id_to_preset_id("fleet_status") is None
 
 
 def squad_ids_for_agent(agent_id: str, squads: list[dict]) -> list[str]:

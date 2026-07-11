@@ -74,7 +74,18 @@ test("resolveOrchestrateFrameIds defaults to six", async () => {
 test("preset chain ops_then_intel resolves two stages", async () => {
   const chain = chainById("ops_then_intel");
   expect(chain?.presetIds).toHaveLength(2);
-  expect(PRESET_CHAINS.length).toBe(3);
+  expect(PRESET_CHAINS.length).toBe(5);
+});
+
+test("morning_then_full chain has two presets", async () => {
+  const chain = chainById("morning_then_full");
+  expect(chain?.presetIds).toHaveLength(2);
+});
+
+test("intel_then_dispatch chain dispatches after intel", async () => {
+  const chain = chainById("intel_then_dispatch");
+  expect(chain?.dispatchAfter).toBe(true);
+  expect(chain?.presetIds[0]).toBe("intel");
 });
 
 test("full_six_then_dispatch chain has dispatchAfter", async () => {

@@ -26,6 +26,17 @@ export const PRESET_CHAINS: readonly PresetChain[] = [
     presetIds: ["morning_pulse", "ops_core"],
   },
   {
+    id: "morning_then_full",
+    label: "Pulse → Full 6",
+    presetIds: ["morning_pulse", "full_six"],
+  },
+  {
+    id: "intel_then_dispatch",
+    label: "Intel → Dispatch",
+    presetIds: ["intel"],
+    dispatchAfter: true,
+  },
+  {
     id: "full_six_then_dispatch",
     label: "Full 6 → Dispatch",
     presetIds: ["full_six"],
