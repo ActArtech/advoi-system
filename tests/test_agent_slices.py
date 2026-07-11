@@ -888,6 +888,96 @@ def test_frame_id_to_preset_id_morning_pulse() -> None:
     assert frame_id_to_preset_id("fleet_status") is None
 
 
+def detect_voice_mirror_complete(
+    frame_id: str,
+    agents: list[dict],
+    started_at_ms: int,
+) -> bool:
+    agent = next((a for a in agents if a.get("frame_id") == frame_id), None)
+    ts = (agent or {}).get("last_run", {}).get("timestamp")
+    if ts is None:
+        return False
+    run_ms = int(ts) if isinstance(ts, (int, float)) else int(str(ts))
+    return run_ms >= started_at_ms
+
+
+def voice_mirror_result_from_agent(frame_id: str, agents: list[dict]) -> dict | None:
+    agent = next((a for a in agents if a.get("frame_id") == frame_id), None)
+    if not agent or not agent.get("last_run"):
+        return None
+    lr = agent["last_run"]
+    return {
+        "frame_id": frame_id,
+        "agent_id": agent.get("id"),
+        "status": lr.get("status"),
+        "spoken_summary": lr.get("spoken_summary"),
+    }
+
+
+def remove_queue_item(queue: list[dict], item_id: str) -> list[dict]:
+    return [q for q in queue if q.get("id") != item_id]
+
+
+def bump_queue_item(queue: list[dict], item_id: str) -> list[dict]:
+    idx = next((i for i, q in enumerate(queue) if q.get("id") == item_id), -1)
+    if idx <= 0:
+        return queue
+    item = queue[idx]
+    rest = [q for i, q in enumerate(queue) if i != idx]
+    return [item, *rest]
+
+
+def chain_draft_label(preset_ids: list[str], presets: list[dict]) -> str:
+    by_id = {p["id"]: p["label"] for p in presets}
+    return " → ".join(by_id.get(pid, pid) for pid in preset_ids)
+
+
+MAX_USER_CHAINS = 6
+
+
+def test_detect_voice_mirror_complete() -> None:
+    agents = [
+        {
+            "id": "systems-pulse",
+            "frame_id": MORNING_PULSE_FRAME_ID,
+            "last_run": {"status": "ok", "timestamp": 2000},
+        }
+    ]
+    assert detect_voice_mirror_complete(MORNING_PULSE_FRAME_ID, agents, 1000)
+    assert not detect_voice_mirror_complete(MORNING_PULSE_FRAME_ID, agents, 3000)
+
+
+def test_voice_mirror_result_from_agent() -> None:
+    agents = [
+        {
+            "id": "systems-pulse",
+            "frame_id": MORNING_PULSE_FRAME_ID,
+            "last_run": {"status": "ok", "spoken_summary": "Pulse ok", "timestamp": 2000},
+        }
+    ]
+    result = voice_mirror_result_from_agent(MORNING_PULSE_FRAME_ID, agents)
+    assert result is not None
+    assert result["spoken_summary"] == "Pulse ok"
+
+
+def test_queue_remove_and_bump() -> None:
+    q = [{"id": "a", "label": "A"}, {"id": "b", "label": "B"}, {"id": "c", "label": "C"}]
+    q = remove_queue_item(q, "b")
+    assert [x["label"] for x in q] == ["A", "C"]
+    q = bump_queue_item(q, "c")
+    assert [x["label"] for x in q] == ["C", "A"]
+
+
+def test_chain_draft_label() -> None:
+    label = chain_draft_label(["morning_pulse", "ops_core"], SLICE_PRESETS)
+    assert "Morning pulse" in label
+    assert "Ops core" in label
+
+
+def test_max_user_chains_cap() -> None:
+    assert MAX_USER_CHAINS == 6
+
+
 def squad_ids_for_agent(agent_id: str, squads: list[dict]) -> list[str]:
     return [s["id"] for s in squads if agent_id in s.get("agent_ids", [])]
 

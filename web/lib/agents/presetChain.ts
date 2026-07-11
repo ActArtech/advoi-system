@@ -79,3 +79,24 @@ export async function executePresetChain(
   }
   return merged;
 }
+
+/** Run an explicit preset list (supports user preset ids). */
+export async function executePresetsSequence(
+  presets: readonly SlicePreset[],
+  runPreset: PresetRunner,
+  dispatchAfter?: ChainDispatchRunner,
+): Promise<OrchestratePayload> {
+  if (presets.length === 0) {
+    throw new Error("No presets to run");
+  }
+  const payloads: OrchestratePayload[] = [];
+  for (const preset of presets) {
+    payloads.push(await runPreset(preset));
+  }
+  let merged = mergeOrchestratePayloads(payloads);
+  if (dispatchAfter) {
+    const dispatchPayload = await dispatchAfter();
+    merged = mergeOrchestratePayloads([merged, dispatchPayload]);
+  }
+  return merged;
+}

@@ -39,3 +39,6 @@ jobs:
       - name: Build Next.js PWA
         working-directory: web
         run: npm run build
+      - name: Agents orchestrator Playwright tests
+        working-directory: web
+        run: npm run test:e2e:agents

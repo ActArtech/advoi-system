@@ -1,17 +1,11 @@
 /**
- * Playwright stub — Agents tab slice orchestrator (wave preview, modes, cancel/retry).
+ * Agents tab slice orchestrator tests (logic + optional browser smoke).
  *
- * Not wired into CI yet (Playwright is not a project dependency).
- * When enabled: `npx playwright test web/e2e/agents-orchestrator.spec.ts`
- *
- * Asserts on `/` Agents tab:
- * - agents-orchestrator visible after tab switch
- * - slice-wave-preview shows six default waves in stagger mode
- * - run-mode buttons and run-all-six present
- *
- * Screenshot path: `web/e2e/artifacts/agents-orchestrator.png`
+ * Run: `npm run test:e2e:agents` from web/
+ * Browser smoke requires ADVOI_WEB_URL and skips in CI unless set.
  */
 
+import { test, expect } from "@playwright/test";
 import {
   chunkFrameWaves,
   describeWavePlan,
@@ -19,33 +13,22 @@ import {
   resolveOrchestrateFrameIds,
   DEFAULT_SIX_FRAME_IDS,
 } from "../lib/agents/agentSlices";
+import { chainDraftLabel } from "../lib/agents/customUserChains";
 import { SLICE_PRESETS, presetById } from "../lib/agents/slicePresets";
 import { PRESET_CHAINS, chainById } from "../lib/agents/presetChain";
-
-type Locator = {
-  getAttribute: (name: string) => Promise<string | null>;
-  textContent: () => Promise<string | null>;
-  click: () => Promise<void>;
-  isVisible?: () => Promise<boolean>;
-};
-type Page = {
-  goto: (url: string) => Promise<unknown>;
-  getByTestId: (id: string) => Locator;
-  getByRole: (role: string, opts?: { name?: string }) => Locator;
-  screenshot: (opts: { path: string; fullPage?: boolean }) => Promise<unknown>;
-};
-type TestFn = (name: string, fn: (args: { page: Page }) => Promise<void>) => void;
-type Expect = (actual: unknown) => {
-  toBe: (expected: unknown) => void;
-  toContain: (expected: string) => void;
-  toBeTruthy: () => void;
-  toHaveLength: (n: number) => void;
-};
-
-declare const test: TestFn & { skip?: TestFn };
-declare const expect: Expect;
-
-const BASE = process.env.ADVOI_WEB_URL || "http://localhost:3000";
+import {
+  bumpQueueItem,
+  createQueueEntry,
+  enqueueSliceRun,
+  queueItemSnapshots,
+  removeQueueItem,
+} from "../lib/agents/sliceRunQueue";
+import {
+  detectVoiceMirrorComplete,
+  frameIdToPresetId,
+  shouldMirrorVoiceFrame,
+  voiceMirrorResultFromAgent,
+} from "../lib/agents/voiceFrameBridge";
 
 test("describeWavePlan stagger yields six waves", async () => {
   const plan = describeWavePlan([...DEFAULT_SIX_FRAME_IDS], "stagger");
@@ -103,13 +86,53 @@ test("slice presets cover morning pulse and full six", async () => {
   expect(full?.mode).toBe("parallel");
 });
 
-test.skip?.("agents tab shows orchestrator and wave preview", async ({ page }) => {
-  await page.goto(BASE);
+test("slice run queue enqueue remove bump snapshots", async () => {
+  const a = createQueueEntry("A", async () => {});
+  const b = createQueueEntry("B", async () => {});
+  const c = createQueueEntry("C", async () => {});
+  let q = enqueueSliceRun([], a);
+  q = enqueueSliceRun(q, b);
+  q = enqueueSliceRun(q, c);
+  expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["A", "B", "C"]);
+  q = removeQueueItem(q, b.id);
+  expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["A", "C"]);
+  q = bumpQueueItem(q, c.id);
+  expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["C", "A"]);
+});
+
+test("chainDraftLabel joins preset labels", async () => {
+  const label = chainDraftLabel(["morning_pulse", "ops_core"], SLICE_PRESETS);
+  expect(label).toContain("Morning pulse");
+  expect(label).toContain("Ops core");
+});
+
+test("voice mirror detects completion and result", async () => {
+  expect(shouldMirrorVoiceFrame({ frameId: "systems_pulse", source: "morning_pulse_cta" })).toBe(
+    true,
+  );
+  expect(shouldMirrorVoiceFrame({ frameId: "systems_pulse", source: "agents_orchestrator" })).toBe(
+    false,
+  );
+  expect(frameIdToPresetId("systems_pulse")).toBe("morning_pulse");
+  const agents = [
+    {
+      id: "systems-pulse",
+      frame_id: "systems_pulse",
+      last_run: { status: "ok", spoken_summary: "Pulse ok", timestamp: 2000 },
+    },
+  ];
+  expect(detectVoiceMirrorComplete("systems_pulse", agents, 1000)).toBe(true);
+  expect(detectVoiceMirrorComplete("systems_pulse", agents, 3000)).toBe(false);
+  const result = voiceMirrorResultFromAgent("systems_pulse", agents);
+  expect(result?.spoken_summary).toBe("Pulse ok");
+});
+
+test("agents tab shows orchestrator and wave preview", async ({ page }) => {
+  test.skip(!process.env.ADVOI_WEB_URL, "Set ADVOI_WEB_URL to run browser smoke");
+  await page.goto(process.env.ADVOI_WEB_URL!);
   await page.getByRole("tab", { name: "Agents" }).click();
-  const root = page.getByTestId("agents-orchestrator");
-  expect(await root.isVisible?.()).toBeTruthy();
+  await expect(page.getByTestId("agents-orchestrator")).toBeVisible();
   await page.getByTestId("run-mode-stagger").click();
-  const preview = page.getByTestId("slice-wave-preview");
-  expect(await preview.isVisible?.()).toBeTruthy();
-  await page.screenshot({ path: "web/e2e/artifacts/agents-orchestrator.png", fullPage: true });
+  await expect(page.getByTestId("slice-wave-preview")).toBeVisible();
+  await page.screenshot({ path: "e2e/artifacts/agents-orchestrator.png", fullPage: true });
 });

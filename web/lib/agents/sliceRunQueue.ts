@@ -45,3 +45,20 @@ export function dequeueSliceRun(queue: SliceQueueEntry[]): {
 export function queueLabels(queue: readonly SliceQueueEntry[]): string[] {
   return queue.map((q) => q.label);
 }
+
+export function queueItemSnapshots(queue: readonly SliceQueueEntry[]): SliceQueueItem[] {
+  return queue.map(({ id, label }) => ({ id, label }));
+}
+
+export function removeQueueItem(queue: SliceQueueEntry[], id: string): SliceQueueEntry[] {
+  return queue.filter((q) => q.id !== id);
+}
+
+/** Move item to front of queue (next to run after current batch). */
+export function bumpQueueItem(queue: SliceQueueEntry[], id: string): SliceQueueEntry[] {
+  const idx = queue.findIndex((q) => q.id === id);
+  if (idx <= 0) return queue;
+  const item = queue[idx];
+  const rest = queue.filter((_, i) => i !== idx);
+  return [item, ...rest];
+}

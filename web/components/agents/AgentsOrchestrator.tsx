@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AgentSliceTile } from "@/components/agents/AgentSliceTile";
 import { SlicePresetsBar } from "@/components/agents/SlicePresetsBar";
 import { SliceResultsDrawer } from "@/components/agents/SliceResultsDrawer";
+import { SliceQueueDrawer } from "@/components/agents/SliceQueueDrawer";
 import { SliceRunHistoryDrawer } from "@/components/agents/SliceRunHistoryDrawer";
 import { SliceWavePreview } from "@/components/agents/SliceWavePreview";
 import {
@@ -50,11 +51,21 @@ import { readPreferredRunMode, savePreferredRunMode } from "@/lib/agents/slicePr
 import { dispatchSquadsForAgent } from "@/lib/agents/sliceSquadDispatch";
 import type { SlicePreset } from "@/lib/agents/slicePresets";
 import {
+  chainDraftLabel,
+  deleteUserChain,
+  readUserChains,
+  resolveUserChainPresets,
+  saveUserChain,
+  type UserPresetChain,
+} from "@/lib/agents/customUserChains";
+import {
   chainById,
   executePresetChain,
+  executePresetsSequence,
   PRESET_CHAINS,
   resolveChainPresets,
 } from "@/lib/agents/presetChain";
+import { allPresetsForBar } from "@/lib/agents/slicePresets";
 import {
   appendSliceRunLog,
   clearSliceRunLog,
@@ -90,13 +101,19 @@ import { RUN_FRAME_EVENT } from "@/components/pwaOnboarding";
 import { useJsonFilePicker } from "@/hooks/useJsonFilePicker";
 import { useSliceKeyboard } from "@/hooks/useSliceKeyboard";
 import {
+  bumpQueueItem,
   createQueueEntry,
   dequeueSliceRun,
   enqueueSliceRun,
+  queueItemSnapshots,
+  removeQueueItem,
   type SliceQueueEntry,
+  type SliceQueueItem,
 } from "@/lib/agents/sliceRunQueue";
 import {
+  detectVoiceMirrorComplete,
   shouldMirrorVoiceFrame,
+  voiceMirrorResultFromAgent,
   voiceMirrorStatusLabel,
   type RunFrameDetail,
 } from "@/lib/agents/voiceFrameBridge";
@@ -148,6 +165,8 @@ export function AgentsOrchestrator() {
   const abortRef = useRef<AbortController | null>(null);
   const runQueueRef = useRef<SliceQueueEntry[]>([]);
   const voiceMirrorPollRef = useRef<number | null>(null);
+  const voiceMirrorFrameRef = useRef<string | null>(null);
+  const voiceMirrorStartRef = useRef<number>(0);
   const runLogMetaRef = useRef<{ label: string; mode: RunExecutionMode }>({
     label: "Run",
     mode: "parallel",
@@ -155,6 +174,11 @@ export function AgentsOrchestrator() {
   const squadFramesDoneRef = useRef(0);
   const squadSquadsDoneRef = useRef(0);
   const [queueDepth, setQueueDepth] = useState(0);
+  const [queueSnapshot, setQueueSnapshot] = useState<SliceQueueItem[]>([]);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [userChains, setUserChains] = useState<UserPresetChain[]>([]);
+  const [chainBuilderMode, setChainBuilderMode] = useState(false);
+  const [chainDraftIds, setChainDraftIds] = useState<string[]>([]);
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -162,26 +186,60 @@ export function AgentsOrchestrator() {
     setProgress,
   });
 
+  const clearVoiceMirrorPoll = useCallback(() => {
+    if (voiceMirrorPollRef.current != null) {
+      window.clearInterval(voiceMirrorPollRef.current);
+      voiceMirrorPollRef.current = null;
+    }
+  }, []);
+
+  const completeVoiceMirror = useCallback(
+    (agentList: Awaited<ReturnType<typeof fetchAgents>>) => {
+      const frameId = voiceMirrorFrameRef.current;
+      if (!frameId) return false;
+      if (!detectVoiceMirrorComplete(frameId, agentList, voiceMirrorStartRef.current)) {
+        return false;
+      }
+      clearVoiceMirrorPoll();
+      voiceMirrorFrameRef.current = null;
+      setRunningFrames(new Set());
+      const mirrored = voiceMirrorResultFromAgent(frameId, agentList);
+      if (mirrored) {
+        setLastResults([mirrored]);
+        const summary = mirrored.spoken_summary || `${mirrored.status ?? "ok"} · ${frameId}`;
+        setStatus(`Voice sync complete: ${summary}`);
+      } else {
+        setStatus(`Voice sync complete: ${frameId}`);
+      }
+      return true;
+    },
+    [clearVoiceMirrorPoll],
+  );
+
   const reload = useCallback(async () => {
     try {
       const [a, f, s] = await Promise.all([fetchAgents(), fetchFrames(), fetchSquads()]);
       setAgents(a);
       setFrames(f);
       setSquads(s);
-      if (!busy) {
+      const mirrored = completeVoiceMirror(a);
+      if (!mirrored && !busy && !voiceMirrorFrameRef.current) {
         const warm = a.filter((x) => x.cached).length;
         setStatus(`Ready · ${warm}/${a.length || 6} warm · ${s.length} squads`);
       }
     } catch {
-      if (!busy) setStatus("Could not load agents. Is the API up?");
+      if (!busy && !voiceMirrorFrameRef.current) {
+        setStatus("Could not load agents. Is the API up?");
+      }
     }
-  }, [busy]);
+  }, [busy, completeVoiceMirror]);
 
   useEffect(() => {
     const savedMode = readPreferredRunMode();
     if (savedMode) setRunMode(savedMode);
     setHistoryLog(readSliceRunLog());
     setUserPresets(readUserPresets());
+    setUserChains(readUserChains());
     void reload();
     const t = window.setInterval(() => void reload(), 20_000);
     return () => window.clearInterval(t);
@@ -244,25 +302,23 @@ export function AgentsOrchestrator() {
     squadSquadsDoneRef.current = 0;
   };
 
-  const clearVoiceMirrorPoll = useCallback(() => {
-    if (voiceMirrorPollRef.current != null) {
-      window.clearInterval(voiceMirrorPollRef.current);
-      voiceMirrorPollRef.current = null;
-    }
+  const syncQueueUi = useCallback(() => {
+    setQueueSnapshot(queueItemSnapshots(runQueueRef.current));
+    setQueueDepth(runQueueRef.current.length);
   }, []);
 
   const processRunQueue = useCallback(() => {
     if (busy) return;
     const { queue, next } = dequeueSliceRun(runQueueRef.current);
     runQueueRef.current = queue;
-    setQueueDepth(queue.length);
+    syncQueueUi();
     if (!next) return;
     const waiting = queue.length;
     setStatus(
       waiting > 0 ? `Dequeuing: ${next.label} · ${waiting} queued` : `Dequeuing: ${next.label}`,
     );
     void next.run();
-  }, [busy]);
+  }, [busy, syncQueueUi]);
 
   const scheduleRun = useCallback(
     (label: string, runFn: () => Promise<void>) => {
@@ -271,20 +327,38 @@ export function AgentsOrchestrator() {
           runQueueRef.current,
           createQueueEntry(label, runFn),
         );
-        setQueueDepth(runQueueRef.current.length);
+        syncQueueUi();
         setStatus(`Queued "${label}" · ${runQueueRef.current.length} waiting`);
         return;
       }
       void runFn();
     },
-    [busy],
+    [busy, syncQueueUi],
   );
 
   const clearRunQueue = useCallback(() => {
     runQueueRef.current = [];
-    setQueueDepth(0);
+    syncQueueUi();
     setStatus("Run queue cleared.");
-  }, []);
+  }, [syncQueueUi]);
+
+  const removeFromQueue = useCallback(
+    (id: string) => {
+      runQueueRef.current = removeQueueItem(runQueueRef.current, id);
+      syncQueueUi();
+      setStatus("Removed from queue.");
+    },
+    [syncQueueUi],
+  );
+
+  const bumpInQueue = useCallback(
+    (id: string) => {
+      runQueueRef.current = bumpQueueItem(runQueueRef.current, id);
+      syncQueueUi();
+      setStatus("Moved to front of queue.");
+    },
+    [syncQueueUi],
+  );
 
   useEffect(() => {
     if (!busy) processRunQueue();
@@ -304,14 +378,20 @@ export function AgentsOrchestrator() {
       }
       if (shouldMirrorVoiceFrame(detail)) {
         clearVoiceMirrorPoll();
+        voiceMirrorStartRef.current = Date.now();
+        voiceMirrorFrameRef.current = detail.frameId ?? null;
         setRunningFrames(new Set(detail?.frameId ? [detail.frameId] : []));
         setStatus(voiceMirrorStatusLabel(detail!));
         void reload();
         voiceMirrorPollRef.current = window.setInterval(() => void reload(), 2000);
+        const frameId = detail.frameId;
         window.setTimeout(() => {
+          if (voiceMirrorFrameRef.current !== frameId) return;
           clearVoiceMirrorPoll();
+          voiceMirrorFrameRef.current = null;
           setRunningFrames(new Set());
           void reload();
+          setStatus(`Voice sync timed out: ${frameId ?? "slice"}`);
         }, 30_000);
         return;
       }
@@ -653,6 +733,58 @@ export function AgentsOrchestrator() {
     [scheduleRun, runPresetChainInternal],
   );
 
+  const runUserChainInternal = useCallback(
+    async (chain: UserPresetChain) => {
+      const presets = resolveUserChainPresets(chain, userPresets);
+      if (presets.length === 0) return;
+      const controller = beginRun();
+      runLogMetaRef.current = { label: chain.label, mode: presets[0].mode };
+      setBusy(true);
+      setLastResults([]);
+      setStatus(`${chain.label}: ${presets.length} stages...`);
+      try {
+        const payload = await executePresetsSequence(
+          presets,
+          async (preset) => {
+            const frameIds = [...preset.frameIds];
+            const waves = chunkFrameWaves(frameIds, preset.mode);
+            setRunMode(preset.mode);
+            setStatus(`${chain.label}: ${preset.label}...`);
+            return executeSlicePlan(
+              frameIds,
+              preset.mode,
+              createWaveCallbacks(waves, preset.mode),
+              { signal: controller.signal },
+            );
+          },
+          chain.dispatchAfter
+            ? () => {
+                setStatus(`${chain.label}: dispatching squads...`);
+                return dispatchAllSquads({ signal: controller.signal });
+              }
+            : undefined,
+        );
+        const allFrameIds = presets.flatMap((p) => [...p.frameIds]);
+        finishRun(payload, allFrameIds);
+      } catch (err) {
+        resetRunUi();
+        setStatus(
+          isAbortError(err) ? "Run cancelled." : err instanceof Error ? err.message : "Chain failed",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [userPresets, createWaveCallbacks],
+  );
+
+  const runUserChain = useCallback(
+    (chain: UserPresetChain) => {
+      scheduleRun(chain.label, () => runUserChainInternal(chain));
+    },
+    [scheduleRun, runUserChainInternal],
+  );
+
   const dispatchAllSquadsInternal = useCallback(async () => {
     if (squads.length === 0) return;
     const controller = beginRun();
@@ -692,6 +824,31 @@ export function AgentsOrchestrator() {
   const removeUserPreset = useCallback((id: string) => {
     setUserPresets(deleteUserPreset(id));
     setStatus("Preset removed");
+  }, []);
+
+  const allPresets = useMemo(
+    () => allPresetsForBar(userPresets),
+    [userPresets],
+  );
+
+  const toggleChainPreset = useCallback((presetId: string) => {
+    setChainDraftIds((prev) =>
+      prev.includes(presetId) ? prev.filter((id) => id !== presetId) : [...prev, presetId],
+    );
+  }, []);
+
+  const saveCustomChain = useCallback(() => {
+    if (chainDraftIds.length < 2) return;
+    const label = chainDraftLabel(chainDraftIds, allPresets);
+    setUserChains(saveUserChain({ label, presetIds: chainDraftIds }));
+    setChainDraftIds([]);
+    setChainBuilderMode(false);
+    setStatus(`Saved chain "${label}"`);
+  }, [chainDraftIds, allPresets]);
+
+  const removeUserChain = useCallback((id: string) => {
+    setUserChains(deleteUserChain(id));
+    setStatus("Chain removed");
   }, []);
 
   const rerunFromHistory = useCallback(
@@ -961,9 +1118,16 @@ export function AgentsOrchestrator() {
           </Badge>
         ) : null}
         {queueDepth > 0 ? (
-          <Badge variant="outline" data-testid="slice-run-queue-depth">
-            {queueDepth} queued
-          </Badge>
+          <button
+            type="button"
+            className="inline-flex"
+            onClick={() => setQueueOpen(true)}
+            data-testid="slice-run-queue-depth"
+          >
+            <Badge variant="outline" className="cursor-pointer hover:bg-secondary/80">
+              {queueDepth} queued
+            </Badge>
+          </button>
         ) : null}
       </div>
 
@@ -1016,6 +1180,18 @@ export function AgentsOrchestrator() {
           label: chain.label,
           onRun: () => void runPresetChain(chain.id),
         }))}
+        userChains={userChains}
+        onRunUserChain={(chain) => void runUserChain(chain)}
+        onDeleteUserChain={removeUserChain}
+        chainBuilderMode={chainBuilderMode}
+        onToggleChainBuilder={() => {
+          setChainBuilderMode((m) => !m);
+          if (chainBuilderMode) setChainDraftIds([]);
+        }}
+        chainDraftIds={chainDraftIds}
+        onToggleChainPreset={toggleChainPreset}
+        onSaveChain={saveCustomChain}
+        canSaveChain={chainDraftIds.length >= 2}
         onExportPresets={exportPresets}
         onImportPresets={importPresets}
         onSelect={(preset) => void runPreset(preset)}
@@ -1120,15 +1296,25 @@ export function AgentsOrchestrator() {
           Multi
         </Button>
         {queueDepth > 0 ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={clearRunQueue}
-            data-testid="clear-slice-run-queue"
-          >
-            <ListPlus className="h-4 w-4" />
-            Clear queue ({queueDepth})
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setQueueOpen(true)}
+              data-testid="open-slice-run-queue"
+            >
+              <ListPlus className="h-4 w-4" />
+              Queue ({queueDepth})
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={clearRunQueue}
+              data-testid="clear-slice-run-queue"
+            >
+              Clear queue
+            </Button>
+          </>
         ) : null}
       </div>
 
@@ -1261,7 +1447,7 @@ export function AgentsOrchestrator() {
             : "Stagger: one slice at a time. "}
         {multiMode
           ? "Multi-select then Run selected or Save preset."
-          : "Tap slice to run (1-6 keys). Hold 0.5s to dispatch squads. R retry · Esc cancel · M multi. Queue runs while busy."}
+          : "Tap slice to run (1-6). Chain mode: tap presets in order, Save chain. Queue while busy. R retry · Esc cancel."}
       </p>
 
       <SliceResultsDrawer
@@ -1270,6 +1456,19 @@ export function AgentsOrchestrator() {
         rows={resultRows}
         summary={lastPayload?.spoken_summary}
         onRetryFailed={failedCount > 0 && !busy ? () => void retryFailed() : undefined}
+      />
+
+      <SliceQueueDrawer
+        open={queueOpen}
+        onOpenChange={setQueueOpen}
+        items={queueSnapshot}
+        busy={busy}
+        onRemove={removeFromQueue}
+        onBump={bumpInQueue}
+        onClear={() => {
+          clearRunQueue();
+          setQueueOpen(false);
+        }}
       />
 
       <SliceRunHistoryDrawer
