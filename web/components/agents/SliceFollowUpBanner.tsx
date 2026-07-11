@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import type { SliceFollowUp } from "@/lib/agents/slicePostRunSuggestions";
-import { ListPlus, Play } from "lucide-react";
+import { ListPlus, Play, Rocket } from "lucide-react";
 import styles from "./agentsTheme.module.css";
 
 type SliceFollowUpBannerProps = {
@@ -14,6 +14,17 @@ type SliceFollowUpBannerProps = {
   hint?: string;
   testId?: string;
 };
+
+function followUpIcon(kind: SliceFollowUp["action"]["kind"]) {
+  switch (kind) {
+    case "stack_chain":
+      return <ListPlus className="h-4 w-4" />;
+    case "dispatch_all":
+      return <Rocket className="h-4 w-4" />;
+    default:
+      return <Play className="h-4 w-4" />;
+  }
+}
 
 export function SliceFollowUpBanner({
   title,
@@ -42,7 +53,7 @@ export function SliceFollowUpBanner({
               data-testid={`follow-up-${followUp.id}`}
               className={isPrimary ? styles.ctaPrimary : styles.ctaOutline}
             >
-              {isStack ? <ListPlus className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {followUpIcon(followUp.action.kind)}
               {followUp.label}
             </button>
           );

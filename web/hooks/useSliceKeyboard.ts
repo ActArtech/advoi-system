@@ -22,6 +22,7 @@ type SliceKeyboardHandlers = {
   onRunPrimaryFollowUp?: () => void;
   onRunSecondaryFollowUp?: () => void;
   onStackSelected?: () => void;
+  onRunQueue?: () => void;
   onOpenQueue?: () => void;
   onOpenHistory?: () => void;
   onSelectAll?: () => void;
@@ -37,7 +38,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 /**
  * Agents tab keyboard shortcuts:
  * 1-6 run slice, Enter run selected/all, Shift+Enter stagger,
- * C / Shift+C follow-up chips, S stack batch, Q queue, H history, A select all,
+ * C / Shift+C follow-up chips, S stack batch, Y run queue, Q queue, H history, A select all,
  * R retry, Escape cancel, M toggle multi-select.
  */
 export function useSliceKeyboard({
@@ -59,6 +60,7 @@ export function useSliceKeyboard({
   onRunPrimaryFollowUp,
   onRunSecondaryFollowUp,
   onStackSelected,
+  onRunQueue,
   onOpenQueue,
   onOpenHistory,
   onSelectAll,
@@ -111,6 +113,12 @@ export function useSliceKeyboard({
       if ((ev.key === "s" || ev.key === "S") && onStackSelected) {
         ev.preventDefault();
         onStackSelected();
+        return;
+      }
+
+      if ((ev.key === "y" || ev.key === "Y") && queueDepth > 0 && onRunQueue) {
+        ev.preventDefault();
+        onRunQueue();
         return;
       }
 
@@ -176,6 +184,7 @@ export function useSliceKeyboard({
     onRunPrimaryFollowUp,
     onRunSecondaryFollowUp,
     onStackSelected,
+    onRunQueue,
     onOpenQueue,
     onOpenHistory,
     onSelectAll,

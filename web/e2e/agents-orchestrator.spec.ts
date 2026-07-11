@@ -44,6 +44,7 @@ import {
   chainPlaylistLabels,
   postRunFollowUps,
 } from "../lib/agents/slicePostRunSuggestions";
+import { readAutoRunQueue, saveAutoRunQueue } from "../lib/agents/slicePreferences";
 import {
   detectVoiceMirrorComplete,
   frameIdToPresetId,
@@ -276,6 +277,20 @@ test("postRunFollowUps suggests retry stagger on failure", async () => {
   const followUps = postRunFollowUps(["fleet_status"], 2);
   expect(followUps).toHaveLength(1);
   expect(followUps[0].action.kind).toBe("retry_stagger");
+});
+
+test("postRunFollowUps adds dispatch and run queue options", async () => {
+  const ops = presetById("ops_core");
+  expect(ops).toBeTruthy();
+  const followUps = postRunFollowUps(ops!.frameIds, 0, { queueDepth: 2 });
+  expect(followUps.some((f) => f.action.kind === "dispatch_all")).toBe(true);
+  expect(followUps.some((f) => f.action.kind === "run_queue")).toBe(true);
+});
+
+test("auto run queue helpers safe without browser storage", async () => {
+  expect(readAutoRunQueue()).toBe(false);
+  saveAutoRunQueue(true);
+  saveAutoRunQueue(false);
 });
 
 test("resolveBuiltinChainPlan stacks ops then intel stages", async () => {

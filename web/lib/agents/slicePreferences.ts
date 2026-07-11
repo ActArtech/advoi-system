@@ -5,6 +5,7 @@
 import type { RunExecutionMode } from "./types";
 
 const RUN_MODE_KEY = "advoi:slice-run-mode";
+const AUTO_RUN_QUEUE_KEY = "advoi:slice-auto-run-queue";
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -29,6 +30,24 @@ export function savePreferredRunMode(mode: RunExecutionMode): void {
   if (!canUseStorage()) return;
   try {
     window.localStorage.setItem(RUN_MODE_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
+export function readAutoRunQueue(): boolean {
+  if (!canUseStorage()) return false;
+  try {
+    return window.localStorage.getItem(AUTO_RUN_QUEUE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function saveAutoRunQueue(enabled: boolean): void {
+  if (!canUseStorage()) return;
+  try {
+    window.localStorage.setItem(AUTO_RUN_QUEUE_KEY, enabled ? "1" : "0");
   } catch {
     // ignore
   }

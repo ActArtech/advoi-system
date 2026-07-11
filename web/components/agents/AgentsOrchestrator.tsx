@@ -49,7 +49,12 @@ import {
   saveUserPreset,
   type UserSlicePreset,
 } from "@/lib/agents/customUserPresets";
-import { readPreferredRunMode, savePreferredRunMode } from "@/lib/agents/slicePreferences";
+import {
+  readAutoRunQueue,
+  readPreferredRunMode,
+  saveAutoRunQueue,
+  savePreferredRunMode,
+} from "@/lib/agents/slicePreferences";
 import { dispatchSquadsForAgent } from "@/lib/agents/sliceSquadDispatch";
 import type { SlicePreset } from "@/lib/agents/slicePresets";
 import {
@@ -69,7 +74,7 @@ import {
   PRESET_CHAINS,
   resolveChainPresets,
 } from "@/lib/agents/presetChain";
-import { allPresetsForBar } from "@/lib/agents/slicePresets";
+import { allPresetsForBar, presetById } from "@/lib/agents/slicePresets";
 import {
   agentIdsForQuickPick,
   quickPickById,
@@ -210,6 +215,7 @@ export function AgentsOrchestrator() {
   const [chainDispatchDraft, setChainDispatchDraft] = useState(false);
   const [followUps, setFollowUps] = useState<SliceFollowUp[]>([]);
   const [followUpTitle, setFollowUpTitle] = useState("");
+  const [autoRunQueue, setAutoRunQueue] = useState(false);
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -259,7 +265,11 @@ export function AgentsOrchestrator() {
             ? "Voice sync failed — retry or continue?"
             : "Morning pulse synced — continue with a multi-agent chain?",
         );
-        setFollowUps(postRunFollowUps([frameId], failed ? 1 : 0));
+        setFollowUps(
+          postRunFollowUps([frameId], failed ? 1 : 0, {
+            queueDepth: runQueueRef.current.length,
+          }),
+        );
       } else {
         setStatus(`Voice sync complete: ${frameId}`);
         setFollowUps([]);
@@ -290,6 +300,7 @@ export function AgentsOrchestrator() {
   useEffect(() => {
     const savedMode = readPreferredRunMode();
     if (savedMode) setRunMode(savedMode);
+    setAutoRunQueue(readAutoRunQueue());
     setHistoryLog(readSliceRunLog());
     setUserPresets(readUserPresets());
     setUserChains(readUserChains());
@@ -405,6 +416,12 @@ export function AgentsOrchestrator() {
     if (busy || runQueueRef.current.length === 0) return;
     processRunQueue();
   }, [busy, processRunQueue]);
+
+  const maybeAutoStartQueue = useCallback(() => {
+    if (autoRunQueue && !busy && runQueueRef.current.length > 0) {
+      processRunQueue();
+    }
+  }, [autoRunQueue, busy, processRunQueue]);
 
   const clearRunQueue = useCallback(() => {
     runQueueRef.current = [];
@@ -531,8 +548,20 @@ export function AgentsOrchestrator() {
           ? "Batch complete — run a follow-up chain?"
           : "",
     );
+    const squadsDispatched =
+      data.squads?.dispatched != null && data.squads.dispatched > 0;
     if (frameIds.length > 0 || failCount > 0) {
-      setFollowUps(postRunFollowUps(frameIds, failCount));
+      setFollowUps(
+        postRunFollowUps(frameIds, failCount, {
+          queueDepth: runQueueRef.current.length,
+          squadsDispatched,
+        }),
+      );
+    } else if (runQueueRef.current.length > 0) {
+      setFollowUpTitle("Queue ready — start the next batch?");
+      setFollowUps(
+        postRunFollowUps([], 0, { queueDepth: runQueueRef.current.length }),
+      );
     } else {
       setFollowUps([]);
     }
@@ -928,8 +957,9 @@ export function AgentsOrchestrator() {
         const dispatchLabel = labels[labels.length - 1] ?? `${plan.chainLabel}: Dispatch`;
         stackBatch(dispatchLabel, () => dispatchAllSquadsInternal());
       }
+      maybeAutoStartQueue();
     },
-    [stackBatch, runWithPlanInternal, dispatchAllSquadsInternal],
+    [stackBatch, runWithPlanInternal, dispatchAllSquadsInternal, maybeAutoStartQueue],
   );
 
   const stackUserChain = useCallback(
@@ -947,8 +977,9 @@ export function AgentsOrchestrator() {
         const dispatchLabel = labels[labels.length - 1] ?? `${plan.chainLabel}: Dispatch`;
         stackBatch(dispatchLabel, () => dispatchAllSquadsInternal());
       }
+      maybeAutoStartQueue();
     },
-    [userPresets, stackBatch, runWithPlanInternal, dispatchAllSquadsInternal],
+    [userPresets, stackBatch, runWithPlanInternal, dispatchAllSquadsInternal, maybeAutoStartQueue],
   );
 
   const saveCustomPreset = useCallback(() => {
@@ -1138,7 +1169,45 @@ export function AgentsOrchestrator() {
     const scope = selected.size > 0 ? "selected" : "all_six";
     const label = scope === "selected" ? `Selected (${selected.size})` : "All six";
     stackBatch(label, () => runParallelInternal(scope));
-  }, [selected.size, stackBatch, runParallelInternal]);
+    maybeAutoStartQueue();
+  }, [selected.size, stackBatch, runParallelInternal, maybeAutoStartQueue]);
+
+  const runQuickPick = useCallback(
+    (pickId: string) => {
+      const pick = quickPickById(pickId);
+      if (!pick || pick.action === "clear") return;
+      if (pick.action === "all") {
+        void runParallel("all_six");
+        return;
+      }
+      if (pick.presetId) {
+        const preset = presetById(pick.presetId);
+        if (preset) runPreset(preset);
+      }
+    },
+    [runParallel, runPreset],
+  );
+
+  const stackQuickPick = useCallback(
+    (pickId: string) => {
+      const pick = quickPickById(pickId);
+      if (!pick || pick.action === "clear") return;
+      if (pick.action === "all") {
+        stackBatch("All six", () => runParallelInternal("all_six"));
+        maybeAutoStartQueue();
+        return;
+      }
+      if (pick.presetId) {
+        const preset = presetById(pick.presetId);
+        if (!preset) return;
+        stackBatch(preset.label, () =>
+          runWithPlanInternal([...preset.frameIds], preset.mode, preset.label),
+        );
+        maybeAutoStartQueue();
+      }
+    },
+    [stackBatch, runParallelInternal, runWithPlanInternal, maybeAutoStartQueue],
+  );
 
   const runOneSlice = useCallback(
     (slice: AgentSliceModel) => {
@@ -1269,6 +1338,12 @@ export function AgentsOrchestrator() {
         case "stack_chain":
           stackPresetChain(followUp.action.chainId);
           break;
+        case "run_queue":
+          runQueueNow();
+          break;
+        case "dispatch_all":
+          void dispatchAllSquadsOnly();
+          break;
         case "retry_stagger": {
           const frameIds = frameIdsFromFailedResults(lastResults);
           if (frameIds.length > 0) {
@@ -1278,7 +1353,14 @@ export function AgentsOrchestrator() {
         }
       }
     },
-    [runPresetChain, stackPresetChain, lastResults, runWithPlan],
+    [
+      runPresetChain,
+      stackPresetChain,
+      runQueueNow,
+      dispatchAllSquadsOnly,
+      lastResults,
+      runWithPlan,
+    ],
   );
 
   const runPrimaryFollowUp = useCallback(() => {
@@ -1311,6 +1393,7 @@ export function AgentsOrchestrator() {
     onRunPrimaryFollowUp: runPrimaryFollowUp,
     onRunSecondaryFollowUp: runSecondaryFollowUp,
     onStackSelected: stackSelectedBatch,
+    onRunQueue: runQueueNow,
     onOpenQueue: () => setQueueOpen(true),
     onOpenHistory: () => setHistoryOpen(true),
     onSelectAll: selectAllSlices,
@@ -1362,8 +1445,10 @@ export function AgentsOrchestrator() {
 
   const followUpHint =
     followUps.length > 0
-      ? `C ${followUps[0]?.label}${followUps[1] ? ` · Shift+C ${followUps[1].label}` : ""}`
-      : undefined;
+      ? `C ${followUps[0]?.label}${followUps[1] ? ` · Shift+C ${followUps[1].label}` : ""}${queueDepth > 0 ? " · Y run queue" : ""}`
+      : queueDepth > 0
+        ? "Y run queue"
+        : undefined;
 
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
@@ -1485,7 +1570,12 @@ export function AgentsOrchestrator() {
           </p>
         </div>
         <div className={styles.panelBody}>
-          <SliceQuickPicksBar disabled={busy} onPick={applyQuickPick} />
+          <SliceQuickPicksBar
+            disabled={busy}
+            onPick={applyQuickPick}
+            onRunPick={runQuickPick}
+            onStackPick={stackQuickPick}
+          />
           <div className={styles.sliceGrid} data-testid="agent-slice-grid" aria-label="Agent slices">
             {agentSlices.map((slice, index) => (
               <AgentSliceTile
@@ -1563,6 +1653,21 @@ export function AgentsOrchestrator() {
           >
             <ListPlus className="h-4 w-4" />
             Stack queue
+          </Button>
+          <Button
+            size="sm"
+            variant={autoRunQueue ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => {
+              const next = !autoRunQueue;
+              setAutoRunQueue(next);
+              saveAutoRunQueue(next);
+              setStatus(next ? "Auto-run queue on" : "Auto-run queue off");
+            }}
+            data-testid="toggle-auto-run-queue"
+          >
+            <Play className="h-4 w-4" />
+            Auto-run
           </Button>
           {!busy && queueDepth > 0 ? (
             <button

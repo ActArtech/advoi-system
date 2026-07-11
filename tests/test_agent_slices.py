@@ -1290,21 +1290,47 @@ def _chain_follow_up(chain_id: str, stack: bool = False) -> dict | None:
     }
 
 
-def post_run_follow_ups(frame_ids: list[str], fail_count: int) -> list[dict]:
+def _queue_follow_up(queue_depth: int) -> dict:
+    return {
+        "id": "run_queue",
+        "label": f"Run queue ({queue_depth})",
+        "action": {"kind": "run_queue"},
+    }
+
+
+DISPATCH_ALL_FOLLOW_UP = {
+    "id": "dispatch_all",
+    "label": "Dispatch all squads",
+    "action": {"kind": "dispatch_all"},
+}
+
+
+def post_run_follow_ups(
+    frame_ids: list[str],
+    fail_count: int,
+    *,
+    queue_depth: int = 0,
+    squads_dispatched: bool = False,
+) -> list[dict]:
     if fail_count > 0:
-        return [
+        out = [
             {
                 "id": "retry_stagger",
                 "label": "Retry failed (stagger)",
                 "action": {"kind": "retry_stagger"},
             }
         ]
+        if queue_depth > 0:
+            out.append(_queue_follow_up(queue_depth))
+        return out
     if not frame_ids:
-        return []
+        return [_queue_follow_up(queue_depth)] if queue_depth > 0 else []
+
+    out: list[dict] = []
 
     morning = preset_by_id("morning_pulse")
     if morning and _frame_sets_equal(frame_ids, list(morning["frameIds"])):
-        return [
+        out.extend(
             x
             for x in [
                 _chain_follow_up("morning_then_ops"),
@@ -1312,30 +1338,38 @@ def post_run_follow_ups(frame_ids: list[str], fail_count: int) -> list[dict]:
                 _chain_follow_up("morning_then_ops", stack=True),
             ]
             if x is not None
-        ]
+        )
+    else:
+        ops = preset_by_id("ops_core")
+        if ops and _frame_sets_equal(frame_ids, list(ops["frameIds"])):
+            out.extend(
+                x
+                for x in [
+                    _chain_follow_up("ops_then_intel"),
+                    _chain_follow_up("ops_then_intel", stack=True),
+                ]
+                if x is not None
+            )
+            if not squads_dispatched:
+                out.append(DISPATCH_ALL_FOLLOW_UP)
+        else:
+            intel = preset_by_id("intel")
+            if intel and _frame_sets_equal(frame_ids, list(intel["frameIds"])):
+                nxt = _chain_follow_up("intel_then_dispatch")
+                if nxt:
+                    out.append(nxt)
+            else:
+                full = preset_by_id("full_six")
+                if full and _frame_sets_equal(frame_ids, list(full["frameIds"])):
+                    nxt = _chain_follow_up("full_six_then_dispatch")
+                    if nxt:
+                        out.append(nxt)
+                    if not squads_dispatched:
+                        out.append(DISPATCH_ALL_FOLLOW_UP)
 
-    ops = preset_by_id("ops_core")
-    if ops and _frame_sets_equal(frame_ids, list(ops["frameIds"])):
-        return [
-            x
-            for x in [
-                _chain_follow_up("ops_then_intel"),
-                _chain_follow_up("ops_then_intel", stack=True),
-            ]
-            if x is not None
-        ]
-
-    intel = preset_by_id("intel")
-    if intel and _frame_sets_equal(frame_ids, list(intel["frameIds"])):
-        nxt = _chain_follow_up("intel_then_dispatch")
-        return [nxt] if nxt else []
-
-    full = preset_by_id("full_six")
-    if full and _frame_sets_equal(frame_ids, list(full["frameIds"])):
-        nxt = _chain_follow_up("full_six_then_dispatch")
-        return [nxt] if nxt else []
-
-    return []
+    if queue_depth > 0:
+        out.append(_queue_follow_up(queue_depth))
+    return out
 
 
 def chain_playlist_labels(
@@ -1390,8 +1424,23 @@ def test_post_run_follow_ups_ops_core() -> None:
     ops = preset_by_id("ops_core")
     assert ops is not None
     follow_ups = post_run_follow_ups(list(ops["frameIds"]), 0)
-    assert len(follow_ups) == 2
+    assert len(follow_ups) == 3
     assert follow_ups[0]["action"]["chainId"] == "ops_then_intel"
+    assert any(f["action"]["kind"] == "dispatch_all" for f in follow_ups)
+
+
+def test_post_run_follow_ups_queue_depth() -> None:
+    morning = preset_by_id("morning_pulse")
+    assert morning is not None
+    follow_ups = post_run_follow_ups(list(morning["frameIds"]), 0, queue_depth=2)
+    assert follow_ups[-1]["action"]["kind"] == "run_queue"
+    assert "2" in follow_ups[-1]["label"]
+
+
+def test_post_run_follow_ups_failure_with_queue() -> None:
+    follow_ups = post_run_follow_ups(["fleet_status"], 1, queue_depth=3)
+    assert len(follow_ups) == 2
+    assert follow_ups[1]["action"]["kind"] == "run_queue"
 
 
 def test_chain_playlist_labels_dispatch() -> None:
