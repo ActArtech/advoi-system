@@ -8,6 +8,7 @@ from typing import Any
 from advoi.aether.gate import load_gate_snapshot
 from advoi.aether.models import Venture
 from advoi.aether.portfolio import VENTURES, venture_for_frame, venture_to_dict
+from advoi.portfolio.ecr import resolve_execution_target
 
 
 def resolve_active_venture(*, gate_active_slug: str | None = None) -> Venture | None:
@@ -47,10 +48,13 @@ def lifecycle_status() -> dict[str, Any]:
         if frame_id not in frame_coverage
     ]
 
+    execution_context = resolve_execution_target(gate_active_slug=gate.active_slug)
+
     return {
         "gate": gate.to_dict(),
         "active_venture": venture_to_dict(active) if active else None,
         "active_venture_resolved": active is not None,
+        "execution_context": execution_context,
         "portfolio_total": len(VENTURES),
         "frame_coverage": frame_coverage,
         "unmapped_frames": unmapped_frames,

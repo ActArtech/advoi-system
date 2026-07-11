@@ -98,6 +98,18 @@ def _fleet_profile_snapshot(data_dir: Path) -> dict[str, Any]:
     profile_path = data_dir / "config" / "fleet-profile.md"
     text = _read_text(profile_path)
     if text is None:
+        from advoi.portfolio.ecr import resolve_execution_target
+
+        target = resolve_execution_target()
+        fleet_slug = target.get("fleet_slug")
+        if fleet_slug:
+            return {
+                "profile_found": False,
+                "ecr_merged": True,
+                "active_slug": fleet_slug,
+                "github_repo": target.get("github_repo"),
+                "mode": None,
+            }
         return {"profile_found": False}
     return {
         "profile_found": True,
