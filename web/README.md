@@ -5,17 +5,27 @@ Mobile-first web client for voice + decision UI. **No APK** — browser installa
 ## Stack
 
 - **Framework:** Next.js 15 (App Router)
+- **Styling:** Tailwind CSS 4 + shadcn-style primitives (`components/ui/`)
+- **Mobile shell:** Bottom tabs + horizontal snap scroll (inspired by [nextjs-mobile-app-template](https://github.com/tablesawuplink633/nextjs-mobile-app-template))
+- **Drawers:** [Vaul](https://github.com/emilkowalski/vaul) (`components/ui/drawer.tsx`)
+- **Icons:** lucide-react
 - **Voice:** LiveKit Web SDK (Path A); Kokoro/Parakeet client loop (Path B `/voice-local`)
-- **UI:** Frame/operator controls, home briefs + review queue cards, dashboard
 - **State:** Presentation models in pure TS modules; API is source of truth
 
-## Home route (`/`)
+## Home route (`/`) — mobile shell
 
-Order on the page:
+Four swipe/tap tabs via `AppShell`:
 
-1. **`PwaHomeOnboarding`** — install strip + 60s morning pulse CTA (`systems_pulse`)
-2. **`PwaHomeBriefsSurface`** — open briefs (`GET /api/briefs`) + review queue (`GET /api/review-queue`); SWR poll; `advoi:briefs-refresh` after frame runs
-3. **`VoiceSession`** — LiveKit connect, 6 frames, operators, chips (state / SLA / Aether gate), confirm parity, error recovery
+| Tab | Content |
+|-----|---------|
+| **Voice** | `PwaHomeOnboarding` + `VoiceSession` (connect, frames, operators) |
+| **Agents** | `AgentsOrchestrator` — parallel slice grid, multi-select, run-six + squads |
+| **Briefs** | `PwaHomeBriefsSurface` (open briefs + review queue) |
+| **More** | Links to ingest, dashboard, voice paths + Vaul quick-actions drawer |
+
+Agent slices use `POST /api/agents/orchestrate` (subset) and `POST /api/agents/run-six` (all 6 + optional squads). Pure models in `web/lib/agents/agentSlices.ts` (Python mirror: `tests/test_agent_slices.py`).
+
+Legacy CSS modules remain on `VoiceSession` and briefs cards; migrate incrementally to Tailwind/shadcn.
 
 Desktop follow-up: `/briefs/[id]`. Dashboard: `/dashboard`. Server voice: `/voice-server`.
 
