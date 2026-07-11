@@ -25,8 +25,12 @@ type SlicePresetsBarProps = {
   onToggleChainPreset?: (presetId: string) => void;
   onSaveChain?: () => void;
   canSaveChain?: boolean;
+  chainDispatchAfter?: boolean;
+  onToggleChainDispatch?: () => void;
   onExportPresets?: () => void;
   onImportPresets?: () => void;
+  onExportChains?: () => void;
+  onImportChains?: () => void;
   disabled?: boolean;
 };
 
@@ -46,8 +50,12 @@ export function SlicePresetsBar({
   onToggleChainPreset,
   onSaveChain,
   canSaveChain,
+  chainDispatchAfter = false,
+  onToggleChainDispatch,
   onExportPresets,
   onImportPresets,
+  onExportChains,
+  onImportChains,
   disabled,
 }: SlicePresetsBarProps) {
   const allPresets = allPresetsForBar(userPresets);
@@ -138,6 +146,19 @@ export function SlicePresetsBar({
             Chain
           </Button>
         ) : null}
+        {chainBuilderMode && onToggleChainDispatch ? (
+          <Button
+            type="button"
+            size="sm"
+            variant={chainDispatchAfter ? "default" : "outline"}
+            className="h-6 px-2 text-[10px]"
+            disabled={disabled}
+            onClick={onToggleChainDispatch}
+            data-testid="toggle-chain-dispatch-after"
+          >
+            + Dispatch
+          </Button>
+        ) : null}
         {chainBuilderMode && onSaveChain ? (
           <Button
             type="button"
@@ -179,6 +200,7 @@ export function SlicePresetsBar({
               data-testid={`slice-user-chain-${chain.id}`}
             >
               {chain.label}
+              {chain.dispatchAfter ? " → Dispatch" : ""}
             </Button>
             {onDeleteUserChain ? (
               <button
@@ -219,7 +241,35 @@ export function SlicePresetsBar({
             data-testid="import-user-presets"
           >
             <Upload className="h-3 w-3" />
-            Import
+            Import presets
+          </Button>
+        ) : null}
+        {onExportChains ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-[10px]"
+            disabled={disabled}
+            onClick={onExportChains}
+            data-testid="export-user-chains"
+          >
+            <Download className="h-3 w-3" />
+            Export chains
+          </Button>
+        ) : null}
+        {onImportChains ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-[10px]"
+            disabled={disabled}
+            onClick={onImportChains}
+            data-testid="import-user-chains"
+          >
+            <Upload className="h-3 w-3" />
+            Import chains
           </Button>
         ) : null}
       </div>

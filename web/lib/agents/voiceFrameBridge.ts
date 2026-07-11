@@ -4,6 +4,7 @@
  */
 
 import { MORNING_PULSE_FRAME_ID } from "@/components/pwaOnboarding";
+import { presetById } from "./slicePresets";
 
 export type RunFrameDetail = {
   frameId?: string;
@@ -79,4 +80,22 @@ export function voiceMirrorResultFromAgent(
     status: agent.last_run.status,
     spoken_summary: agent.last_run.spoken_summary,
   };
+}
+
+export function isFailedMirrorStatus(status: string | undefined): boolean {
+  return status === "error" || status === "failed";
+}
+
+/** History/run-log label for a completed voice mirror (no duplicate API run). */
+export function voiceMirrorLogLabel(frameId: string, source?: string): string {
+  const presetId = frameIdToPresetId(frameId);
+  const preset = presetId ? presetById(presetId) : undefined;
+  const base = preset?.label ?? frameId.replace(/_/g, " ");
+  const src = source?.replace(/_/g, " ") ?? "voice";
+  return `Voice: ${base} (${src})`;
+}
+
+export function voiceMirrorLogMode(frameId: string): "parallel" | "wave" | "stagger" {
+  const presetId = frameIdToPresetId(frameId);
+  return presetById(presetId ?? "")?.mode ?? "stagger";
 }

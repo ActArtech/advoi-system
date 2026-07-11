@@ -62,3 +62,18 @@ export function bumpQueueItem(queue: SliceQueueEntry[], id: string): SliceQueueE
   const rest = queue.filter((_, i) => i !== idx);
   return [item, ...rest];
 }
+
+/** Swap item one position up or down in the waiting queue. */
+export function moveQueueItem(
+  queue: SliceQueueEntry[],
+  id: string,
+  direction: "up" | "down",
+): SliceQueueEntry[] {
+  const idx = queue.findIndex((q) => q.id === id);
+  if (idx < 0) return queue;
+  const target = direction === "up" ? idx - 1 : idx + 1;
+  if (target < 0 || target >= queue.length) return queue;
+  const next = [...queue];
+  [next[idx], next[target]] = [next[target], next[idx]];
+  return next;
+}

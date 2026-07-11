@@ -13,7 +13,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import type { SliceQueueItem } from "@/lib/agents/sliceRunQueue";
-import { ArrowUp, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Trash2, X } from "lucide-react";
 
 type SliceQueueDrawerProps = {
   open: boolean;
@@ -22,6 +22,7 @@ type SliceQueueDrawerProps = {
   busy: boolean;
   onRemove: (id: string) => void;
   onBump: (id: string) => void;
+  onMove: (id: string, direction: "up" | "down") => void;
   onClear: () => void;
 };
 
@@ -32,6 +33,7 @@ export function SliceQueueDrawer({
   busy,
   onRemove,
   onBump,
+  onMove,
   onClear,
 }: SliceQueueDrawerProps) {
   return (
@@ -61,15 +63,39 @@ export function SliceQueueDrawer({
                   </div>
                   <div className="flex shrink-0 gap-1">
                     {index > 0 ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          aria-label={`Move ${item.label} up`}
+                          onClick={() => onMove(item.id, "up")}
+                          data-testid={`move-queue-up-${item.id}`}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          aria-label={`Bump ${item.label} to front`}
+                          onClick={() => onBump(item.id)}
+                          data-testid={`bump-queue-${item.id}`}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                        </Button>
+                      </>
+                    ) : null}
+                    {index < items.length - 1 ? (
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0"
-                        aria-label={`Bump ${item.label} to front`}
-                        onClick={() => onBump(item.id)}
-                        data-testid={`bump-queue-${item.id}`}
+                        aria-label={`Move ${item.label} down`}
+                        onClick={() => onMove(item.id, "down")}
+                        data-testid={`move-queue-down-${item.id}`}
                       >
-                        <ArrowUp className="h-3.5 w-3.5" />
+                        <ArrowDown className="h-3.5 w-3.5" />
                       </Button>
                     ) : null}
                     <Button

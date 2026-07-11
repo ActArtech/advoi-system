@@ -53,6 +53,8 @@ import type { SlicePreset } from "@/lib/agents/slicePresets";
 import {
   chainDraftLabel,
   deleteUserChain,
+  exportUserChainsJson,
+  importUserChainsJson,
   readUserChains,
   resolveUserChainPresets,
   saveUserChain,
@@ -105,6 +107,7 @@ import {
   createQueueEntry,
   dequeueSliceRun,
   enqueueSliceRun,
+  moveQueueItem,
   queueItemSnapshots,
   removeQueueItem,
   type SliceQueueEntry,
@@ -112,7 +115,10 @@ import {
 } from "@/lib/agents/sliceRunQueue";
 import {
   detectVoiceMirrorComplete,
+  isFailedMirrorStatus,
   shouldMirrorVoiceFrame,
+  voiceMirrorLogLabel,
+  voiceMirrorLogMode,
   voiceMirrorResultFromAgent,
   voiceMirrorStatusLabel,
   type RunFrameDetail,
@@ -167,6 +173,7 @@ export function AgentsOrchestrator() {
   const voiceMirrorPollRef = useRef<number | null>(null);
   const voiceMirrorFrameRef = useRef<string | null>(null);
   const voiceMirrorStartRef = useRef<number>(0);
+  const voiceMirrorSourceRef = useRef<string | undefined>(undefined);
   const runLogMetaRef = useRef<{ label: string; mode: RunExecutionMode }>({
     label: "Run",
     mode: "parallel",
@@ -179,6 +186,7 @@ export function AgentsOrchestrator() {
   const [userChains, setUserChains] = useState<UserPresetChain[]>([]);
   const [chainBuilderMode, setChainBuilderMode] = useState(false);
   const [chainDraftIds, setChainDraftIds] = useState<string[]>([]);
+  const [chainDispatchDraft, setChainDispatchDraft] = useState(false);
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -204,10 +212,25 @@ export function AgentsOrchestrator() {
       voiceMirrorFrameRef.current = null;
       setRunningFrames(new Set());
       const mirrored = voiceMirrorResultFromAgent(frameId, agentList);
+      const source = voiceMirrorSourceRef.current;
+      voiceMirrorSourceRef.current = undefined;
       if (mirrored) {
         setLastResults([mirrored]);
         const summary = mirrored.spoken_summary || `${mirrored.status ?? "ok"} · ${frameId}`;
         setStatus(`Voice sync complete: ${summary}`);
+        const failed = isFailedMirrorStatus(mirrored.status);
+        setHistoryLog(
+          appendSliceRunLog({
+            label: voiceMirrorLogLabel(frameId, source),
+            mode: voiceMirrorLogMode(frameId),
+            frameCount: 1,
+            okCount: failed ? 0 : 1,
+            failCount: failed ? 1 : 0,
+            summary: mirrored.spoken_summary,
+            frameIds: [frameId],
+          }),
+        );
+        setResultsOpen(true);
       } else {
         setStatus(`Voice sync complete: ${frameId}`);
       }
@@ -360,6 +383,15 @@ export function AgentsOrchestrator() {
     [syncQueueUi],
   );
 
+  const moveInQueue = useCallback(
+    (id: string, direction: "up" | "down") => {
+      runQueueRef.current = moveQueueItem(runQueueRef.current, id, direction);
+      syncQueueUi();
+      setStatus(direction === "up" ? "Moved batch up." : "Moved batch down.");
+    },
+    [syncQueueUi],
+  );
+
   useEffect(() => {
     if (!busy) processRunQueue();
   }, [busy, processRunQueue]);
@@ -380,6 +412,7 @@ export function AgentsOrchestrator() {
         clearVoiceMirrorPoll();
         voiceMirrorStartRef.current = Date.now();
         voiceMirrorFrameRef.current = detail.frameId ?? null;
+        voiceMirrorSourceRef.current = detail.source;
         setRunningFrames(new Set(detail?.frameId ? [detail.frameId] : []));
         setStatus(voiceMirrorStatusLabel(detail!));
         void reload();
@@ -839,12 +872,20 @@ export function AgentsOrchestrator() {
 
   const saveCustomChain = useCallback(() => {
     if (chainDraftIds.length < 2) return;
-    const label = chainDraftLabel(chainDraftIds, allPresets);
-    setUserChains(saveUserChain({ label, presetIds: chainDraftIds }));
+    let label = chainDraftLabel(chainDraftIds, allPresets);
+    if (chainDispatchDraft) label += " → Dispatch";
+    setUserChains(
+      saveUserChain({
+        label,
+        presetIds: chainDraftIds,
+        dispatchAfter: chainDispatchDraft || undefined,
+      }),
+    );
     setChainDraftIds([]);
+    setChainDispatchDraft(false);
     setChainBuilderMode(false);
     setStatus(`Saved chain "${label}"`);
-  }, [chainDraftIds, allPresets]);
+  }, [chainDraftIds, chainDispatchDraft, allPresets]);
 
   const removeUserChain = useCallback((id: string) => {
     setUserChains(deleteUserChain(id));
@@ -1024,6 +1065,19 @@ export function AgentsOrchestrator() {
     onError: (msg) => setStatus(msg),
   });
 
+  const chainsFilePicker = useJsonFilePicker({
+    onJson: (raw) => {
+      try {
+        const imported = importUserChainsJson(raw);
+        setUserChains(imported);
+        setStatus(`Imported ${imported.length} chain(s)`);
+      } catch {
+        setStatus("Invalid chains JSON");
+      }
+    },
+    onError: (msg) => setStatus(msg),
+  });
+
   const historyFilePicker = useJsonFilePicker({
     onJson: (raw) => {
       try {
@@ -1065,6 +1119,15 @@ export function AgentsOrchestrator() {
     presetsFilePicker.openPicker();
   }, [presetsFilePicker]);
 
+  const exportChains = useCallback(() => {
+    downloadJsonFile("advoi-slice-chains.json", exportUserChainsJson(userChains));
+    setStatus("Chains exported");
+  }, [userChains]);
+
+  const importChains = useCallback(() => {
+    chainsFilePicker.openPicker();
+  }, [chainsFilePicker]);
+
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
 
@@ -1089,6 +1152,16 @@ export function AgentsOrchestrator() {
         tabIndex={-1}
         onChange={historyFilePicker.onChange}
         data-testid="import-history-file-input"
+      />
+      <input
+        ref={chainsFilePicker.inputRef}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={chainsFilePicker.onChange}
+        data-testid="import-chains-file-input"
       />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={warmCount === totalAgents ? "success" : "secondary"}>
@@ -1185,15 +1258,24 @@ export function AgentsOrchestrator() {
         onDeleteUserChain={removeUserChain}
         chainBuilderMode={chainBuilderMode}
         onToggleChainBuilder={() => {
-          setChainBuilderMode((m) => !m);
-          if (chainBuilderMode) setChainDraftIds([]);
+          setChainBuilderMode((m) => {
+            if (m) {
+              setChainDraftIds([]);
+              setChainDispatchDraft(false);
+            }
+            return !m;
+          });
         }}
         chainDraftIds={chainDraftIds}
         onToggleChainPreset={toggleChainPreset}
         onSaveChain={saveCustomChain}
         canSaveChain={chainDraftIds.length >= 2}
+        chainDispatchAfter={chainDispatchDraft}
+        onToggleChainDispatch={() => setChainDispatchDraft((d) => !d)}
         onExportPresets={exportPresets}
         onImportPresets={importPresets}
+        onExportChains={exportChains}
+        onImportChains={importChains}
         onSelect={(preset) => void runPreset(preset)}
       />
 
@@ -1465,6 +1547,7 @@ export function AgentsOrchestrator() {
         busy={busy}
         onRemove={removeFromQueue}
         onBump={bumpInQueue}
+        onMove={moveInQueue}
         onClear={() => {
           clearRunQueue();
           setQueueOpen(false);

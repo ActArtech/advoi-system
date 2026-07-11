@@ -927,6 +927,42 @@ def bump_queue_item(queue: list[dict], item_id: str) -> list[dict]:
     return [item, *rest]
 
 
+def move_queue_item(queue: list[dict], item_id: str, direction: str) -> list[dict]:
+    idx = next((i for i, q in enumerate(queue) if q.get("id") == item_id), -1)
+    if idx < 0:
+        return queue
+    target = idx - 1 if direction == "up" else idx + 1
+    if target < 0 or target >= len(queue):
+        return queue
+    next_q = list(queue)
+    next_q[idx], next_q[target] = next_q[target], next_q[idx]
+    return next_q
+
+
+def is_failed_mirror_status(status: str | None) -> bool:
+    return status in ("error", "failed")
+
+
+def voice_mirror_log_label(frame_id: str, source: str | None = None) -> str:
+    preset_id = frame_id_to_preset_id(frame_id)
+    preset = preset_by_id(preset_id) if preset_id else None
+    base = preset["label"] if preset else frame_id.replace("_", " ")
+    src = (source or "voice").replace("_", " ")
+    return f"Voice: {base} ({src})"
+
+
+def voice_mirror_log_mode(frame_id: str) -> str:
+    preset_id = frame_id_to_preset_id(frame_id)
+    preset = preset_by_id(preset_id or "")
+    return preset["mode"] if preset else "stagger"
+
+
+def export_user_chains_json(chains: list[dict]) -> str:
+    import json
+
+    return json.dumps({"version": 1, "exportedAt": 0, "chains": chains}, indent=2)
+
+
 def chain_draft_label(preset_ids: list[str], presets: list[dict]) -> str:
     by_id = {p["id"]: p["label"] for p in presets}
     return " → ".join(by_id.get(pid, pid) for pid in preset_ids)
@@ -966,6 +1002,42 @@ def test_queue_remove_and_bump() -> None:
     assert [x["label"] for x in q] == ["A", "C"]
     q = bump_queue_item(q, "c")
     assert [x["label"] for x in q] == ["C", "A"]
+
+
+def test_queue_move_up_down() -> None:
+    q = [{"id": "a", "label": "A"}, {"id": "b", "label": "B"}, {"id": "c", "label": "C"}]
+    q = move_queue_item(q, "b", "up")
+    assert [x["label"] for x in q] == ["B", "A", "C"]
+    q = move_queue_item(q, "a", "down")
+    assert [x["label"] for x in q] == ["B", "C", "A"]
+    assert [x["label"] for x in move_queue_item(q, "b", "up")] == ["B", "C", "A"]
+
+
+def test_voice_mirror_log_helpers() -> None:
+    assert is_failed_mirror_status("error")
+    assert is_failed_mirror_status("failed")
+    assert not is_failed_mirror_status("ok")
+    label = voice_mirror_log_label(MORNING_PULSE_FRAME_ID, "morning_pulse_cta")
+    assert "Morning pulse" in label
+    assert "morning pulse cta" in label
+    assert voice_mirror_log_mode(MORNING_PULSE_FRAME_ID) == "stagger"
+    assert voice_mirror_log_mode("fleet_status") == "stagger"
+
+
+def test_export_user_chains_json() -> None:
+    chains = [
+        {
+            "id": "uchain_ops_intel",
+            "label": "Ops → Intel → Dispatch",
+            "presetIds": ["ops_core", "intel"],
+            "dispatchAfter": True,
+            "source": "user",
+        }
+    ]
+    raw = export_user_chains_json(chains)
+    assert '"version": 1' in raw
+    assert "uchain_ops_intel" in raw
+    assert "dispatchAfter" in raw
 
 
 def test_chain_draft_label() -> None:

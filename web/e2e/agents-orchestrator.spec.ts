@@ -13,20 +13,24 @@ import {
   resolveOrchestrateFrameIds,
   DEFAULT_SIX_FRAME_IDS,
 } from "../lib/agents/agentSlices";
-import { chainDraftLabel } from "../lib/agents/customUserChains";
+import { chainDraftLabel, exportUserChainsJson } from "../lib/agents/customUserChains";
 import { SLICE_PRESETS, presetById } from "../lib/agents/slicePresets";
 import { PRESET_CHAINS, chainById } from "../lib/agents/presetChain";
 import {
   bumpQueueItem,
   createQueueEntry,
   enqueueSliceRun,
+  moveQueueItem,
   queueItemSnapshots,
   removeQueueItem,
 } from "../lib/agents/sliceRunQueue";
 import {
   detectVoiceMirrorComplete,
   frameIdToPresetId,
+  isFailedMirrorStatus,
   shouldMirrorVoiceFrame,
+  voiceMirrorLogLabel,
+  voiceMirrorLogMode,
   voiceMirrorResultFromAgent,
 } from "../lib/agents/voiceFrameBridge";
 
@@ -100,6 +104,17 @@ test("slice run queue enqueue remove bump snapshots", async () => {
   expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["C", "A"]);
 });
 
+test("slice run queue move up and down", async () => {
+  const a = createQueueEntry("A", async () => {});
+  const b = createQueueEntry("B", async () => {});
+  const c = createQueueEntry("C", async () => {});
+  let q = enqueueSliceRun(enqueueSliceRun(enqueueSliceRun([], a), b), c);
+  q = moveQueueItem(q, b.id, "up");
+  expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["B", "A", "C"]);
+  q = moveQueueItem(q, a.id, "down");
+  expect(queueItemSnapshots(q).map((x) => x.label)).toEqual(["B", "C", "A"]);
+});
+
 test("chainDraftLabel joins preset labels", async () => {
   const label = chainDraftLabel(["morning_pulse", "ops_core"], SLICE_PRESETS);
   expect(label).toContain("Morning pulse");
@@ -125,6 +140,24 @@ test("voice mirror detects completion and result", async () => {
   expect(detectVoiceMirrorComplete("systems_pulse", agents, 3000)).toBe(false);
   const result = voiceMirrorResultFromAgent("systems_pulse", agents);
   expect(result?.spoken_summary).toBe("Pulse ok");
+  expect(isFailedMirrorStatus("error")).toBe(true);
+  expect(isFailedMirrorStatus("ok")).toBe(false);
+  expect(voiceMirrorLogLabel("systems_pulse", "morning_pulse_cta")).toContain("Morning pulse");
+  expect(voiceMirrorLogMode("systems_pulse")).toBe("stagger");
+});
+
+test("exportUserChainsJson includes dispatchAfter", async () => {
+  const json = exportUserChainsJson([
+    {
+      id: "uchain_test",
+      label: "Test chain",
+      presetIds: ["morning_pulse", "ops_core"],
+      dispatchAfter: true,
+      source: "user",
+    },
+  ]);
+  expect(json).toContain("uchain_test");
+  expect(json).toContain("dispatchAfter");
 });
 
 test("agents tab shows orchestrator and wave preview", async ({ page }) => {
