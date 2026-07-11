@@ -180,6 +180,17 @@ def build_capabilities_payload() -> dict[str, Any]:
             "voice_phrases": ["what can you do", "list commands"],
         },
         {
+            "id": "switch_project",
+            "label": "Switch active portfolio project",
+            "voice_phrases": [
+                "switch to gem dev shop",
+                "open advoi",
+                "activate firstmate fleet",
+                "work on hermes",
+            ],
+            "api": "POST /api/portfolio/active",
+        },
+        {
             "id": "stop_agents",
             "label": "Pause background agent daemons",
             "voice_phrases": ["stop agents", "pause agents", "stop the system"],

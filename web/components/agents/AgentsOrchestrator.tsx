@@ -101,6 +101,9 @@ import {
   runSixParallel,
 } from "@/lib/agents/orchestrateClient";
 import { useTabNavigation } from "@/components/shell/TabContext";
+import { useProjectContext } from "@/components/shell/ProjectContext";
+import { filterSquadsForVenture } from "@/lib/portfolio/projectModel";
+import type { SquadRow } from "@/lib/agents/types";
 import type {
   AgentSliceModel,
   FrameRunResult,
@@ -169,6 +172,7 @@ const MODE_OPTIONS: { mode: RunExecutionMode; label: string; icon: typeof Zap }[
 
 export function AgentsOrchestrator() {
   const tabNav = useTabNavigation();
+  const projectCtx = useProjectContext();
   const [agents, setAgents] = useState<Awaited<ReturnType<typeof fetchAgents>>>([]);
   const [frames, setFrames] = useState<Awaited<ReturnType<typeof fetchFrames>>>([]);
   const [squads, setSquads] = useState<Awaited<ReturnType<typeof fetchSquads>>>([]);
@@ -309,21 +313,39 @@ export function AgentsOrchestrator() {
     return () => window.clearInterval(t);
   }, [reload]);
 
-  const squadMap = useMemo(() => squadMembershipMap(squads), [squads]);
+  const scopedSquads = useMemo(
+    () => filterSquadsForVenture<SquadRow>(squads, projectCtx?.activeVentureId),
+    [squads, projectCtx?.activeVentureId],
+  );
+
+  const scopedFrames = useMemo(() => {
+    const ventureFrames = projectCtx?.activeVenture?.functions
+      .filter((row) => row.kind === "frame" && row.frame_id)
+      .map((row) => row.frame_id as string);
+    if (!ventureFrames || ventureFrames.length === 0) return frames;
+    const allowed = new Set(ventureFrames);
+    const filtered = frames.filter((row) => allowed.has(row.id));
+    return filtered.length > 0 ? filtered : frames;
+  }, [frames, projectCtx?.activeVenture]);
+
+  const squadMap = useMemo(() => squadMembershipMap(scopedSquads), [scopedSquads]);
 
   const agentSlices = useMemo(
     () =>
-      buildAgentSlices(agents, frames, {
+      buildAgentSlices(agents, scopedFrames, {
         selectedIds: selected,
         runningFrameIds: runningFrames,
         queuedFrameIds: queuedFrames,
         results: lastResults,
         squadByAgent: squadMap,
       }),
-    [agents, frames, selected, runningFrames, queuedFrames, lastResults, squadMap],
+    [agents, scopedFrames, selected, runningFrames, queuedFrames, lastResults, squadMap],
   );
 
-  const squadSlices = useMemo(() => buildSquadSlices(squads, agents), [squads, agents]);
+  const squadSlices = useMemo(
+    () => buildSquadSlices(scopedSquads, agents),
+    [scopedSquads, agents],
+  );
   const phaseCounts = useMemo(() => countSlicesByPhase(agentSlices), [agentSlices]);
   const resultRows = useMemo(
     () => buildResultRows(agentSlices, lastResults),

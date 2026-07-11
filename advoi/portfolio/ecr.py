@@ -13,6 +13,7 @@ ExecutionSource = Literal["ecr", "gate", "fallback"]
 _DEFAULT_EXECUTION_CONTEXT_PATH = "data/portfolio/execution-context.yaml"
 
 _CONTEXT: dict[str, Any] | None = None
+_SESSION_OVERRIDE: dict[str, Any] | None = None
 
 
 def execution_context_path() -> Path:
@@ -104,6 +105,33 @@ def reload_execution_context(*, path: Path | None = None) -> dict[str, Any]:
     return load_execution_context(path=path)
 
 
+def set_session_active_venture(venture_id: str | None) -> dict[str, Any]:
+    """PWA/voice session override for active venture. None clears override."""
+    global _SESSION_OVERRIDE  # noqa: PLW0603
+    if not venture_id:
+        _SESSION_OVERRIDE = None
+        return resolve_execution_target()
+
+    matched = _match_venture(load_execution_context(), venture_id)
+    if matched:
+        _SESSION_OVERRIDE = {
+            "venture_id": str(matched.get("venture_id") or venture_id),
+            "fleet_slug": str(matched.get("fleet_slug") or venture_id),
+            "github_repo": matched.get("github_repo"),
+        }
+    else:
+        _SESSION_OVERRIDE = {
+            "venture_id": venture_id.strip(),
+            "fleet_slug": venture_id.strip().lower(),
+            "github_repo": None,
+        }
+    return resolve_execution_target()
+
+
+def clear_session_active_venture() -> None:
+    set_session_active_venture(None)
+
+
 def _venture_entries(ctx: dict[str, Any]) -> list[dict[str, Any]]:
     ventures = ctx.get("ventures") or []
     if isinstance(ventures, dict):
@@ -154,6 +182,14 @@ def _target_dict(
 
 def resolve_execution_target(*, gate_active_slug: str | None = None) -> dict[str, Any]:
     """Resolve active execution target from ECR, optional gate slug, or env fallback."""
+    if _SESSION_OVERRIDE:
+        return _target_dict(
+            venture_id=str(_SESSION_OVERRIDE.get("venture_id") or ""),
+            fleet_slug=str(_SESSION_OVERRIDE.get("fleet_slug") or ""),
+            github_repo=_SESSION_OVERRIDE.get("github_repo"),
+            source="session",
+        )
+
     ctx = load_execution_context()
     active = ctx.get("active_execution_target") or {}
 

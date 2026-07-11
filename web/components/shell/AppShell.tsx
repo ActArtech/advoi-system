@@ -8,6 +8,8 @@ import {
   useTabNavigation,
   type AdvoiTab,
 } from "@/components/shell/TabContext";
+import { ProjectProvider } from "@/components/shell/ProjectContext";
+import { ProjectSelector } from "@/components/shell/ProjectSelector";
 
 type NavItem = { tab: AdvoiTab; label: string; icon: LucideIcon };
 
@@ -27,17 +29,20 @@ type AppShellProps = {
 
 export function AppShell({ voicePane, agentsPane, briefsPane, morePane }: AppShellProps) {
   return (
-    <TabProvider>
-      <div className="flex h-dvh flex-col overflow-hidden">
-        <TabScroll
-          voicePane={voicePane}
-          agentsPane={agentsPane}
-          briefsPane={briefsPane}
-          morePane={morePane}
-        />
-        <BottomNav />
-      </div>
-    </TabProvider>
+    <ProjectProvider>
+      <TabProvider>
+        <div className="flex h-dvh flex-col overflow-hidden">
+          <ProjectSelector />
+          <TabScroll
+            voicePane={voicePane}
+            agentsPane={agentsPane}
+            briefsPane={briefsPane}
+            morePane={morePane}
+          />
+          <BottomNav />
+        </div>
+      </TabProvider>
+    </ProjectProvider>
   );
 }
 

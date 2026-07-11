@@ -269,6 +269,53 @@ async def warm_spoken_reply(
                 _LOGGER.debug("voice fleet confirm retain skip: %s", exc)
             return reply
 
+    from advoi.portfolio.projects import (
+        activate_project,
+        classify_project_voice_intent,
+        spoken_project_switch,
+    )
+
+    project_intent = classify_project_voice_intent(text)
+    if project_intent:
+        venture_id = str(project_intent.get("venture_id") or "")
+        frame_id = project_intent.get("frame_id")
+        function_id = str(frame_id) if frame_id else None
+        activated = activate_project(venture_id, function_id=function_id)
+        if not activated.get("ok"):
+            return VoiceReply(
+                spoken=f"I could not find project {venture_id}.",
+                action=str(project_intent["action"]),
+                agent_id="advoi-core",
+                agent_name="ADVoi Core",
+                systems=["portfolio"],
+            )
+        if frame_id:
+            result = await run_frame(str(frame_id), confirmed=True)
+            reply = _reply_from_frame(result)
+            reply.spoken = spoken_project_switch(
+                str(activated["venture_id"]),
+                function_id=str(frame_id),
+            )
+            try:
+                await retain_turn(session_id=session_id, role="user", text=text)
+                await retain_turn(session_id=session_id, role="assistant", text=reply.spoken)
+            except Exception as exc:
+                _LOGGER.debug("voice project frame retain skip: %s", exc)
+            return reply
+        spoken = spoken_project_switch(str(activated["venture_id"]))
+        try:
+            await retain_turn(session_id=session_id, role="user", text=text)
+            await retain_turn(session_id=session_id, role="assistant", text=spoken)
+        except Exception as exc:
+            _LOGGER.debug("voice project switch retain skip: %s", exc)
+        return VoiceReply(
+            spoken=spoken,
+            action=str(project_intent["action"]),
+            agent_id="advoi-core",
+            agent_name="ADVoi Core",
+            systems=["portfolio"],
+        )
+
     op = classify_operator_intent(text)
     if op == "stop_agents" and _stop_agents_needs_confirm(text):
         return VoiceReply(

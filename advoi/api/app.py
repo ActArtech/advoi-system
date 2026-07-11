@@ -612,9 +612,17 @@ class VoiceIntentResponse(BaseModel):
     action: str
     frame_id: str | None = None
     frame_label: str | None = None
+    venture_id: str | None = None
+    venture_name: str | None = None
+    function_id: str | None = None
     confirmed: bool | None = None
     preview: FrameRunResponse | None = None
     operator_preview: VoiceOperatorPreview | None = None
+
+
+class PortfolioActiveRequest(BaseModel):
+    venture_id: str
+    function_id: str | None = None
 
 
 @app.get("/api/capabilities")
@@ -624,8 +632,26 @@ async def capabilities_catalog() -> dict[str, Any]:
     return build_capabilities_payload()
 
 
+@app.get("/api/portfolio/projects")
+async def portfolio_projects() -> dict[str, Any]:
+    from advoi.portfolio.projects import build_projects_catalog
+
+    return build_projects_catalog()
+
+
+@app.post("/api/portfolio/active")
+async def portfolio_set_active(body: PortfolioActiveRequest) -> dict[str, Any]:
+    from advoi.portfolio.projects import activate_project
+
+    result = activate_project(body.venture_id, function_id=body.function_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail=result.get("error", "Unknown venture"))
+    return result
+
+
 @app.post("/api/voice/intent", response_model=VoiceIntentResponse)
 async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
+    from advoi.portfolio.projects import activate_project, classify_project_voice_intent
     from advoi.voice.capabilities import classify_operator_intent
     from advoi.voice.respond import _reply_operator_intent
 
@@ -650,9 +676,42 @@ async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
             action=op,
             frame_id=None,
             frame_label=None,
+            venture_id=None,
+            venture_name=None,
+            function_id=None,
             confirmed=None,
             preview=None,
             operator_preview=operator_preview,
+        )
+
+    project_intent = classify_project_voice_intent(body.transcript)
+    if project_intent:
+        action_name = str(project_intent["action"])
+        venture_id = str(project_intent.get("venture_id") or "")
+        frame_id = project_intent.get("frame_id")
+        function_id = str(frame_id) if frame_id else None
+        activated = activate_project(venture_id, function_id=function_id)
+        venture_name = activated.get("venture_name")
+        preview: FrameRunResponse | None = None
+        confirmed: bool | None = None
+        frame_label: str | None = None
+        if frame_id and body.preview:
+            require_frame_id(str(frame_id))
+            confirmed = True
+            result = await run_frame(str(frame_id), confirmed=True)
+            preview = _frame_run_response(result)
+            frame_label = frame_intent_label(str(frame_id))
+        return VoiceIntentResponse(
+            transcript=body.transcript,
+            action=action_name,
+            frame_id=str(frame_id) if frame_id else None,
+            frame_label=frame_label,
+            venture_id=venture_id,
+            venture_name=str(venture_name) if venture_name else None,
+            function_id=function_id,
+            confirmed=confirmed,
+            preview=preview,
+            operator_preview=None,
         )
 
     action = resolve_voice_action(body.transcript)
@@ -670,6 +729,9 @@ async def voice_intent(body: VoiceIntentRequest) -> VoiceIntentResponse:
         action=action["action"],
         frame_id=frame_id,
         frame_label=frame_intent_label(frame_id) if frame_id else None,
+        venture_id=None,
+        venture_name=None,
+        function_id=None,
         confirmed=confirmed,
         preview=preview,
     )

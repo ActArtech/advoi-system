@@ -32,6 +32,7 @@ import {
   emitBeaconForUiEvent,
   emitPwaBeacon,
 } from "./pwaBeacon";
+import { PROJECT_SWITCH_EVENT } from "@/lib/portfolio/projectModel";
 import {
   INITIAL_UI_SESSION,
   reduceUiSession,
@@ -578,6 +579,41 @@ export function VoiceSession() {
                 : "";
             setStatus(spoken + agentNote);
             await publishSpeak(spoken);
+            return;
+          }
+          const projectAction = data.action as string | undefined;
+          const ventureId = data.venture_id as string | undefined;
+          if (
+            ventureId &&
+            (projectAction === "switch_project" || projectAction === "activate_function")
+          ) {
+            const ventureName = data.venture_name as string | undefined;
+            const functionId = data.function_id as string | undefined;
+            const frameId = data.frame_id as string | undefined;
+            window.dispatchEvent(
+              new CustomEvent(PROJECT_SWITCH_EVENT, {
+                detail: {
+                  ventureId,
+                  ventureName,
+                  functionId,
+                  frameId,
+                  source: "voice",
+                },
+              }),
+            );
+            const preview = data.preview?.spoken_summary as string | undefined;
+            const spoken =
+              preview ??
+              (ventureName
+                ? `Switched to ${ventureName}.`
+                : `Switched to ${ventureId}.`);
+            setConfirmUi(null);
+            setStatus(stripEmDash(spoken));
+            await publishSpeak(spoken);
+            dispatchUi({ type: "FRAME_OK" });
+            if (frameId && preview) {
+              void loadAgents();
+            }
             return;
           }
           const preview = data.preview?.spoken_summary as string | undefined;
