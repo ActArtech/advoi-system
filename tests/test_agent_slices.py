@@ -1141,6 +1141,59 @@ def test_reorder_queue_item() -> None:
     assert [x["label"] for x in reordered] == ["C", "A", "B"]
 
 
+SLICE_QUICK_PICKS = [
+    {"id": "all", "label": "All 6", "action": "all"},
+    {"id": "ops", "label": "Ops", "presetId": "ops_core"},
+    {"id": "intel", "label": "Intel", "presetId": "intel"},
+    {"id": "pulse", "label": "Pulse", "presetId": "morning_pulse"},
+    {"id": "clear", "label": "Clear", "action": "clear"},
+]
+
+
+def quick_pick_by_id(pick_id: str) -> dict | None:
+    return next((p for p in SLICE_QUICK_PICKS if p["id"] == pick_id), None)
+
+
+def agent_ids_for_frame_ids(frame_ids: list[str], slices: list[dict]) -> list[str]:
+    wanted = set(frame_ids)
+    return [s["agentId"] for s in slices if s.get("frameId") in wanted]
+
+
+def agent_ids_for_quick_pick(pick: dict, slices: list[dict]) -> list[str]:
+    if pick.get("action") == "clear":
+        return []
+    if pick.get("action") == "all":
+        return agent_ids_for_frame_ids(list(DEFAULT_SIX), slices)
+    preset_id = pick.get("presetId")
+    if preset_id:
+        preset = preset_by_id(preset_id)
+        if preset:
+            return agent_ids_for_frame_ids(list(preset["frameIds"]), slices)
+    return []
+
+
+def active_wave_labels(running_frame_ids: list[str]) -> str:
+    return " · ".join(short_frame_label(fid) for fid in running_frame_ids)
+
+
+def test_slice_quick_picks() -> None:
+    assert len(SLICE_QUICK_PICKS) == 5
+    slices = [
+        {"agentId": f"agent-{i}", "frameId": fid}
+        for i, fid in enumerate(DEFAULT_SIX)
+    ]
+    ops_pick = quick_pick_by_id("ops")
+    assert ops_pick is not None
+    assert len(agent_ids_for_quick_pick(ops_pick, slices)) == 3
+    all_pick = quick_pick_by_id("all")
+    assert all_pick is not None
+    assert len(agent_ids_for_quick_pick(all_pick, slices)) == 6
+
+
+def test_active_wave_labels() -> None:
+    assert active_wave_labels(["fleet_status", "open_briefs"]) == "fleet · briefs"
+
+
 def test_describe_bundle_import() -> None:
     assert "presets" in describe_bundle_import(["presets", "chains"])
     assert describe_bundle_import([]) == "Nothing imported"

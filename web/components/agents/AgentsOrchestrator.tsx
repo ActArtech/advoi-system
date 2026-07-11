@@ -19,12 +19,14 @@ import {
 import { Button } from "@/components/ui/button";
 import styles from "@/components/agents/agentsTheme.module.css";
 import { AgentSliceTile } from "@/components/agents/AgentSliceTile";
+import { SliceQuickPicksBar } from "@/components/agents/SliceQuickPicksBar";
 import { SlicePresetsBar } from "@/components/agents/SlicePresetsBar";
 import { SliceResultsDrawer } from "@/components/agents/SliceResultsDrawer";
 import { SliceQueueDrawer } from "@/components/agents/SliceQueueDrawer";
 import { SliceRunHistoryDrawer } from "@/components/agents/SliceRunHistoryDrawer";
 import { SliceWavePreview } from "@/components/agents/SliceWavePreview";
 import {
+  activeWaveLabels,
   buildAgentSlices,
   buildResultRows,
   buildSquadSlices,
@@ -67,6 +69,10 @@ import {
   resolveChainPresets,
 } from "@/lib/agents/presetChain";
 import { allPresetsForBar } from "@/lib/agents/slicePresets";
+import {
+  agentIdsForQuickPick,
+  quickPickById,
+} from "@/lib/agents/sliceQuickPicks";
 import {
   appendSliceRunLog,
   clearSliceRunLog,
@@ -368,6 +374,23 @@ export function AgentsOrchestrator() {
     },
     [busy, syncQueueUi],
   );
+
+  const stackBatch = useCallback(
+    (label: string, runFn: () => Promise<void>) => {
+      runQueueRef.current = enqueueSliceRun(
+        runQueueRef.current,
+        createQueueEntry(label, runFn),
+      );
+      syncQueueUi();
+      setStatus(`Stacked "${label}" · ${runQueueRef.current.length} in queue`);
+    },
+    [syncQueueUi],
+  );
+
+  const runQueueNow = useCallback(() => {
+    if (busy || runQueueRef.current.length === 0) return;
+    processRunQueue();
+  }, [busy, processRunQueue]);
 
   const clearRunQueue = useCallback(() => {
     runQueueRef.current = [];
@@ -1016,6 +1039,43 @@ export function AgentsOrchestrator() {
     runWithPlan(frameIds, runMode, "Retry failed");
   }, [lastResults, runMode, runWithPlan]);
 
+  const runSelectedStagger = useCallback(() => {
+    const frameIds = resolveOrchestrateFrameIds(
+      agentSlices,
+      selected.size > 0 ? "selected" : "all_six",
+    );
+    runWithPlan(frameIds, "stagger", selected.size > 0 ? "Selected stagger" : "All six stagger");
+  }, [agentSlices, selected.size, runWithPlan]);
+
+  const applyQuickPick = useCallback(
+    (pickId: string) => {
+      const pick = quickPickById(pickId);
+      if (!pick) return;
+      if (pick.action === "clear") {
+        setSelected(new Set());
+        setStatus("Selection cleared");
+        return;
+      }
+      const ids = agentIdsForQuickPick(pick, agentSlices);
+      setSelected(new Set(ids));
+      setMultiMode(true);
+      setStatus(`Selected ${ids.length} slice${ids.length === 1 ? "" : "s"} (${pick.label})`);
+    },
+    [agentSlices],
+  );
+
+  const selectAllSlices = useCallback(() => {
+    setMultiMode(true);
+    setSelected(new Set(agentSlices.map((s) => s.agentId)));
+    setStatus(`Selected all ${agentSlices.length} slices`);
+  }, [agentSlices]);
+
+  const stackSelectedBatch = useCallback(() => {
+    const scope = selected.size > 0 ? "selected" : "all_six";
+    const label = scope === "selected" ? `Selected (${selected.size})` : "All six";
+    stackBatch(label, () => runParallelInternal(scope));
+  }, [selected.size, stackBatch, runParallelInternal]);
+
   const runOneSlice = useCallback(
     (slice: AgentSliceModel) => {
       runWithPlan([slice.frameId], "stagger", slice.shortLabel);
@@ -1140,6 +1200,7 @@ export function AgentsOrchestrator() {
     busy,
     failedCount,
     selectedCount: selected.size,
+    multiMode,
     chainSuggestionCount: chainSuggestions.length,
     queueDepth,
     onRunSlice: runOneSlice,
@@ -1148,13 +1209,22 @@ export function AgentsOrchestrator() {
     onToggleMulti: () => setMultiMode((m) => !m),
     onRunAll: () => void runParallel("all_six"),
     onRunSelected: () => void runParallel("selected"),
+    onRunSelectedStagger: () => void runSelectedStagger(),
     onRunChainSuggestion: () => {
       const primary = chainSuggestions[0];
       if (!primary) return;
       setChainSuggestions([]);
       void runPresetChain(primary.chainId);
     },
+    onRunSecondaryChainSuggestion: () => {
+      const secondary = chainSuggestions[1];
+      if (!secondary) return;
+      setChainSuggestions([]);
+      void runPresetChain(secondary.chainId);
+    },
     onOpenQueue: () => setQueueOpen(true),
+    onOpenHistory: () => setHistoryOpen(true),
+    onSelectAll: selectAllSlices,
   });
 
   const exportHistory = useCallback(() => {
@@ -1211,6 +1281,7 @@ export function AgentsOrchestrator() {
 
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
+  const activeWave = busy && runningFrames.size > 0 ? activeWaveLabels(runningFrames) : null;
 
   return (
     <div className={cn("stagger-children", styles.root)} data-testid="agents-orchestrator" data-ui-version="v2">
@@ -1280,6 +1351,11 @@ export function AgentsOrchestrator() {
               {runningFrames.size} active
             </span>
           ) : null}
+          {activeWave ? (
+            <span className={styles.activeWaveChip} data-testid="active-wave-labels">
+              Now: {activeWave}
+            </span>
+          ) : null}
           {phaseCounts.queued > 0 ? (
             <span className={styles.stateChip}>{phaseCounts.queued} queued</span>
           ) : null}
@@ -1323,6 +1399,7 @@ export function AgentsOrchestrator() {
           </p>
         </div>
         <div className={styles.panelBody}>
+          <SliceQuickPicksBar disabled={busy} onPick={applyQuickPick} />
           <div className={styles.sliceGrid} data-testid="agent-slice-grid" aria-label="Agent slices">
             {agentSlices.map((slice, index) => (
               <AgentSliceTile
@@ -1381,6 +1458,37 @@ export function AgentsOrchestrator() {
             <Layers className="h-4 w-4" />
             Run {selected.size || "selected"}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void runSelectedStagger()}
+            data-testid="run-selected-stagger"
+          >
+            <ListOrdered className="h-4 w-4" />
+            Stagger
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={stackSelectedBatch}
+            data-testid="stack-selected-batch"
+          >
+            <ListPlus className="h-4 w-4" />
+            Stack queue
+          </Button>
+          {!busy && queueDepth > 0 ? (
+            <button
+              type="button"
+              className={styles.ctaPrimary}
+              onClick={runQueueNow}
+              data-testid="run-queue-now"
+            >
+              <Play className="h-4 w-4" />
+              Run queue ({queueDepth})
+            </button>
+          ) : null}
           {failedCount > 0 ? (
             <Button size="sm" variant="secondary" disabled={busy} onClick={() => void retryFailed()} data-testid="retry-failed-slices">
               <RefreshCw className="h-4 w-4" />
@@ -1482,7 +1590,10 @@ export function AgentsOrchestrator() {
               Dismiss
             </Button>
           </div>
-          <p className={styles.suggestionHint}>Press C for {chainSuggestions[0]?.label}</p>
+          <p className={styles.suggestionHint}>
+            C {chainSuggestions[0]?.label}
+            {chainSuggestions[1] ? ` · Shift+C ${chainSuggestions[1].label}` : ""}
+          </p>
         </div>
       ) : null}
 
@@ -1631,7 +1742,7 @@ export function AgentsOrchestrator() {
             : "Stagger: one slice at a time. "}
         {multiMode
           ? "Multi-select then Run selected or Save preset."
-          : "Tap slice to run (1-6). Enter run all/selected · C chain · Q queue · R retry · Esc cancel."}
+          : "1-6 run slice · Enter batch · Shift+Enter stagger · A select all · C / Shift+C chains · Q queue · H history."}
       </p>
 
       <SliceResultsDrawer

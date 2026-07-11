@@ -39,6 +39,11 @@ export function shortFrameLabel(frameId: string): string {
   return FRAME_SHORT[frameId] ?? frameId.replace(/_/g, " ").slice(0, 8);
 }
 
+/** Comma-free label for frames currently executing in a wave. */
+export function activeWaveLabels(runningFrameIds: Iterable<string>): string {
+  return [...runningFrameIds].map(shortFrameLabel).join(" · ");
+}
+
 /** Relative label for agent.last_run.timestamp (e.g. "just now", "5m ago"). */
 export function formatLastRunRelative(ts: string | number | undefined | null): string | undefined {
   if (ts == null || ts === "") return undefined;

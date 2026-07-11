@@ -7,12 +7,18 @@
 
 import { test, expect } from "@playwright/test";
 import {
+  activeWaveLabels,
   chunkFrameWaves,
   describeWavePlan,
   frameIdsFromFailedResults,
   resolveOrchestrateFrameIds,
   DEFAULT_SIX_FRAME_IDS,
 } from "../lib/agents/agentSlices";
+import {
+  agentIdsForQuickPick,
+  quickPickById,
+  SLICE_QUICK_PICKS,
+} from "../lib/agents/sliceQuickPicks";
 import { chainDraftLabel, exportUserChainsJson } from "../lib/agents/customUserChains";
 import {
   describeBundleImport,
@@ -215,6 +221,30 @@ test("voice mirror suggests morning_then_ops after pulse", async () => {
   expect(suggestion?.chainId).toBe("morning_then_ops");
   expect(suggestion?.label).toContain("Pulse");
   expect(voiceMirrorChainSuggestion("systems_pulse", "error")).toBeNull();
+});
+
+test("slice quick picks cover ops intel and all", async () => {
+  expect(SLICE_QUICK_PICKS.length).toBe(5);
+  const ops = quickPickById("ops");
+  expect(ops?.presetId).toBe("ops_core");
+  const slices = DEFAULT_SIX_FRAME_IDS.map((frameId, i) => ({
+    agentId: `agent-${i}`,
+    frameId,
+    label: frameId,
+    shortLabel: frameId.slice(0, 4),
+    warm: true,
+    phase: "idle" as const,
+    selected: false,
+    squadIds: [],
+  }));
+  const opsIds = agentIdsForQuickPick(ops!, slices);
+  expect(opsIds).toHaveLength(3);
+  const allIds = agentIdsForQuickPick(quickPickById("all")!, slices);
+  expect(allIds).toHaveLength(6);
+});
+
+test("activeWaveLabels joins running frame shorts", async () => {
+  expect(activeWaveLabels(["fleet_status", "open_briefs"])).toBe("fleet · briefs");
 });
 
 test("voice mirror suggests ops and full six chains", async () => {
