@@ -108,7 +108,8 @@ export function buildAgentSlices(
     if (running.has(frameId)) phase = "running";
     else if (queued.has(frameId)) phase = "queued";
     else if (result?.status === "ok" || result?.status === "success") phase = "ok";
-    else if (result?.status) phase = result.status === "error" ? "error" : "ok";
+    else if (isFailedResultStatus(result?.status)) phase = "error";
+    else if (result?.status) phase = "ok";
 
     const lastRunTs =
       "last_run" in agent ? agent.last_run?.timestamp : undefined;
@@ -252,7 +253,7 @@ export function mergeOrchestratePayloads(
   };
 }
 
-function isFailedResultStatus(status?: string): boolean {
+export function isFailedResultStatus(status?: string): boolean {
   return status === "error" || status === "failed";
 }
 

@@ -640,7 +640,7 @@ export function AgentsOrchestrator() {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Squad slices — tap run, long-press dispatch
+              Squad slices — Run or Dispatch per crew
             </p>
             {squads.length > 1 ? (
               <>

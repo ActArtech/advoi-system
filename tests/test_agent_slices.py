@@ -83,6 +83,10 @@ def preset_by_id(preset_id: str) -> dict | None:
     return next((p for p in SLICE_PRESETS if p["id"] == preset_id), None)
 
 
+def is_failed_result_status(status: str | None) -> bool:
+    return status in ("error", "failed")
+
+
 def frame_ids_from_selected(slices: list[dict]) -> list[str]:
     return [s["frameId"] for s in slices if s.get("selected")]
 
@@ -140,7 +144,7 @@ def build_agent_slices(
             if status in ("ok", "success"):
                 phase = "ok"
             elif status:
-                phase = "error" if status == "error" else "ok"
+                phase = "error" if is_failed_result_status(status) else "ok"
 
         last_run = agent.get("last_run") or {}
         row = {
@@ -220,10 +224,6 @@ def run_progress_model(
         "totalFrames": total_frames,
         "percent": percent,
     }
-
-
-def is_failed_result_status(status: str | None) -> bool:
-    return status in ("error", "failed")
 
 
 def frame_ids_from_failed_results(results: list[dict]) -> list[str]:
@@ -340,6 +340,23 @@ def test_resolve_selected_picked() -> None:
         "fleet_status",
         "open_briefs",
     ]
+
+
+def test_build_slices_failed_phase() -> None:
+    agents = [{"id": "systems-pulse", "cached": False}]
+    frames = [
+        {
+            "id": "systems_pulse",
+            "label": "Systems pulse",
+            "agent_id": "systems-pulse",
+        }
+    ]
+    slices = build_agent_slices(
+        agents,
+        frames,
+        results=[{"frame_id": "systems_pulse", "status": "failed"}],
+    )
+    assert slices[0]["phase"] == "error"
 
 
 def test_build_slices_running_phase() -> None:
