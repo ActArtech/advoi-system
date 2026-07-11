@@ -1191,7 +1191,7 @@ export function AgentsOrchestrator() {
   const totalAgents = agents.length || 6;
 
   return (
-    <div className="space-y-4" data-testid="agents-orchestrator">
+    <div className="space-y-4" data-testid="agents-orchestrator" data-ui-version="v2">
       <input
         ref={presetsFilePicker.inputRef}
         type="file"
@@ -1232,117 +1232,230 @@ export function AgentsOrchestrator() {
         onChange={bundleFilePicker.onChange}
         data-testid="import-bundle-file-input"
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={warmCount === totalAgents ? "success" : "secondary"}>
-          {warmCount}/{totalAgents} warm
-        </Badge>
-        {lastPayload?.squads?.dispatched != null ? (
-          <Badge variant="default">
-            Squads {lastPayload.squads.dispatched}/{lastPayload.squads.total}
+      <Card className="border-border/70 bg-card/90">
+        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+          <Badge variant={warmCount === totalAgents ? "success" : "secondary"} className="text-xs">
+            {warmCount}/{totalAgents} warm
           </Badge>
-        ) : null}
-        {phaseCounts.running > 0 ? (
-          <Badge variant="warning" data-testid="active-slice-count">
-            {phaseCounts.running} running
-          </Badge>
-        ) : null}
-        {busy && runningFrames.size > 0 ? (
-          <Badge variant="outline" data-testid="concurrent-frame-count">
-            {runningFrames.size} active
-          </Badge>
-        ) : null}
-        {phaseCounts.queued > 0 ? (
-          <Badge variant="outline">{phaseCounts.queued} queued</Badge>
-        ) : null}
-        {squadProgress && busy ? (
-          <Badge variant="default" data-testid="squad-run-progress">
-            Squads {squadProgress.done}/{squadProgress.total}
-          </Badge>
-        ) : null}
-        {queueDepth > 0 ? (
-          <button
-            type="button"
-            className="inline-flex"
-            onClick={() => setQueueOpen(true)}
-            data-testid="slice-run-queue-depth"
-          >
-            <Badge variant="outline" className="cursor-pointer hover:bg-secondary/80">
-              {queueDepth} queued
+          {busy ? (
+            <Badge variant="warning" className="animate-pulse text-xs">
+              Running
             </Badge>
-          </button>
-        ) : null}
-      </div>
+          ) : null}
+          {lastPayload?.squads?.dispatched != null ? (
+            <Badge variant="default" className="text-xs">
+              Squads {lastPayload.squads.dispatched}/{lastPayload.squads.total}
+            </Badge>
+          ) : null}
+          {phaseCounts.running > 0 ? (
+            <Badge variant="warning" data-testid="active-slice-count" className="text-xs">
+              {phaseCounts.running} running
+            </Badge>
+          ) : null}
+          {busy && runningFrames.size > 0 ? (
+            <Badge variant="outline" data-testid="concurrent-frame-count" className="text-xs">
+              {runningFrames.size} active
+            </Badge>
+          ) : null}
+          {phaseCounts.queued > 0 ? (
+            <Badge variant="outline" className="text-xs">
+              {phaseCounts.queued} queued
+            </Badge>
+          ) : null}
+          {squadProgress && busy ? (
+            <Badge variant="default" data-testid="squad-run-progress" className="text-xs">
+              Squads {squadProgress.done}/{squadProgress.total}
+            </Badge>
+          ) : null}
+          {queueDepth > 0 ? (
+            <button
+              type="button"
+              className="inline-flex"
+              onClick={() => setQueueOpen(true)}
+              data-testid="slice-run-queue-depth"
+            >
+              <Badge variant="warning" className="cursor-pointer text-xs hover:bg-amber-500/25">
+                Queue: {queueDepth} waiting
+              </Badge>
+            </button>
+          ) : null}
+          {progress && busy ? (
+            <div className="ml-auto min-w-[140px] flex-1 space-y-1" data-testid="slice-run-progress">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>
+                  Wave {Math.min(progress.waveIndex + 1, progress.waveCount)}/{progress.waveCount}
+                </span>
+                <span>{progress.percent}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Run mode">
-        {MODE_OPTIONS.map(({ mode, label, icon: Icon }) => (
-          <Button
-            key={mode}
-            size="sm"
-            variant={runMode === mode ? "default" : "outline"}
-            disabled={busy}
-            onClick={() => {
-              setRunMode(mode);
-              savePreferredRunMode(mode);
-            }}
-            data-testid={`run-mode-${mode}`}
+      <Card className="border-primary/25 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Six agent slices</CardTitle>
+          <CardDescription>
+            Tap to run · keys 1-6 · hold tile to dispatch squads
+            {multiMode ? " · multi-select on" : ""}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div
+            className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+            data-testid="agent-slice-grid"
+            aria-label="Agent slices"
           >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
+            {agentSlices.map((slice, index) => (
+              <AgentSliceTile
+                key={slice.agentId}
+                slice={slice}
+                index={index}
+                multiMode={multiMode}
+                busy={busy}
+                focusFrameId={focusFrameId}
+                onTap={onSliceTap}
+                onLongPressDispatch={(s) => void dispatchSliceSquads(s)}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Quick actions</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2 pt-0">
+          {busy ? (
+            <Button size="default" variant="destructive" onClick={cancelRun} data-testid="cancel-slice-run">
+              <XCircle className="h-4 w-4" />
+              Cancel
+            </Button>
+          ) : null}
+          <Button size="default" disabled={busy} onClick={() => void runParallel("all_six")} data-testid="run-all-six-slices">
+            <Play className="h-4 w-4" />
+            Run all 6
           </Button>
-        ))}
-      </div>
+          <Button
+            size="default"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void runParallel("six_squads")}
+            data-testid="run-six-dispatch-squads"
+          >
+            <Rocket className="h-4 w-4" />
+            6 + squads
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || selected.size === 0}
+            onClick={() => void runParallel("selected")}
+            data-testid="run-selected-slices"
+          >
+            <Layers className="h-4 w-4" />
+            Run {selected.size || "selected"}
+          </Button>
+          {failedCount > 0 ? (
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => void retryFailed()} data-testid="retry-failed-slices">
+              <RefreshCw className="h-4 w-4" />
+              Retry ({failedCount})
+            </Button>
+          ) : null}
+          {resultRows.length > 0 ? (
+            <Button size="sm" variant="outline" onClick={() => setResultsOpen(true)}>
+              Results
+            </Button>
+          ) : null}
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => setHistoryOpen(true)} data-testid="slice-run-history">
+            <History className="h-4 w-4" />
+            History
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void reload()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant={multiMode ? "default" : "outline"}
+            onClick={() => setMultiMode((m) => !m)}
+            data-testid="toggle-multi-select"
+          >
+            {multiMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+            Multi
+          </Button>
+          {queueDepth > 0 ? (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setQueueOpen(true)} data-testid="open-slice-run-queue">
+                <ListPlus className="h-4 w-4" />
+                Queue ({queueDepth})
+              </Button>
+              <Button size="sm" variant="ghost" onClick={clearRunQueue} data-testid="clear-slice-run-queue">
+                Clear queue
+              </Button>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
 
-      {progress && busy ? (
-        <div className="space-y-1" data-testid="slice-run-progress">
-          <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>
-              Wave {Math.min(progress.waveIndex + 1, progress.waveCount)}/{progress.waveCount}
-            </span>
-            <span>{progress.percent}%</span>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Run mode</CardTitle>
+          <CardDescription>How slices execute when you run a batch</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Run mode">
+            {MODE_OPTIONS.map(({ mode, label, icon: Icon }) => (
+              <Button
+                key={mode}
+                size="sm"
+                variant={runMode === mode ? "default" : "outline"}
+                disabled={busy}
+                onClick={() => {
+                  setRunMode(mode);
+                  savePreferredRunMode(mode);
+                }}
+                data-testid={`run-mode-${mode}`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Button>
+            ))}
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${progress.percent}%` }}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      <SliceWavePreview frameIds={previewFrameIds} mode={runMode} />
+          <SliceWavePreview frameIds={previewFrameIds} mode={runMode} />
+        </CardContent>
+      </Card>
 
       {chainSuggestion && !busy ? (
-        <Card
-          className="border-primary/40 bg-primary/5"
-          data-testid="voice-chain-suggestion"
-        >
-          <CardContent className="flex flex-wrap items-center gap-2 p-3">
-            <p className="text-sm text-foreground">
-              Morning pulse synced. Run{" "}
-              <span className="font-medium">{chainSuggestion.label}</span> next?
+        <Card className="border-primary/50 bg-primary/10 shadow-md" data-testid="voice-chain-suggestion">
+          <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <p className="text-sm font-medium text-foreground">
+              Morning pulse synced — run <span className="text-primary">{chainSuggestion.label}</span> next?
             </p>
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() => void runSuggestedChain()}
-              data-testid="run-voice-chain-suggestion"
-            >
-              <Play className="h-3.5 w-3.5" />
+            <Button size="sm" disabled={busy} onClick={() => void runSuggestedChain()} data-testid="run-voice-chain-suggestion">
+              <Play className="h-4 w-4" />
               Run chain
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setChainSuggestion(null)}
-              data-testid="dismiss-voice-chain-suggestion"
-            >
+            <Button size="sm" variant="ghost" onClick={() => setChainSuggestion(null)} data-testid="dismiss-voice-chain-suggestion">
               Dismiss
             </Button>
           </CardContent>
         </Card>
       ) : null}
 
-      <SlicePresetsBar
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Presets & chains</CardTitle>
+          <CardDescription>One-tap batches and multi-stage sequences</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <SlicePresetsBar
         disabled={busy}
         userPresets={userPresets}
         canSavePreset={multiMode && selected.size > 0}
@@ -1379,186 +1492,61 @@ export function AgentsOrchestrator() {
         onExportBundle={exportBundle}
         onImportBundle={importBundle}
         onSelect={(preset) => void runPreset(preset)}
-      />
-
-      {squadFrameProgress && busy ? (
-        <div className="space-y-1" data-testid="squad-frame-run-progress">
-          <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>
-              Squads {squadFrameProgress.completedSquads}/{squadFrameProgress.totalSquads} · Frames{" "}
-              {squadFrameProgress.completedFrames}/{squadFrameProgress.totalFrames}
-            </span>
-            <span>{squadFrameProgress.percent}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${squadFrameProgress.percent}%` }}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {busy ? (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={cancelRun}
-            data-testid="cancel-slice-run"
-          >
-            <XCircle className="h-4 w-4" />
-            Cancel
-          </Button>
-        ) : null}
-        <Button
-          size="sm"
-          disabled={busy}
-          onClick={() => void runParallel("all_six")}
-          data-testid="run-all-six-slices"
-        >
-          <Play className="h-4 w-4" />
-          Run all 6
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={busy}
-          onClick={() => void runParallel("six_squads")}
-          data-testid="run-six-dispatch-squads"
-        >
-          <Rocket className="h-4 w-4" />
-          6 + squads
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy || selected.size === 0}
-          onClick={() => void runParallel("selected")}
-          data-testid="run-selected-slices"
-        >
-          <Layers className="h-4 w-4" />
-          Run {selected.size || "selected"}
-        </Button>
-        {failedCount > 0 ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void retryFailed()}
-            data-testid="retry-failed-slices"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry failed ({failedCount})
-          </Button>
-        ) : null}
-        {resultRows.length > 0 ? (
-          <Button size="sm" variant="ghost" onClick={() => setResultsOpen(true)}>
-            Results
-          </Button>
-        ) : null}
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy}
-          onClick={() => setHistoryOpen(true)}
-          data-testid="slice-run-history"
-        >
-          <History className="h-4 w-4" />
-          History
-        </Button>
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => void reload()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant={multiMode ? "default" : "outline"}
-          onClick={() => setMultiMode((m) => !m)}
-          data-testid="toggle-multi-select"
-        >
-          {multiMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-          Multi
-        </Button>
-        {queueDepth > 0 ? (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setQueueOpen(true)}
-              data-testid="open-slice-run-queue"
-            >
-              <ListPlus className="h-4 w-4" />
-              Queue ({queueDepth})
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={clearRunQueue}
-              data-testid="clear-slice-run-queue"
-            >
-              Clear queue
-            </Button>
-          </>
-        ) : null}
-      </div>
+          />
+        </CardContent>
+      </Card>
 
       {squads.length > 0 ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Squad slices — Run or Dispatch per crew
-            </p>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => void dispatchAllSquadsOnly()}
-              data-testid="dispatch-all-squads"
-            >
-              <Send className="h-3.5 w-3.5" />
-              Dispatch all
-            </Button>
-            {squads.length > 1 ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => void runAllSquads()}
-                  data-testid="run-all-squads"
-                >
-                  <Layers className="h-3.5 w-3.5" />
-                  Run all squads
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void runAllSquadsDispatch()}
-                  data-testid="run-all-squads-dispatch"
-                >
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">Squad crews</CardTitle>
+                <CardDescription>Run or dispatch per squad channel</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void dispatchAllSquadsOnly()} data-testid="dispatch-all-squads">
                   <Send className="h-3.5 w-3.5" />
-                  All squads + dispatch
+                  Dispatch all
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => void runAllSquadsSequential(false)}
-                  data-testid="run-all-squads-sequential"
-                >
-                  <ListOrdered className="h-3.5 w-3.5" />
-                  Sequential
-                </Button>
-              </>
+                {squads.length > 1 ? (
+                  <>
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runAllSquads()} data-testid="run-all-squads">
+                      <Layers className="h-3.5 w-3.5" />
+                      Run all
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => void runAllSquadsSequential(false)} data-testid="run-all-squads-sequential">
+                      <ListOrdered className="h-3.5 w-3.5" />
+                      Sequential
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            {squadFrameProgress && busy ? (
+              <div className="mt-2 space-y-1" data-testid="squad-frame-run-progress">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>
+                    Squads {squadFrameProgress.completedSquads}/{squadFrameProgress.totalSquads} · Frames{" "}
+                    {squadFrameProgress.completedFrames}/{squadFrameProgress.totalFrames}
+                  </span>
+                  <span>{squadFrameProgress.percent}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${squadFrameProgress.percent}%` }}
+                  />
+                </div>
+              </div>
             ) : null}
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
+          </CardHeader>
+          <CardContent className="flex gap-2 overflow-x-auto pb-1 pt-0 snap-x">
             {squadSlices.map((squad) => (
               <Card
                 key={squad.squadId}
                 className={cn(
-                  "min-w-[150px] shrink-0 snap-start border-border/80 transition-colors",
+                  "min-w-[160px] shrink-0 snap-start border-border/80 transition-colors",
                   activeSquadId === squad.squadId && "border-primary ring-1 ring-primary/40",
                 )}
                 data-testid={`squad-slice-${squad.squadId}`}
@@ -1595,27 +1583,9 @@ export function AgentsOrchestrator() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
-
-      <div
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-        data-testid="agent-slice-grid"
-        aria-label="Agent slices"
-      >
-        {agentSlices.map((slice) => (
-          <AgentSliceTile
-            key={slice.agentId}
-            slice={slice}
-            multiMode={multiMode}
-            busy={busy}
-            focusFrameId={focusFrameId}
-            onTap={onSliceTap}
-            onLongPressDispatch={(s) => void dispatchSliceSquads(s)}
-          />
-        ))}
-      </div>
 
       <Card className="border-border/60 bg-card/50">
         <CardContent className="p-3 text-sm text-muted-foreground" role="status">

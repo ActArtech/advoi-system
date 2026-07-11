@@ -16,12 +16,12 @@ export function SliceWavePreview({ frameIds, mode }: SliceWavePreviewProps) {
 
   return (
     <div
-      className="flex flex-wrap gap-1.5"
+      className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/30 p-2.5"
       data-testid="slice-wave-preview"
       aria-label="Wave plan preview"
     >
       {plan.waves.map((wave) => (
-        <Badge key={wave.index} variant="outline" className="text-[10px] font-normal">
+        <Badge key={wave.index} variant="secondary" className="text-xs font-normal">
           {plan.waveCount > 1 ? `Wave ${wave.index + 1}` : "Parallel"}:{" "}
           {wave.labels.join(" · ")}
         </Badge>
