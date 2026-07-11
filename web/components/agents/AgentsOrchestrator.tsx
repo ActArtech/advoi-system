@@ -37,6 +37,7 @@ import {
   squadWarmLabel,
 } from "@/lib/agents/agentSlices";
 import {
+  deleteUserPreset,
   readUserPresets,
   saveUserPreset,
   type UserSlicePreset,
@@ -56,6 +57,7 @@ import {
 } from "@/lib/agents/sliceRunLog";
 import {
   executeAllSquadsPlan,
+  executeAllSquadsPlanSequential,
   executeSlicePlan,
   executeSquadSlicePlan,
 } from "@/lib/agents/runPlan";
@@ -258,6 +260,7 @@ export function AgentsOrchestrator() {
         okCount: results.length - failCount,
         failCount,
         summary: data.spoken_summary,
+        frameIds: frameIds.length > 0 ? frameIds : undefined,
       }),
     );
     resetRunUi();
@@ -496,18 +499,27 @@ export function AgentsOrchestrator() {
       setLastResults([]);
       setStatus(`${chain.label}: ${presets.length} stages...`);
       try {
-        const payload = await executePresetChain(chain, async (preset) => {
-          const frameIds = [...preset.frameIds];
-          const waves = chunkFrameWaves(frameIds, preset.mode);
-          setRunMode(preset.mode);
-          setStatus(`${chain.label}: ${preset.label}...`);
-          return executeSlicePlan(
-            frameIds,
-            preset.mode,
-            createWaveCallbacks(waves, preset.mode),
-            { signal: controller.signal },
-          );
-        });
+        const payload = await executePresetChain(
+          chain,
+          async (preset) => {
+            const frameIds = [...preset.frameIds];
+            const waves = chunkFrameWaves(frameIds, preset.mode);
+            setRunMode(preset.mode);
+            setStatus(`${chain.label}: ${preset.label}...`);
+            return executeSlicePlan(
+              frameIds,
+              preset.mode,
+              createWaveCallbacks(waves, preset.mode),
+              { signal: controller.signal },
+            );
+          },
+          chain.dispatchAfter
+            ? () => {
+                setStatus(`${chain.label}: dispatching squads...`);
+                return dispatchAllSquads({ signal: controller.signal });
+              }
+            : undefined,
+        );
         const allFrameIds = presets.flatMap((p) => [...p.frameIds]);
         finishRun(payload, allFrameIds);
       } catch (err) {
@@ -553,6 +565,102 @@ export function AgentsOrchestrator() {
     setStatus(`Saved preset "${label}"`);
   }, [agentSlices, selected, runMode]);
 
+  const removeUserPreset = useCallback((id: string) => {
+    setUserPresets(deleteUserPreset(id));
+    setStatus("Preset removed");
+  }, []);
+
+  const rerunFromHistory = useCallback(
+    (entry: SliceRunLogEntry) => {
+      if (!entry.frameIds?.length || busy) return;
+      setHistoryOpen(false);
+      setRunMode(entry.mode);
+      void runWithPlan([...entry.frameIds], entry.mode, `Re-run: ${entry.label}`);
+    },
+    [busy, runWithPlan],
+  );
+
+  const runAllSquadsSequential = useCallback(
+    async (dispatchAfter: boolean) => {
+      if (busy || squads.length <= 1) return;
+
+      const plans = squadSlices
+        .map((squad) => ({
+          squad,
+          frameIds: frameIdsForSquadSlice(squad, frames),
+        }))
+        .filter((p) => p.frameIds.length > 0);
+
+      if (plans.length === 0) {
+        setStatus("No frames mapped for squads");
+        return;
+      }
+
+      const allFrameIds = plans.flatMap((p) => p.frameIds);
+      const controller = beginRun();
+      runLogMetaRef.current = {
+        label: dispatchAfter ? "All squads sequential + dispatch" : "All squads sequential",
+        mode: runMode,
+      };
+      squadFramesDoneRef.current = 0;
+      squadSquadsDoneRef.current = 0;
+      setBusy(true);
+      setLastResults([]);
+      setRunningFrames(new Set(allFrameIds));
+      setQueuedFrames(new Set());
+      setProgress(null);
+      setSquadProgress({ done: 0, total: plans.length });
+      setSquadFrameProgress(squadRunProgressModel(0, plans.length, 0, allFrameIds.length));
+      setStatus(
+        dispatchAfter
+          ? `Sequential squads + dispatch (${plans.length} crews)...`
+          : `Sequential squads (${plans.length} crews)...`,
+      );
+
+      const updateSquadFrameProgress = () => {
+        setSquadFrameProgress(
+          squadRunProgressModel(
+            squadSquadsDoneRef.current,
+            plans.length,
+            squadFramesDoneRef.current,
+            allFrameIds.length,
+          ),
+        );
+      };
+
+      try {
+        const payload = await executeAllSquadsPlanSequential(
+          plans.map(({ squad, frameIds }) => ({ squadId: squad.squadId, frameIds })),
+          runMode,
+          { signal: controller.signal, dispatchAfter },
+          {
+            onSquadStart: (squadId) => setActiveSquadId(squadId),
+            onSquadFrameDone: () => {
+              squadFramesDoneRef.current += 1;
+              updateSquadFrameProgress();
+            },
+            onSquadDone: () => {
+              squadSquadsDoneRef.current += 1;
+              setSquadProgress((prev) =>
+                prev ? { ...prev, done: Math.min(prev.done + 1, prev.total) } : null,
+              );
+              updateSquadFrameProgress();
+            },
+          },
+        );
+        finishRun(payload, allFrameIds);
+      } catch (err) {
+        resetRunUi();
+        setStatus(
+          isAbortError(err) ? "Run cancelled." : err instanceof Error ? err.message : "Sequential squads failed",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, squads.length, squadSlices, frames, runMode],
+  );
+
   const retryFailed = useCallback(async () => {
     const frameIds = frameIdsFromFailedResults(lastResults);
     if (frameIds.length === 0 || busy) return;
@@ -589,7 +697,14 @@ export function AgentsOrchestrator() {
           </Badge>
         ) : null}
         {phaseCounts.running > 0 ? (
-          <Badge variant="warning">{phaseCounts.running} running</Badge>
+          <Badge variant="warning" data-testid="active-slice-count">
+            {phaseCounts.running} running
+          </Badge>
+        ) : null}
+        {busy && runningFrames.size > 0 ? (
+          <Badge variant="outline" data-testid="concurrent-frame-count">
+            {runningFrames.size} active
+          </Badge>
         ) : null}
         {phaseCounts.queued > 0 ? (
           <Badge variant="outline">{phaseCounts.queued} queued</Badge>
@@ -641,6 +756,7 @@ export function AgentsOrchestrator() {
         userPresets={userPresets}
         canSavePreset={multiMode && selected.size > 0}
         onSavePreset={saveCustomPreset}
+        onDeleteUserPreset={removeUserPreset}
         chainButtons={PRESET_CHAINS.map((chain) => ({
           id: chain.id,
           label: chain.label,
@@ -787,6 +903,16 @@ export function AgentsOrchestrator() {
                   <Send className="h-3.5 w-3.5" />
                   All squads + dispatch
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void runAllSquadsSequential(false)}
+                  data-testid="run-all-squads-sequential"
+                >
+                  <ListOrdered className="h-3.5 w-3.5" />
+                  Sequential
+                </Button>
               </>
             ) : null}
           </div>
@@ -924,6 +1050,8 @@ export function AgentsOrchestrator() {
         open={historyOpen}
         onOpenChange={setHistoryOpen}
         entries={historyLog}
+        onRerun={rerunFromHistory}
+        rerunDisabled={busy}
         onClear={() => {
           clearSliceRunLog();
           setHistoryLog([]);

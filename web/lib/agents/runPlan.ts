@@ -161,3 +161,30 @@ export async function executeAllSquadsPlan(
   );
   return mergeOrchestratePayloads(payloads);
 }
+
+/** Run squads one after another (lower API load than parallel). */
+export async function executeAllSquadsPlanSequential(
+  plans: { squadId: string; frameIds: string[] }[],
+  mode: RunExecutionMode,
+  opts: RunPlanOptions & { dispatchAfter?: boolean } = {},
+  callbacks?: AllSquadsCallbacks,
+): Promise<OrchestratePayload> {
+  assertNotAborted(opts.signal);
+  const payloads: OrchestratePayload[] = [];
+  for (const { squadId, frameIds } of plans) {
+    callbacks?.onSquadStart?.(squadId, frameIds);
+    const payload = await executeSquadSlicePlan(
+      frameIds,
+      squadId,
+      { mode, dispatchAfter: opts.dispatchAfter, signal: opts.signal },
+      {
+        onFrameDone: (fid, result) => {
+          callbacks?.onSquadFrameDone?.(squadId, fid, result);
+        },
+      },
+    );
+    callbacks?.onSquadDone?.(squadId, payload);
+    payloads.push(payload);
+  }
+  return mergeOrchestratePayloads(payloads);
+}

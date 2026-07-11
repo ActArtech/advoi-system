@@ -13,13 +13,15 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { formatRelativeTime, type SliceRunLogEntry } from "@/lib/agents/sliceRunLog";
-import { Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 
 type SliceRunHistoryDrawerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   entries: SliceRunLogEntry[];
   onClear: () => void;
+  onRerun?: (entry: SliceRunLogEntry) => void;
+  rerunDisabled?: boolean;
 };
 
 export function SliceRunHistoryDrawer({
@@ -27,6 +29,8 @@ export function SliceRunHistoryDrawer({
   onOpenChange,
   entries,
   onClear,
+  onRerun,
+  rerunDisabled,
 }: SliceRunHistoryDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -64,11 +68,24 @@ export function SliceRunHistoryDrawer({
                     ) : null}
                   </div>
                 </CardHeader>
-                {entry.summary ? (
-                  <CardContent className="p-3 pt-0 text-xs leading-relaxed text-muted-foreground">
-                    {entry.summary}
-                  </CardContent>
-                ) : null}
+                <CardContent className="flex flex-col gap-2 p-3 pt-0">
+                  {entry.summary ? (
+                    <p className="text-xs leading-relaxed text-muted-foreground">{entry.summary}</p>
+                  ) : null}
+                  {onRerun && entry.frameIds && entry.frameIds.length > 0 ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-fit text-[10px]"
+                      disabled={rerunDisabled}
+                      onClick={() => onRerun(entry)}
+                      data-testid={`rerun-history-${entry.id}`}
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Re-run
+                    </Button>
+                  ) : null}
+                </CardContent>
               </Card>
             ))
           )}

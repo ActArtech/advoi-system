@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlus } from "lucide-react";
+import { BookmarkPlus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { allPresetsForBar } from "@/lib/agents/slicePresets";
@@ -12,6 +12,7 @@ type SlicePresetsBarProps = {
   onSelect: (preset: SlicePreset) => void;
   userPresets?: UserSlicePreset[];
   onSavePreset?: () => void;
+  onDeleteUserPreset?: (id: string) => void;
   canSavePreset?: boolean;
   chainButtons?: { id: string; label: string; onRun: () => void }[];
   disabled?: boolean;
@@ -21,6 +22,7 @@ export function SlicePresetsBar({
   onSelect,
   userPresets = [],
   onSavePreset,
+  onDeleteUserPreset,
   canSavePreset,
   chainButtons = [],
   disabled,
@@ -41,24 +43,40 @@ export function SlicePresetsBar({
             ? `slice-preset-user-${preset.id}`
             : `slice-preset-${preset.id}`;
           return (
-            <button
-              key={preset.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onSelect(preset)}
-              data-testid={testId}
-              className={cn(
-                "rounded-full border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                disabled && "pointer-events-none opacity-50",
-              )}
-            >
-              <Badge
-                variant={isUser ? "secondary" : "outline"}
-                className="cursor-pointer text-[10px] font-normal transition-colors hover:bg-secondary/80"
+            <span key={preset.id} className="inline-flex items-center gap-0.5">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onSelect(preset)}
+                data-testid={testId}
+                className={cn(
+                  "rounded-full border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  disabled && "pointer-events-none opacity-50",
+                )}
               >
-                {preset.label}
-              </Badge>
-            </button>
+                <Badge
+                  variant={isUser ? "secondary" : "outline"}
+                  className="cursor-pointer text-[10px] font-normal transition-colors hover:bg-secondary/80"
+                >
+                  {preset.label}
+                </Badge>
+              </button>
+              {isUser && onDeleteUserPreset ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label={`Delete ${preset.label}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteUserPreset(preset.id);
+                  }}
+                  data-testid={`delete-slice-preset-${preset.id}`}
+                  className="rounded-full p-0.5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive disabled:opacity-50"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              ) : null}
+            </span>
           );
         })}
         {onSavePreset ? (

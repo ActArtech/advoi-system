@@ -13,6 +13,8 @@ export type SliceRunLogEntry = {
   okCount: number;
   failCount: number;
   summary?: string;
+  /** Stored for one-tap re-run from history drawer */
+  frameIds?: string[];
 };
 
 const STORAGE_KEY = "advoi:slice-run-log";

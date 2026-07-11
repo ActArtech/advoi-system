@@ -10,6 +10,8 @@ export type PresetChain = {
   id: string;
   label: string;
   presetIds: readonly string[];
+  /** Dispatch all squads after the chain completes */
+  dispatchAfter?: boolean;
 };
 
 export const PRESET_CHAINS: readonly PresetChain[] = [
@@ -17,6 +19,17 @@ export const PRESET_CHAINS: readonly PresetChain[] = [
     id: "ops_then_intel",
     label: "Ops → Intel",
     presetIds: ["ops_core", "intel"],
+  },
+  {
+    id: "morning_then_ops",
+    label: "Pulse → Ops",
+    presetIds: ["morning_pulse", "ops_core"],
+  },
+  {
+    id: "full_six_then_dispatch",
+    label: "Full 6 → Dispatch",
+    presetIds: ["full_six"],
+    dispatchAfter: true,
   },
 ] as const;
 
@@ -32,10 +45,13 @@ export function resolveChainPresets(chain: PresetChain): SlicePreset[] {
 
 export type PresetRunner = (preset: SlicePreset) => Promise<OrchestratePayload>;
 
+export type ChainDispatchRunner = () => Promise<OrchestratePayload>;
+
 /** Run each preset in sequence; merge spoken summaries and results. */
 export async function executePresetChain(
   chain: PresetChain,
   runPreset: PresetRunner,
+  dispatchAfter?: ChainDispatchRunner,
 ): Promise<OrchestratePayload> {
   const presets = resolveChainPresets(chain);
   if (presets.length === 0) {
@@ -45,5 +61,10 @@ export async function executePresetChain(
   for (const preset of presets) {
     payloads.push(await runPreset(preset));
   }
-  return mergeOrchestratePayloads(payloads);
+  let merged = mergeOrchestratePayloads(payloads);
+  if (chain.dispatchAfter && dispatchAfter) {
+    const dispatchPayload = await dispatchAfter();
+    merged = mergeOrchestratePayloads([merged, dispatchPayload]);
+  }
+  return merged;
 }

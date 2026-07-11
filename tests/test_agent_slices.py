@@ -85,6 +85,17 @@ PRESET_CHAINS = [
         "label": "Ops → Intel",
         "presetIds": ["ops_core", "intel"],
     },
+    {
+        "id": "morning_then_ops",
+        "label": "Pulse → Ops",
+        "presetIds": ["morning_pulse", "ops_core"],
+    },
+    {
+        "id": "full_six_then_dispatch",
+        "label": "Full 6 → Dispatch",
+        "presetIds": ["full_six"],
+        "dispatchAfter": True,
+    },
 ]
 
 MAX_USER_PRESETS = 8
@@ -763,6 +774,39 @@ def test_preset_chain_ops_then_intel() -> None:
     assert presets[0]["id"] == "ops_core"
     assert presets[1]["id"] == "intel"
     assert chain_by_id("missing") is None
+
+
+def test_preset_chain_morning_then_ops() -> None:
+    chain = chain_by_id("morning_then_ops")
+    assert chain is not None
+    presets = resolve_chain_presets(chain)
+    assert len(presets) == 2
+    assert presets[0]["id"] == "morning_pulse"
+    assert presets[1]["id"] == "ops_core"
+
+
+def test_preset_chain_full_six_dispatch_after() -> None:
+    chain = chain_by_id("full_six_then_dispatch")
+    assert chain is not None
+    assert chain.get("dispatchAfter") is True
+    presets = resolve_chain_presets(chain)
+    assert len(presets) == 1
+    assert presets[0]["id"] == "full_six"
+
+
+def test_slice_run_log_entry_stores_frame_ids() -> None:
+    entry = {
+        "id": "run-1",
+        "ts": 1710000000000,
+        "label": "Ops core",
+        "mode": "wave",
+        "frameCount": 3,
+        "okCount": 3,
+        "failCount": 0,
+        "frameIds": ["fleet_status", "open_briefs", "guardian_status"],
+    }
+    assert entry["frameIds"] is not None
+    assert len(entry["frameIds"]) == 3
 
 
 def test_slugify_user_preset_id() -> None:
