@@ -1,27 +1,50 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Layers, Play, Rocket, RefreshCw, CheckSquare, Square } from "lucide-react";
+import {
+  Layers,
+  Play,
+  Rocket,
+  RefreshCw,
+  CheckSquare,
+  Square,
+  Zap,
+  Waves,
+  ListOrdered,
+  Send,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SliceResultsDrawer } from "@/components/agents/SliceResultsDrawer";
 import {
   buildAgentSlices,
+  buildResultRows,
   buildSquadSlices,
+  chunkFrameWaves,
   countSlicesByPhase,
+  frameIdsForSquadSlice,
+  mergeOrchestratePayloads,
   resolveOrchestrateFrameIds,
+  runProgressModel,
   squadMembershipMap,
   squadWarmLabel,
 } from "@/lib/agents/agentSlices";
+import { executeSlicePlan, executeSquadSlicePlan } from "@/lib/agents/runPlan";
 import {
   fetchAgents,
   fetchFrames,
   fetchSquads,
-  runFrameSliceParallel,
-  runSingleFrame,
   runSixParallel,
 } from "@/lib/agents/orchestrateClient";
-import type { AgentSliceModel, FrameRunResult, OrchestratePayload } from "@/lib/agents/types";
+import type {
+  AgentSliceModel,
+  FrameRunResult,
+  OrchestratePayload,
+  RunExecutionMode,
+  SliceRunProgress,
+  SquadSliceModel,
+} from "@/lib/agents/types";
 import { RUN_FRAME_EVENT } from "@/components/pwaOnboarding";
 import { cn } from "@/lib/utils";
 
@@ -33,17 +56,28 @@ const PHASE_STYLES: Record<AgentSliceModel["phase"], string> = {
   error: "border-destructive/60 bg-destructive/10",
 };
 
+const MODE_OPTIONS: { mode: RunExecutionMode; label: string; icon: typeof Zap }[] = [
+  { mode: "parallel", label: "Parallel", icon: Zap },
+  { mode: "wave", label: "Wave x2", icon: Waves },
+  { mode: "stagger", label: "Stagger", icon: ListOrdered },
+];
+
 export function AgentsOrchestrator() {
   const [agents, setAgents] = useState<Awaited<ReturnType<typeof fetchAgents>>>([]);
   const [frames, setFrames] = useState<Awaited<ReturnType<typeof fetchFrames>>>([]);
   const [squads, setSquads] = useState<Awaited<ReturnType<typeof fetchSquads>>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [multiMode, setMultiMode] = useState(false);
+  const [runMode, setRunMode] = useState<RunExecutionMode>("parallel");
   const [busy, setBusy] = useState(false);
   const [runningFrames, setRunningFrames] = useState<Set<string>>(new Set());
+  const [queuedFrames, setQueuedFrames] = useState<Set<string>>(new Set());
   const [lastResults, setLastResults] = useState<FrameRunResult[]>([]);
   const [status, setStatus] = useState("Load agents to run parallel slices.");
   const [lastPayload, setLastPayload] = useState<OrchestratePayload | null>(null);
+  const [progress, setProgress] = useState<SliceRunProgress | null>(null);
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const [activeSquadId, setActiveSquadId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -51,12 +85,14 @@ export function AgentsOrchestrator() {
       setAgents(a);
       setFrames(f);
       setSquads(s);
-      const warm = a.filter((x) => x.cached).length;
-      setStatus(`Ready · ${warm}/${a.length || 6} agents warm · ${s.length} squads`);
+      if (!busy) {
+        const warm = a.filter((x) => x.cached).length;
+        setStatus(`Ready · ${warm}/${a.length || 6} warm · ${s.length} squads`);
+      }
     } catch {
-      setStatus("Could not load agents. Is the API up?");
+      if (!busy) setStatus("Could not load agents. Is the API up?");
     }
-  }, []);
+  }, [busy]);
 
   useEffect(() => {
     void reload();
@@ -76,14 +112,19 @@ export function AgentsOrchestrator() {
       buildAgentSlices(agents, frames, {
         selectedIds: selected,
         runningFrameIds: runningFrames,
+        queuedFrameIds: queuedFrames,
         results: lastResults,
         squadByAgent: squadMap,
       }),
-    [agents, frames, selected, runningFrames, lastResults, squadMap],
+    [agents, frames, selected, runningFrames, queuedFrames, lastResults, squadMap],
   );
 
   const squadSlices = useMemo(() => buildSquadSlices(squads, agents), [squads, agents]);
   const phaseCounts = useMemo(() => countSlicesByPhase(agentSlices), [agentSlices]);
+  const resultRows = useMemo(
+    () => buildResultRows(agentSlices, lastResults),
+    [agentSlices, lastResults],
+  );
 
   const toggleSelect = (agentId: string) => {
     setSelected((prev) => {
@@ -94,74 +135,208 @@ export function AgentsOrchestrator() {
     });
   };
 
-  const applyOrchestrateResult = (data: OrchestratePayload, frameIds: string[]) => {
+  const finishRun = (data: OrchestratePayload, frameIds: string[]) => {
     setLastPayload(data);
     setLastResults(data.results ?? []);
     setRunningFrames(new Set());
+    setQueuedFrames(new Set());
+    setProgress(null);
+    setActiveSquadId(null);
     const squadNote =
       data.squads?.dispatched != null
         ? ` · Squads ${data.squads.dispatched}/${data.squads.total}`
         : "";
-    setStatus((data.spoken_summary || "Parallel run complete.") + squadNote);
+    setStatus((data.spoken_summary || `Completed ${frameIds.length} slices.`) + squadNote);
+    if ((data.results?.length ?? 0) > 1) setResultsOpen(true);
     void reload();
   };
 
-  const runParallel = useCallback(
-    async (mode: "selected" | "all_six" | "six_squads") => {
-      if (busy) return;
-      const frameIds = resolveOrchestrateFrameIds(agentSlices, mode === "selected" ? "selected" : "all_six");
+  const runWithPlan = useCallback(
+    async (frameIds: string[], mode: RunExecutionMode, label: string) => {
+      if (busy || frameIds.length === 0) return;
+      const waves = chunkFrameWaves(frameIds, mode);
       setBusy(true);
-      setRunningFrames(new Set(frameIds));
-      setStatus(
-        mode === "six_squads"
-          ? `Running ${frameIds.length} slices + dispatching squads...`
-          : `Running ${frameIds.length} agent slices in parallel...`,
-      );
+      setLastResults([]);
+      setStatus(`${label} (${mode}, ${frameIds.length} slices)...`);
+
+      let currentWaveIndex = 0;
+      let completedInWave = 0;
+
       try {
-        const data =
-          mode === "six_squads"
-            ? await runSixParallel({ dispatchSquads: true, refresh: true })
-            : mode === "all_six"
-              ? await runSixParallel({ refresh: true })
-              : await runFrameSliceParallel(frameIds, { refresh: true });
-        applyOrchestrateResult(data, frameIds);
+        const payload = await executeSlicePlan(frameIds, mode, {
+          onWaveStart: (wi, wave) => {
+            currentWaveIndex = wi;
+            completedInWave = 0;
+            const upcoming = waves.slice(wi + 1).flat();
+            setRunningFrames(new Set(wave));
+            setQueuedFrames(new Set(upcoming));
+            setProgress(runProgressModel(mode, wi, waves, 0));
+          },
+          onFrameDone: (fid) => {
+            completedInWave += 1;
+            setProgress(runProgressModel(mode, currentWaveIndex, waves, completedInWave));
+            setRunningFrames((prev) => {
+              const next = new Set(prev);
+              next.delete(fid);
+              return next;
+            });
+          },
+          onWaveDone: (wi) => {
+            completedInWave = 0;
+            setProgress(runProgressModel(mode, wi + 1, waves, 0));
+          },
+        });
+        finishRun(payload, frameIds);
       } catch (err) {
         setRunningFrames(new Set());
-        setStatus(err instanceof Error ? err.message : "Parallel run failed");
+        setQueuedFrames(new Set());
+        setProgress(null);
+        setStatus(err instanceof Error ? err.message : "Run failed");
       } finally {
         setBusy(false);
       }
     },
-    [agentSlices, busy],
+    [busy],
   );
+
+  const runParallel = useCallback(
+    async (scope: "selected" | "all_six" | "six_squads") => {
+      if (busy) return;
+      if (scope === "six_squads") {
+        setBusy(true);
+        setRunningFrames(new Set(resolveOrchestrateFrameIds(agentSlices, "all_six")));
+        setStatus("Running all 6 + dispatching squads...");
+        try {
+          const data = await runSixParallel({ dispatchSquads: true, refresh: true });
+          finishRun(data, [...resolveOrchestrateFrameIds(agentSlices, "all_six")]);
+        } catch (err) {
+          setRunningFrames(new Set());
+          setStatus(err instanceof Error ? err.message : "Run-six failed");
+        } finally {
+          setBusy(false);
+        }
+        return;
+      }
+      const frameIds = resolveOrchestrateFrameIds(
+        agentSlices,
+        scope === "selected" ? "selected" : "all_six",
+      );
+      await runWithPlan(frameIds, runMode, scope === "selected" ? "Selected run" : "All six");
+    },
+    [agentSlices, busy, runMode, runWithPlan],
+  );
+
+  const runSquadSlice = useCallback(
+    async (squad: SquadSliceModel, dispatchAfter: boolean) => {
+      if (busy) return;
+      const frameIds = frameIdsForSquadSlice(squad, frames);
+      if (frameIds.length === 0) {
+        setStatus(`No frames mapped for ${squad.name}`);
+        return;
+      }
+      setActiveSquadId(squad.squadId);
+      setBusy(true);
+      setLastResults([]);
+      setStatus(
+        dispatchAfter
+          ? `Squad ${squad.name}: run + dispatch...`
+          : `Squad ${squad.name}: ${frameIds.length} slices (${runMode})...`,
+      );
+      const waves = chunkFrameWaves(frameIds, runMode);
+      let currentWaveIndex = 0;
+      let completedInWave = 0;
+
+      try {
+        const payload = await executeSquadSlicePlan(
+          frameIds,
+          squad.squadId,
+          { mode: runMode, dispatchAfter },
+          {
+            onWaveStart: (wi, wave) => {
+              currentWaveIndex = wi;
+              completedInWave = 0;
+              const upcoming = waves.slice(wi + 1).flat();
+              setRunningFrames(new Set(wave));
+              setQueuedFrames(new Set(upcoming));
+              setProgress(runProgressModel(runMode, wi, waves, 0));
+            },
+            onFrameDone: (fid) => {
+              completedInWave += 1;
+              setProgress(runProgressModel(runMode, currentWaveIndex, waves, completedInWave));
+              setRunningFrames((prev) => {
+                const next = new Set(prev);
+                next.delete(fid);
+                return next;
+              });
+            },
+            onWaveDone: (wi) => {
+              completedInWave = 0;
+              setProgress(runProgressModel(runMode, wi + 1, waves, 0));
+            },
+          },
+        );
+        finishRun(payload, frameIds);
+      } catch (err) {
+        setRunningFrames(new Set());
+        setQueuedFrames(new Set());
+        setProgress(null);
+        setActiveSquadId(null);
+        setStatus(err instanceof Error ? err.message : "Squad run failed");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, frames, runMode],
+  );
+
+  const runAllSquads = useCallback(async () => {
+    if (busy || squads.length <= 1) return;
+
+    const plans = squadSlices
+      .map((squad) => ({
+        squad,
+        frameIds: frameIdsForSquadSlice(squad, frames),
+      }))
+      .filter((p) => p.frameIds.length > 0);
+
+    if (plans.length === 0) {
+      setStatus("No frames mapped for squads");
+      return;
+    }
+
+    const allFrameIds = plans.flatMap((p) => p.frameIds);
+    setBusy(true);
+    setLastResults([]);
+    setRunningFrames(new Set(allFrameIds));
+    setQueuedFrames(new Set());
+    setProgress(null);
+    setStatus(`Running ${plans.length} squads in parallel (${allFrameIds.length} slices)...`);
+
+    try {
+      const payloads = await Promise.all(
+        plans.map(({ squad, frameIds }) =>
+          executeSquadSlicePlan(frameIds, squad.squadId, {
+            mode: runMode,
+            dispatchAfter: false,
+          }),
+        ),
+      );
+      finishRun(mergeOrchestratePayloads(payloads), allFrameIds);
+    } catch (err) {
+      setRunningFrames(new Set());
+      setQueuedFrames(new Set());
+      setProgress(null);
+      setStatus(err instanceof Error ? err.message : "Run all squads failed");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, squads.length, squadSlices, frames, runMode]);
 
   const runOneSlice = useCallback(
     async (slice: AgentSliceModel) => {
-      if (busy) return;
-      setBusy(true);
-      setRunningFrames(new Set([slice.frameId]));
-      setStatus(`Running ${slice.shortLabel}...`);
-      try {
-        const data = await runSingleFrame(slice.frameId, { refresh: true, confirmed: true });
-        setLastResults([
-          {
-            frame_id: slice.frameId,
-            agent_id: slice.agentId,
-            status: data.status ?? "ok",
-            spoken_summary: data.spoken_summary,
-          },
-        ]);
-        setRunningFrames(new Set());
-        setStatus(data.spoken_summary || `${slice.label} done.`);
-        void reload();
-      } catch (err) {
-        setRunningFrames(new Set());
-        setStatus(err instanceof Error ? err.message : "Slice run failed");
-      } finally {
-        setBusy(false);
-      }
+      await runWithPlan([slice.frameId], "stagger", slice.shortLabel);
     },
-    [busy, reload],
+    [runWithPlan],
   );
 
   const onSliceTap = (slice: AgentSliceModel) => {
@@ -189,7 +364,43 @@ export function AgentsOrchestrator() {
         {phaseCounts.running > 0 ? (
           <Badge variant="warning">{phaseCounts.running} running</Badge>
         ) : null}
+        {phaseCounts.queued > 0 ? (
+          <Badge variant="outline">{phaseCounts.queued} queued</Badge>
+        ) : null}
       </div>
+
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Run mode">
+        {MODE_OPTIONS.map(({ mode, label, icon: Icon }) => (
+          <Button
+            key={mode}
+            size="sm"
+            variant={runMode === mode ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => setRunMode(mode)}
+            data-testid={`run-mode-${mode}`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {progress && busy ? (
+        <div className="space-y-1" data-testid="slice-run-progress">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>
+              Wave {Math.min(progress.waveIndex + 1, progress.waveCount)}/{progress.waveCount}
+            </span>
+            <span>{progress.percent}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <Button
@@ -221,6 +432,11 @@ export function AgentsOrchestrator() {
           <Layers className="h-4 w-4" />
           Run {selected.size || "selected"}
         </Button>
+        {resultRows.length > 0 ? (
+          <Button size="sm" variant="ghost" onClick={() => setResultsOpen(true)}>
+            Results
+          </Button>
+        ) : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void reload()}>
           <RefreshCw className="h-4 w-4" />
         </Button>
@@ -237,22 +453,63 @@ export function AgentsOrchestrator() {
 
       {squads.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Squad slices
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Squad slices — tap run, long-press dispatch
+            </p>
+            {squads.length > 1 ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => void runAllSquads()}
+                data-testid="run-all-squads"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Run all squads
+              </Button>
+            ) : null}
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-1 snap-x">
             {squadSlices.map((squad) => (
               <Card
                 key={squad.squadId}
-                className="min-w-[140px] shrink-0 snap-start border-border/80"
+                className={cn(
+                  "min-w-[150px] shrink-0 snap-start border-border/80 transition-colors",
+                  activeSquadId === squad.squadId && "border-primary ring-1 ring-primary/40",
+                )}
                 data-testid={`squad-slice-${squad.squadId}`}
               >
-                <CardHeader className="p-3 pb-1">
+                <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm">{squad.name}</CardTitle>
                   <CardDescription className="text-xs">
                     {squad.channel} · {squadWarmLabel(squad)}
                   </CardDescription>
                 </CardHeader>
+                <CardContent className="flex gap-1 p-3 pt-0">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 flex-1 text-xs"
+                    disabled={busy}
+                    onClick={() => void runSquadSlice(squad, false)}
+                    data-testid={`squad-run-${squad.squadId}`}
+                  >
+                    <Play className="h-3 w-3" />
+                    Run
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 flex-1 text-xs"
+                    disabled={busy}
+                    onClick={() => void runSquadSlice(squad, true)}
+                    data-testid={`squad-dispatch-${squad.squadId}`}
+                  >
+                    <Send className="h-3 w-3" />
+                    Dispatch
+                  </Button>
+                </CardContent>
               </Card>
             ))}
           </div>
@@ -268,7 +525,7 @@ export function AgentsOrchestrator() {
           <button
             key={slice.agentId}
             type="button"
-            disabled={busy && slice.phase !== "running"}
+            disabled={busy && slice.phase !== "running" && slice.phase !== "queued"}
             onClick={() => onSliceTap(slice)}
             data-testid={`agent-slice-${slice.agentId}`}
             data-frame-id={slice.frameId}
@@ -298,12 +555,19 @@ export function AgentsOrchestrator() {
             <p className="mt-1 text-[10px] text-muted-foreground">
               {slice.phase === "running"
                 ? "running..."
-                : slice.lastStatus
-                  ? slice.lastStatus
-                  : slice.warm
-                    ? "warm"
-                    : "tap to run"}
+                : slice.phase === "queued"
+                  ? "queued..."
+                  : slice.lastStatus
+                    ? slice.lastStatus
+                    : slice.warm
+                      ? "warm"
+                      : "tap to run"}
             </p>
+            {slice.squadIds.length > 0 ? (
+              <p className="mt-0.5 text-[9px] text-muted-foreground/80">
+                {slice.squadIds.join(", ")}
+              </p>
+            ) : null}
           </button>
         ))}
       </div>
@@ -315,10 +579,22 @@ export function AgentsOrchestrator() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
+        {runMode === "parallel"
+          ? "Parallel: all slices at once. "
+          : runMode === "wave"
+            ? "Wave: 2 slices per batch. "
+            : "Stagger: one slice at a time. "}
         {multiMode
-          ? "Multi-select: tap slices, then Run selected for parallel orchestrate."
-          : "Tap a slice to run one frame. Swipe Voice tab for mic + operators."}
+          ? "Multi-select then Run selected."
+          : "Tap slice for single run. Squad cards run that crew only."}
       </p>
+
+      <SliceResultsDrawer
+        open={resultsOpen}
+        onOpenChange={setResultsOpen}
+        rows={resultRows}
+        summary={lastPayload?.spoken_summary}
+      />
     </div>
   );
 }

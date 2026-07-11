@@ -84,3 +84,16 @@ export async function runSingleFrame(
   if (!res.ok) throw new Error(`frame ${frameId} ${res.status}`);
   return res.json();
 }
+
+export async function dispatchSquad(
+  squadId: string,
+  base = apiBaseUrl(),
+): Promise<{ ok?: boolean; spoken_summary?: string; squad_id?: string }> {
+  const res = await fetch(`${base}/squads/dispatch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ squad_id: squadId, confirmed: true }),
+  });
+  if (!res.ok) throw new Error(`squad dispatch ${res.status}`);
+  return res.json();
+}

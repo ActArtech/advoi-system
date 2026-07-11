@@ -36,6 +36,7 @@ export type FrameRunResult = {
 export type OrchestratePayload = {
   results?: FrameRunResult[];
   agents_used?: string[];
+  systems?: string[];
   spoken_summary?: string;
   squads?: { dispatched?: number; total?: number } | null;
 };
@@ -62,4 +63,25 @@ export type SquadSliceModel = {
   agentIds: string[];
   warmCount: number;
   total: number;
+};
+
+/** parallel = all at once; wave = batches of 2; stagger = one-by-one */
+export type RunExecutionMode = "parallel" | "wave" | "stagger";
+
+export type SliceRunProgress = {
+  mode: RunExecutionMode;
+  waveIndex: number;
+  waveCount: number;
+  completedFrames: number;
+  totalFrames: number;
+  percent: number;
+};
+
+export type SliceResultRow = {
+  frameId: string;
+  agentId?: string;
+  shortLabel: string;
+  label: string;
+  status?: string;
+  spokenSummary?: string;
 };

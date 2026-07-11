@@ -8,7 +8,11 @@ import type {
   AgentSliceModel,
   FrameRow,
   FrameRunResult,
+  OrchestratePayload,
+  RunExecutionMode,
+  SliceResultRow,
   SliceRunPhase,
+  SliceRunProgress,
   SquadRow,
   SquadSliceModel,
 } from "./types";
@@ -57,6 +61,7 @@ export function buildAgentSlices(
   options?: {
     selectedIds?: Set<string>;
     runningFrameIds?: Set<string>;
+    queuedFrameIds?: Set<string>;
     results?: FrameRunResult[];
     squadByAgent?: Map<string, string[]>;
   },
@@ -69,6 +74,7 @@ export function buildAgentSlices(
   );
   const selected = options?.selectedIds ?? new Set<string>();
   const running = options?.runningFrameIds ?? new Set<string>();
+  const queued = options?.queuedFrameIds ?? new Set<string>();
 
   const ordered = agents.length
     ? agents
@@ -85,6 +91,7 @@ export function buildAgentSlices(
     const result = resultByFrame[frameId];
     let phase: SliceRunPhase = "idle";
     if (running.has(frameId)) phase = "running";
+    else if (queued.has(frameId)) phase = "queued";
     else if (result?.status === "ok" || result?.status === "success") phase = "ok";
     else if (result?.status) phase = result.status === "error" ? "error" : "ok";
 
@@ -146,4 +153,102 @@ export function countSlicesByPhase(slices: AgentSliceModel[]): Record<SliceRunPh
 
 export function squadWarmLabel(squad: SquadSliceModel): string {
   return `${squad.warmCount}/${squad.total} warm`;
+}
+
+export function waveSizeForMode(mode: RunExecutionMode): number {
+  if (mode === "parallel") return 64;
+  if (mode === "wave") return 2;
+  return 1;
+}
+
+/** Split frame ids into execution waves (wave=2, stagger=1, parallel=single wave). */
+export function chunkFrameWaves(frameIds: string[], mode: RunExecutionMode): string[][] {
+  const size = waveSizeForMode(mode);
+  if (frameIds.length === 0) return [];
+  if (mode === "parallel") return [frameIds];
+  const waves: string[][] = [];
+  for (let i = 0; i < frameIds.length; i += size) {
+    waves.push(frameIds.slice(i, i + size));
+  }
+  return waves;
+}
+
+/** Resolve frame ids for all agents in a squad. */
+export function frameIdsForSquadAgentIds(
+  agentIds: string[],
+  frames: FrameRow[],
+): string[] {
+  const byAgent = Object.fromEntries(frames.map((f) => [f.agent_id, f.id]));
+  const ids: string[] = [];
+  for (const aid of agentIds) {
+    const fid = byAgent[aid];
+    if (fid) ids.push(fid);
+  }
+  return ids;
+}
+
+export function frameIdsForSquadSlice(
+  squad: SquadSliceModel,
+  frames: FrameRow[],
+): string[] {
+  return frameIdsForSquadAgentIds(squad.agentIds, frames);
+}
+
+export function runProgressModel(
+  mode: RunExecutionMode,
+  waveIndex: number,
+  waves: string[][],
+  completedInCurrentWave: number,
+): SliceRunProgress {
+  const totalFrames = waves.reduce((n, w) => n + w.length, 0);
+  let completedFrames = 0;
+  for (let i = 0; i < waveIndex; i++) completedFrames += waves[i].length;
+  completedFrames += completedInCurrentWave;
+  const percent = totalFrames > 0 ? Math.round((completedFrames / totalFrames) * 100) : 0;
+  return {
+    mode,
+    waveIndex,
+    waveCount: waves.length,
+    completedFrames,
+    totalFrames,
+    percent,
+  };
+}
+
+/** Merge orchestrate payloads from multiple waves. */
+export function mergeOrchestratePayloads(
+  payloads: OrchestratePayload[],
+): OrchestratePayload {
+  const results = payloads.flatMap((p) => p.results ?? []);
+  const agents_used = [...new Set(payloads.flatMap((p) => p.agents_used ?? []))];
+  const systems = [...new Set(payloads.flatMap((p) => p.systems ?? []))];
+  const spoken = payloads.map((p) => p.spoken_summary).filter(Boolean).join(" ");
+  const lastSquads = payloads.findLast((p) => p.squads)?.squads ?? null;
+  return {
+    results,
+    agents_used,
+    systems,
+    spoken_summary: spoken,
+    squads: lastSquads ?? undefined,
+  };
+}
+
+export function buildResultRows(
+  slices: AgentSliceModel[],
+  results: FrameRunResult[],
+): SliceResultRow[] {
+  const byFrame = Object.fromEntries(results.map((r) => [r.frame_id, r]));
+  return slices
+    .filter((s) => byFrame[s.frameId])
+    .map((s) => {
+      const r = byFrame[s.frameId];
+      return {
+        frameId: s.frameId,
+        agentId: s.agentId,
+        shortLabel: s.shortLabel,
+        label: s.label,
+        status: r.status,
+        spokenSummary: r.spoken_summary,
+      };
+    });
 }
