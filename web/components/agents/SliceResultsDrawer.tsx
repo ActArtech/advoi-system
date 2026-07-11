@@ -13,12 +13,14 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import type { SliceResultRow } from "@/lib/agents/types";
+import { RefreshCw } from "lucide-react";
 
 type SliceResultsDrawerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: SliceResultRow[];
   summary?: string;
+  onRetryFailed?: () => void;
 };
 
 export function SliceResultsDrawer({
@@ -26,7 +28,10 @@ export function SliceResultsDrawer({
   onOpenChange,
   rows,
   summary,
+  onRetryFailed,
 }: SliceResultsDrawerProps) {
+  const hasErrors = rows.some((row) => row.status === "error");
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent data-testid="slice-results-drawer">
@@ -59,9 +64,22 @@ export function SliceResultsDrawer({
             </Card>
           ))}
         </div>
-        <DrawerFooter>
+        <DrawerFooter className="flex-row gap-2">
+          {hasErrors && onRetryFailed ? (
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={onRetryFailed}
+              data-testid="retry-failed-slices-drawer"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry failed
+            </Button>
+          ) : null}
           <DrawerClose asChild>
-            <Button variant="secondary">Close</Button>
+            <Button variant="secondary" className={hasErrors && onRetryFailed ? "flex-1" : "w-full"}>
+              Close
+            </Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

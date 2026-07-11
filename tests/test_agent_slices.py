@@ -163,6 +163,56 @@ def run_progress_model(
     }
 
 
+def is_failed_result_status(status: str | None) -> bool:
+    return status in ("error", "failed")
+
+
+def frame_ids_from_failed_results(results: list[dict]) -> list[str]:
+    return [
+        r["frame_id"]
+        for r in results
+        if is_failed_result_status(r.get("status"))
+    ]
+
+
+def count_failed_results(results: list[dict]) -> int:
+    return len(frame_ids_from_failed_results(results))
+
+
+def describe_wave_plan(frame_ids: list[str], mode: str) -> dict:
+    waves = chunk_frame_waves(frame_ids, mode)
+    return {
+        "mode": mode,
+        "waveCount": len(waves),
+        "waves": [
+            {
+                "index": i,
+                "frameIds": wave,
+                "labels": [short_frame_label(fid) for fid in wave],
+            }
+            for i, wave in enumerate(waves)
+        ],
+    }
+
+
+def squad_run_progress_model(
+    completed_squads: int,
+    total_squads: int,
+    completed_frames: int,
+    total_frames: int,
+) -> dict:
+    percent = round((completed_frames / total_frames) * 100) if total_frames else 0
+    squad_percent = round((completed_squads / total_squads) * 100) if total_squads else 0
+    return {
+        "completedSquads": completed_squads,
+        "totalSquads": total_squads,
+        "completedFrames": completed_frames,
+        "totalFrames": total_frames,
+        "percent": percent,
+        "squadPercent": squad_percent,
+    }
+
+
 def merge_orchestrate_payloads(payloads: list[dict]) -> dict:
     results: list[dict] = []
     agents_used: list[str] = []
@@ -409,6 +459,91 @@ def test_merge_orchestrate_payloads() -> None:
     assert merged["systems"] == ["s1", "s2"]
     assert merged["spoken_summary"] == "first second"
     assert merged["squads"] == {"dispatched": 1, "total": 2}
+
+
+def test_frame_ids_from_failed_results() -> None:
+    results = [
+        {"frame_id": "fleet_status", "status": "ok"},
+        {"frame_id": "open_briefs", "status": "error"},
+        {"frame_id": "systems_pulse", "status": "failed"},
+        {"frame_id": "memory_health", "status": "success"},
+    ]
+    assert frame_ids_from_failed_results(results) == [
+        "open_briefs",
+        "systems_pulse",
+    ]
+
+
+def test_count_failed_results() -> None:
+    results = [
+        {"frame_id": "a", "status": "ok"},
+        {"frame_id": "b", "status": "error"},
+        {"frame_id": "c", "status": "failed"},
+    ]
+    assert count_failed_results(results) == 2
+    assert count_failed_results([]) == 0
+
+
+def test_describe_wave_plan_wave_mode() -> None:
+    frame_ids = list(DEFAULT_SIX)
+    plan = describe_wave_plan(frame_ids, "wave")
+    assert plan["mode"] == "wave"
+    assert plan["waveCount"] == 3
+    assert len(plan["waves"]) == 3
+    assert plan["waves"][0] == {
+        "index": 0,
+        "frameIds": ["fleet_status", "open_briefs"],
+        "labels": ["fleet", "briefs"],
+    }
+    assert plan["waves"][2]["index"] == 2
+    assert plan["waves"][2]["frameIds"] == ["memory_health", "guardian_status"]
+
+
+def test_describe_wave_plan_parallel() -> None:
+    frame_ids = ["fleet_status", "open_briefs", "systems_pulse"]
+    plan = describe_wave_plan(frame_ids, "parallel")
+    assert plan["waveCount"] == 1
+    assert plan["waves"] == [
+        {
+            "index": 0,
+            "frameIds": frame_ids,
+            "labels": ["fleet", "briefs", "pulse"],
+        }
+    ]
+
+
+def test_describe_wave_plan_empty() -> None:
+    plan = describe_wave_plan([], "stagger")
+    assert plan == {"mode": "stagger", "waveCount": 0, "waves": []}
+
+
+def test_squad_run_progress_model() -> None:
+    assert squad_run_progress_model(0, 3, 0, 12) == {
+        "completedSquads": 0,
+        "totalSquads": 3,
+        "completedFrames": 0,
+        "totalFrames": 12,
+        "percent": 0,
+        "squadPercent": 0,
+    }
+    assert squad_run_progress_model(1, 3, 4, 12) == {
+        "completedSquads": 1,
+        "totalSquads": 3,
+        "completedFrames": 4,
+        "totalFrames": 12,
+        "percent": 33,
+        "squadPercent": 33,
+    }
+    assert squad_run_progress_model(3, 3, 12, 12) == {
+        "completedSquads": 3,
+        "totalSquads": 3,
+        "completedFrames": 12,
+        "totalFrames": 12,
+        "percent": 100,
+        "squadPercent": 100,
+    }
+    assert squad_run_progress_model(0, 0, 0, 0)["percent"] == 0
+    assert squad_run_progress_model(0, 0, 0, 0)["squadPercent"] == 0
 
 
 def test_build_result_rows() -> None:

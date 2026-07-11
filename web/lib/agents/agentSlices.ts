@@ -233,6 +233,72 @@ export function mergeOrchestratePayloads(
   };
 }
 
+function isFailedResultStatus(status?: string): boolean {
+  return status === "error" || status === "failed";
+}
+
+/** Frame ids whose orchestrate result status is error or failed. */
+export function frameIdsFromFailedResults(results: FrameRunResult[]): string[] {
+  return results
+    .filter((r) => isFailedResultStatus(r.status))
+    .map((r) => r.frame_id);
+}
+
+export function countFailedResults(results: FrameRunResult[]): number {
+  return results.filter((r) => isFailedResultStatus(r.status)).length;
+}
+
+export type WavePlanDescription = {
+  mode: RunExecutionMode;
+  waveCount: number;
+  waves: { index: number; frameIds: string[]; labels: string[] }[];
+};
+
+/** Human-readable wave batches for preview chips (parallel = one wave). */
+export function describeWavePlan(
+  frameIds: string[],
+  mode: RunExecutionMode,
+): WavePlanDescription {
+  const waves = chunkFrameWaves(frameIds, mode);
+  return {
+    mode,
+    waveCount: waves.length,
+    waves: waves.map((waveFrameIds, index) => ({
+      index,
+      frameIds: waveFrameIds,
+      labels: waveFrameIds.map(shortFrameLabel),
+    })),
+  };
+}
+
+/** Aggregate progress when running multiple squads (frame + squad completion). */
+export function squadRunProgressModel(
+  completedSquads: number,
+  totalSquads: number,
+  completedFrames: number,
+  totalFrames: number,
+): {
+  completedSquads: number;
+  totalSquads: number;
+  completedFrames: number;
+  totalFrames: number;
+  percent: number;
+  squadPercent: number;
+} {
+  const percent =
+    totalFrames > 0 ? Math.round((completedFrames / totalFrames) * 100) : 0;
+  const squadPercent =
+    totalSquads > 0 ? Math.round((completedSquads / totalSquads) * 100) : 0;
+  return {
+    completedSquads,
+    totalSquads,
+    completedFrames,
+    totalFrames,
+    percent,
+    squadPercent,
+  };
+}
+
 export function buildResultRows(
   slices: AgentSliceModel[],
   results: FrameRunResult[],

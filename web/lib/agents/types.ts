@@ -77,6 +77,10 @@ export type SliceRunProgress = {
   percent: number;
 };
 
+export type SquadRunProgress = SliceRunProgress & {
+  squadId: string;
+};
+
 export type SliceResultRow = {
   frameId: string;
   agentId?: string;

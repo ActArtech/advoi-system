@@ -31,7 +31,7 @@ export async function fetchSquads(base = apiBaseUrl()): Promise<SquadRow[]> {
 }
 
 export async function runSixParallel(
-  opts: { dispatchSquads?: boolean; refresh?: boolean } = {},
+  opts: { dispatchSquads?: boolean; refresh?: boolean; signal?: AbortSignal } = {},
   base = apiBaseUrl(),
 ): Promise<OrchestratePayload> {
   const qs = new URLSearchParams({
@@ -43,6 +43,7 @@ export async function runSixParallel(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",
+    signal: opts.signal,
   });
   if (!res.ok) throw new Error(`run-six ${res.status}`);
   return res.json();
@@ -50,7 +51,7 @@ export async function runSixParallel(
 
 export async function runFrameSliceParallel(
   frameIds: string[],
-  opts: { refresh?: boolean } = {},
+  opts: { refresh?: boolean; signal?: AbortSignal } = {},
   base = apiBaseUrl(),
 ): Promise<OrchestratePayload> {
   const res = await fetch(`${base}/agents/orchestrate`, {
@@ -61,6 +62,7 @@ export async function runFrameSliceParallel(
       confirmed: true,
       refresh: opts.refresh ?? true,
     }),
+    signal: opts.signal,
   });
   if (!res.ok) throw new Error(`orchestrate ${res.status}`);
   return res.json();
@@ -68,7 +70,7 @@ export async function runFrameSliceParallel(
 
 export async function runSingleFrame(
   frameId: string,
-  opts: { confirmed?: boolean; refresh?: boolean } = {},
+  opts: { confirmed?: boolean; refresh?: boolean; signal?: AbortSignal } = {},
   base = apiBaseUrl(),
 ): Promise<{ spoken_summary?: string; status?: string }> {
   const qs = new URLSearchParams({
@@ -80,6 +82,7 @@ export async function runSingleFrame(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",
+    signal: opts.signal,
   });
   if (!res.ok) throw new Error(`frame ${frameId} ${res.status}`);
   return res.json();
@@ -87,12 +90,14 @@ export async function runSingleFrame(
 
 export async function dispatchSquad(
   squadId: string,
+  opts: { signal?: AbortSignal } = {},
   base = apiBaseUrl(),
 ): Promise<{ ok?: boolean; spoken_summary?: string; squad_id?: string }> {
   const res = await fetch(`${base}/squads/dispatch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ squad_id: squadId, confirmed: true }),
+    signal: opts.signal,
   });
   if (!res.ok) throw new Error(`squad dispatch ${res.status}`);
   return res.json();
