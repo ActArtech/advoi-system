@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AgentSliceTile } from "@/components/agents/AgentSliceTile";
 import { SlicePresetsBar } from "@/components/agents/SlicePresetsBar";
 import { SliceResultsDrawer } from "@/components/agents/SliceResultsDrawer";
 import { SliceRunHistoryDrawer } from "@/components/agents/SliceRunHistoryDrawer";
@@ -38,10 +39,14 @@ import {
 } from "@/lib/agents/agentSlices";
 import {
   deleteUserPreset,
+  exportUserPresetsJson,
+  importUserPresetsJson,
   readUserPresets,
   saveUserPreset,
   type UserSlicePreset,
 } from "@/lib/agents/customUserPresets";
+import { readPreferredRunMode, savePreferredRunMode } from "@/lib/agents/slicePreferences";
+import { dispatchSquadsForAgent } from "@/lib/agents/sliceSquadDispatch";
 import type { SlicePreset } from "@/lib/agents/slicePresets";
 import {
   chainById,
@@ -52,7 +57,8 @@ import {
 import {
   appendSliceRunLog,
   clearSliceRunLog,
-  formatRelativeTimeFromValue,
+  exportRunLogJson,
+  importRunLogJson,
   readSliceRunLog,
 } from "@/lib/agents/sliceRunLog";
 import {
@@ -82,13 +88,15 @@ import type {
 import { RUN_FRAME_EVENT } from "@/components/pwaOnboarding";
 import { cn } from "@/lib/utils";
 
-const PHASE_STYLES: Record<AgentSliceModel["phase"], string> = {
-  idle: "border-border/70",
-  queued: "border-amber-500/50 bg-amber-500/5",
-  running: "border-primary animate-pulse bg-primary/10",
-  ok: "border-emerald-500/50 bg-emerald-500/5",
-  error: "border-destructive/60 bg-destructive/10",
-};
+function downloadJsonFile(filename: string, json: string) {
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 const MODE_OPTIONS: { mode: RunExecutionMode; label: string; icon: typeof Zap }[] = [
   { mode: "parallel", label: "Parallel", icon: Zap },
@@ -159,6 +167,8 @@ export function AgentsOrchestrator() {
   }, [busy]);
 
   useEffect(() => {
+    const savedMode = readPreferredRunMode();
+    if (savedMode) setRunMode(savedMode);
     setHistoryLog(readSliceRunLog());
     setUserPresets(readUserPresets());
     void reload();
@@ -682,6 +692,73 @@ export function AgentsOrchestrator() {
     void runOneSlice(slice);
   };
 
+  const dispatchSliceSquads = useCallback(
+    async (slice: AgentSliceModel) => {
+      if (busy || slice.squadIds.length === 0) return;
+      const controller = beginRun();
+      runLogMetaRef.current = {
+        label: `Dispatch ${slice.shortLabel} squads`,
+        mode: runMode,
+      };
+      setBusy(true);
+      setStatus(`Long-press: dispatching squads for ${slice.shortLabel}...`);
+      try {
+        const data = await dispatchSquadsForAgent(slice.agentId, squads, {
+          signal: controller.signal,
+        });
+        finishRun(data, []);
+        setStatus(
+          `Dispatched ${data.squads?.dispatched ?? 0} squad(s) for ${slice.shortLabel}`,
+        );
+      } catch (err) {
+        resetRunUi();
+        setStatus(
+          isAbortError(err)
+            ? "Run cancelled."
+            : err instanceof Error
+              ? err.message
+              : "Squad dispatch failed",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, squads, runMode],
+  );
+
+  const exportHistory = useCallback(() => {
+    downloadJsonFile("advoi-slice-history.json", exportRunLogJson(historyLog));
+    setStatus("History exported");
+  }, [historyLog]);
+
+  const importHistory = useCallback(() => {
+    const raw = window.prompt("Paste slice run history JSON");
+    if (!raw?.trim()) return;
+    try {
+      const entries = importRunLogJson(raw);
+      setHistoryLog(entries);
+      setStatus(`Imported ${entries.length} history entries`);
+    } catch {
+      setStatus("Invalid history JSON");
+    }
+  }, []);
+
+  const exportPresets = useCallback(() => {
+    downloadJsonFile("advoi-slice-presets.json", exportUserPresetsJson(userPresets));
+    setStatus("Presets exported");
+  }, [userPresets]);
+
+  const importPresets = useCallback(() => {
+    const raw = window.prompt("Paste user presets JSON");
+    if (!raw?.trim()) return;
+    try {
+      setUserPresets(importUserPresetsJson(raw));
+      setStatus("Presets imported");
+    } catch {
+      setStatus("Invalid presets JSON");
+    }
+  }, []);
+
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
 
@@ -723,7 +800,10 @@ export function AgentsOrchestrator() {
             size="sm"
             variant={runMode === mode ? "default" : "outline"}
             disabled={busy}
-            onClick={() => setRunMode(mode)}
+            onClick={() => {
+              setRunMode(mode);
+              savePreferredRunMode(mode);
+            }}
             data-testid={`run-mode-${mode}`}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -762,6 +842,8 @@ export function AgentsOrchestrator() {
           label: chain.label,
           onRun: () => void runPresetChain(chain.id),
         }))}
+        onExportPresets={exportPresets}
+        onImportPresets={importPresets}
         onSelect={(preset) => void runPreset(preset)}
       />
 
@@ -968,56 +1050,15 @@ export function AgentsOrchestrator() {
         aria-label="Agent slices"
       >
         {agentSlices.map((slice) => (
-          <button
+          <AgentSliceTile
             key={slice.agentId}
-            type="button"
-            disabled={busy && slice.phase !== "running" && slice.phase !== "queued"}
-            onClick={() => onSliceTap(slice)}
-            data-testid={`agent-slice-${slice.agentId}`}
-            data-frame-id={slice.frameId}
-            data-phase={slice.phase}
-            data-warm={slice.warm ? "true" : "false"}
-            className={cn(
-              "rounded-xl border p-3 text-left transition-all active:scale-[0.98]",
-              "min-h-[88px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              PHASE_STYLES[slice.phase],
-              slice.selected && multiMode && "ring-2 ring-primary",
-              focusFrameId === slice.frameId && "ring-2 ring-amber-400 animate-pulse",
-              !slice.warm && slice.phase === "idle" && "opacity-80",
-            )}
-          >
-            <div className="flex items-start justify-between gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                {slice.shortLabel}
-              </span>
-              <span
-                className={cn(
-                  "h-2 w-2 shrink-0 rounded-full",
-                  slice.warm ? "bg-emerald-400" : "bg-muted-foreground/40",
-                )}
-                aria-hidden
-              />
-            </div>
-            <p className="mt-1 line-clamp-2 text-sm font-medium leading-tight">{slice.label}</p>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              {slice.phase === "running"
-                ? "running..."
-                : slice.phase === "queued"
-                  ? "queued..."
-                  : slice.phase === "idle" && slice.lastRunAt
-                    ? formatRelativeTimeFromValue(slice.lastRunAt)
-                    : slice.lastStatus
-                      ? slice.lastStatus
-                      : slice.warm
-                        ? "warm"
-                        : "tap to run"}
-            </p>
-            {slice.squadIds.length > 0 ? (
-              <p className="mt-0.5 text-[9px] text-muted-foreground/80">
-                {slice.squadIds.join(", ")}
-              </p>
-            ) : null}
-          </button>
+            slice={slice}
+            multiMode={multiMode}
+            busy={busy}
+            focusFrameId={focusFrameId}
+            onTap={onSliceTap}
+            onLongPressDispatch={(s) => void dispatchSliceSquads(s)}
+          />
         ))}
       </div>
 
@@ -1034,8 +1075,8 @@ export function AgentsOrchestrator() {
             ? "Wave: 2 slices per batch. "
             : "Stagger: one slice at a time. "}
         {multiMode
-          ? "Multi-select then Run selected."
-          : "Tap slice for single run. Squad cards run that crew only."}
+          ? "Multi-select then Run selected or Save preset."
+          : "Tap slice to run. Hold 0.5s to dispatch its squads. Export/import presets and history."}
       </p>
 
       <SliceResultsDrawer
@@ -1052,6 +1093,8 @@ export function AgentsOrchestrator() {
         entries={historyLog}
         onRerun={rerunFromHistory}
         rerunDisabled={busy}
+        onExport={exportHistory}
+        onImport={importHistory}
         onClear={() => {
           clearSliceRunLog();
           setHistoryLog([]);

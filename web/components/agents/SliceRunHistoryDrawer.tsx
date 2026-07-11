@@ -13,7 +13,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { formatRelativeTime, type SliceRunLogEntry } from "@/lib/agents/sliceRunLog";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { Download, RefreshCw, Trash2, Upload } from "lucide-react";
 
 type SliceRunHistoryDrawerProps = {
   open: boolean;
@@ -22,6 +22,8 @@ type SliceRunHistoryDrawerProps = {
   onClear: () => void;
   onRerun?: (entry: SliceRunLogEntry) => void;
   rerunDisabled?: boolean;
+  onExport?: () => void;
+  onImport?: () => void;
 };
 
 export function SliceRunHistoryDrawer({
@@ -31,6 +33,8 @@ export function SliceRunHistoryDrawer({
   onClear,
   onRerun,
   rerunDisabled,
+  onExport,
+  onImport,
 }: SliceRunHistoryDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -90,16 +94,38 @@ export function SliceRunHistoryDrawer({
             ))
           )}
         </div>
-        <DrawerFooter className="flex-row gap-2">
+        <DrawerFooter className="flex-row flex-wrap gap-2">
+          {onExport ? (
+            <Button
+              variant="outline"
+              className="flex-1 min-w-[120px]"
+              onClick={onExport}
+              data-testid="export-slice-run-history"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          ) : null}
+          {onImport ? (
+            <Button
+              variant="outline"
+              className="flex-1 min-w-[120px]"
+              onClick={onImport}
+              data-testid="import-slice-run-history"
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+          ) : null}
           {entries.length > 0 ? (
             <Button
               variant="secondary"
-              className="flex-1"
+              className="flex-1 min-w-[120px]"
               onClick={onClear}
               data-testid="clear-slice-run-history"
             >
               <Trash2 className="h-4 w-4" />
-              Clear history
+              Clear
             </Button>
           ) : null}
           <DrawerClose asChild>

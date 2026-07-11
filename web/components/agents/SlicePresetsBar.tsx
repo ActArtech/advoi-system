@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlus, X } from "lucide-react";
+import { BookmarkPlus, Download, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { allPresetsForBar } from "@/lib/agents/slicePresets";
@@ -15,6 +15,8 @@ type SlicePresetsBarProps = {
   onDeleteUserPreset?: (id: string) => void;
   canSavePreset?: boolean;
   chainButtons?: { id: string; label: string; onRun: () => void }[];
+  onExportPresets?: () => void;
+  onImportPresets?: () => void;
   disabled?: boolean;
 };
 
@@ -25,6 +27,8 @@ export function SlicePresetsBar({
   onDeleteUserPreset,
   canSavePreset,
   chainButtons = [],
+  onExportPresets,
+  onImportPresets,
   disabled,
 }: SlicePresetsBarProps) {
   const allPresets = allPresetsForBar(userPresets);
@@ -94,24 +98,50 @@ export function SlicePresetsBar({
           </Button>
         ) : null}
       </div>
-      {chainButtons.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Preset chains">
-          {chainButtons.map((chain) => (
-            <Button
-              key={chain.id}
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 text-[10px]"
-              disabled={disabled}
-              onClick={chain.onRun}
-              data-testid={`slice-preset-chain-${chain.id}`}
-            >
-              {chain.label}
-            </Button>
-          ))}
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {chainButtons.map((chain) => (
+          <Button
+            key={chain.id}
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-[10px]"
+            disabled={disabled}
+            onClick={chain.onRun}
+            data-testid={`slice-preset-chain-${chain.id}`}
+          >
+            {chain.label}
+          </Button>
+        ))}
+        {onExportPresets ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-[10px]"
+            disabled={disabled}
+            onClick={onExportPresets}
+            data-testid="export-user-presets"
+          >
+            <Download className="h-3 w-3" />
+            Export presets
+          </Button>
+        ) : null}
+        {onImportPresets ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-[10px]"
+            disabled={disabled}
+            onClick={onImportPresets}
+            data-testid="import-user-presets"
+          >
+            <Upload className="h-3 w-3" />
+            Import
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

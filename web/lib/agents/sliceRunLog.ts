@@ -56,6 +56,7 @@ export function appendSliceRunLog(
     okCount: entry.okCount,
     failCount: entry.failCount,
     summary: entry.summary,
+    frameIds: entry.frameIds,
   };
   const next = [full, ...readSliceRunLog()].slice(0, MAX_ENTRIES);
   if (canUseSessionStorage()) {
@@ -95,4 +96,28 @@ export function clearSliceRunLog(): void {
   } catch {
     // ignore
   }
+}
+
+export function exportRunLogJson(entries?: SliceRunLogEntry[]): string {
+  const data = entries ?? readSliceRunLog();
+  return JSON.stringify({ version: 1, exportedAt: Date.now(), entries: data }, null, 2);
+}
+
+export function importRunLogJson(json: string): SliceRunLogEntry[] {
+  const parsed = JSON.parse(json) as unknown;
+  if (!parsed || typeof parsed !== "object") return [];
+  const entries = (parsed as { entries?: unknown }).entries;
+  if (!Array.isArray(entries)) return [];
+  const valid = entries.filter(
+    (e): e is SliceRunLogEntry =>
+      Boolean(e && typeof e === "object" && "label" in e && "mode" in e),
+  );
+  if (canUseSessionStorage()) {
+    try {
+      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(valid.slice(0, MAX_ENTRIES)));
+    } catch {
+      // ignore
+    }
+  }
+  return valid.slice(0, MAX_ENTRIES);
 }

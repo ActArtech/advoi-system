@@ -77,3 +77,27 @@ export function deleteUserPreset(id: string): UserSlicePreset[] {
   }
   return next;
 }
+
+export function exportUserPresetsJson(presets?: UserSlicePreset[]): string {
+  const data = presets ?? readUserPresets();
+  return JSON.stringify({ version: 1, exportedAt: Date.now(), presets: data }, null, 2);
+}
+
+export function importUserPresetsJson(json: string): UserSlicePreset[] {
+  const parsed = JSON.parse(json) as unknown;
+  if (!parsed || typeof parsed !== "object") return readUserPresets();
+  const raw = (parsed as { presets?: unknown }).presets;
+  if (!Array.isArray(raw)) return readUserPresets();
+  const imported: UserSlicePreset[] = raw
+    .filter((p): p is UserSlicePreset => Boolean(p && typeof p === "object" && "label" in p))
+    .map((p) => ({ ...p, source: "user" as const }))
+    .slice(0, MAX_USER_PRESETS);
+  if (canUseStorage()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(imported));
+    } catch {
+      // ignore
+    }
+  }
+  return imported;
+}

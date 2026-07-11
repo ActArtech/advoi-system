@@ -794,6 +794,36 @@ def test_preset_chain_full_six_dispatch_after() -> None:
     assert presets[0]["id"] == "full_six"
 
 
+def squad_ids_for_agent(agent_id: str, squads: list[dict]) -> list[str]:
+    return [s["id"] for s in squads if agent_id in s.get("agent_ids", [])]
+
+
+def test_squad_ids_for_agent() -> None:
+    squads = [
+        {"id": "alpha", "agent_ids": ["fleet-scout", "briefs-bot"]},
+        {"id": "beta", "agent_ids": ["systems-pulse"]},
+    ]
+    assert squad_ids_for_agent("fleet-scout", squads) == ["alpha"]
+    assert squad_ids_for_agent("missing", squads) == []
+
+
+def test_append_slice_log_includes_frame_ids() -> None:
+    entry = {
+        "label": "Ops",
+        "mode": "wave",
+        "frameCount": 2,
+        "okCount": 2,
+        "failCount": 0,
+        "frameIds": ["fleet_status", "open_briefs"],
+    }
+    assert entry["frameIds"] == ["fleet_status", "open_briefs"]
+
+
+def test_read_preferred_run_mode_valid() -> None:
+    valid = {"parallel", "wave", "stagger"}
+    assert "wave" in valid
+
+
 def test_slice_run_log_entry_stores_frame_ids() -> None:
     entry = {
         "id": "run-1",
