@@ -9,7 +9,7 @@ type SliceKeyboardHandlers = {
   failedCount: number;
   selectedCount?: number;
   multiMode?: boolean;
-  chainSuggestionCount?: number;
+  followUpCount?: number;
   queueDepth?: number;
   enabled?: boolean;
   onRunSlice: (slice: AgentSliceModel) => void;
@@ -19,8 +19,9 @@ type SliceKeyboardHandlers = {
   onRunAll?: () => void;
   onRunSelected?: () => void;
   onRunSelectedStagger?: () => void;
-  onRunChainSuggestion?: () => void;
-  onRunSecondaryChainSuggestion?: () => void;
+  onRunPrimaryFollowUp?: () => void;
+  onRunSecondaryFollowUp?: () => void;
+  onStackSelected?: () => void;
   onOpenQueue?: () => void;
   onOpenHistory?: () => void;
   onSelectAll?: () => void;
@@ -36,7 +37,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 /**
  * Agents tab keyboard shortcuts:
  * 1-6 run slice, Enter run selected/all, Shift+Enter stagger,
- * C / Shift+C chain suggestions, Q queue, H history, A select all,
+ * C / Shift+C follow-up chips, S stack batch, Q queue, H history, A select all,
  * R retry, Escape cancel, M toggle multi-select.
  */
 export function useSliceKeyboard({
@@ -45,7 +46,7 @@ export function useSliceKeyboard({
   failedCount,
   selectedCount = 0,
   multiMode = false,
-  chainSuggestionCount = 0,
+  followUpCount = 0,
   queueDepth = 0,
   enabled = true,
   onRunSlice,
@@ -55,8 +56,9 @@ export function useSliceKeyboard({
   onRunAll,
   onRunSelected,
   onRunSelectedStagger,
-  onRunChainSuggestion,
-  onRunSecondaryChainSuggestion,
+  onRunPrimaryFollowUp,
+  onRunSecondaryFollowUp,
+  onStackSelected,
   onOpenQueue,
   onOpenHistory,
   onSelectAll,
@@ -93,16 +95,22 @@ export function useSliceKeyboard({
         return;
       }
 
-      if ((ev.key === "c" || ev.key === "C") && chainSuggestionCount > 0) {
-        if (ev.shiftKey && chainSuggestionCount > 1 && onRunSecondaryChainSuggestion) {
+      if ((ev.key === "c" || ev.key === "C") && followUpCount > 0) {
+        if (ev.shiftKey && followUpCount > 1 && onRunSecondaryFollowUp) {
           ev.preventDefault();
-          onRunSecondaryChainSuggestion();
+          onRunSecondaryFollowUp();
           return;
         }
-        if (onRunChainSuggestion) {
+        if (onRunPrimaryFollowUp) {
           ev.preventDefault();
-          onRunChainSuggestion();
+          onRunPrimaryFollowUp();
         }
+        return;
+      }
+
+      if ((ev.key === "s" || ev.key === "S") && onStackSelected) {
+        ev.preventDefault();
+        onStackSelected();
         return;
       }
 
@@ -155,7 +163,7 @@ export function useSliceKeyboard({
     failedCount,
     selectedCount,
     multiMode,
-    chainSuggestionCount,
+    followUpCount,
     queueDepth,
     enabled,
     onRunSlice,
@@ -165,8 +173,9 @@ export function useSliceKeyboard({
     onRunAll,
     onRunSelected,
     onRunSelectedStagger,
-    onRunChainSuggestion,
-    onRunSecondaryChainSuggestion,
+    onRunPrimaryFollowUp,
+    onRunSecondaryFollowUp,
+    onStackSelected,
     onOpenQueue,
     onOpenHistory,
     onSelectAll,

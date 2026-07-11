@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import styles from "@/components/agents/agentsTheme.module.css";
 import { AgentSliceTile } from "@/components/agents/AgentSliceTile";
 import { SliceQuickPicksBar } from "@/components/agents/SliceQuickPicksBar";
+import { SliceFollowUpBanner } from "@/components/agents/SliceFollowUpBanner";
 import { SlicePresetsBar } from "@/components/agents/SlicePresetsBar";
 import { SliceResultsDrawer } from "@/components/agents/SliceResultsDrawer";
 import { SliceQueueDrawer } from "@/components/agents/SliceQueueDrawer";
@@ -125,16 +126,23 @@ import {
   parseOrchestrationImport,
 } from "@/lib/agents/sliceOrchestrationBundle";
 import {
+  labelsForChainPlan,
+  resolveBuiltinChainPlan,
+  resolveUserChainPlan,
+} from "@/lib/agents/sliceChainStack";
+import {
+  postRunFollowUps,
+  type SliceFollowUp,
+} from "@/lib/agents/slicePostRunSuggestions";
+import {
   detectVoiceMirrorComplete,
   isFailedMirrorStatus,
   shouldMirrorVoiceFrame,
-  voiceMirrorChainSuggestions,
   voiceMirrorLogLabel,
   voiceMirrorLogMode,
   voiceMirrorResultFromAgent,
   voiceMirrorStatusLabel,
   type RunFrameDetail,
-  type VoiceChainSuggestion,
 } from "@/lib/agents/voiceFrameBridge";
 import { cn } from "@/lib/utils";
 
@@ -200,7 +208,8 @@ export function AgentsOrchestrator() {
   const [chainBuilderMode, setChainBuilderMode] = useState(false);
   const [chainDraftIds, setChainDraftIds] = useState<string[]>([]);
   const [chainDispatchDraft, setChainDispatchDraft] = useState(false);
-  const [chainSuggestions, setChainSuggestions] = useState<VoiceChainSuggestion[]>([]);
+  const [followUps, setFollowUps] = useState<SliceFollowUp[]>([]);
+  const [followUpTitle, setFollowUpTitle] = useState("");
 
   const createWaveCallbacks = useSliceWaveCallbacks({
     setRunningFrames,
@@ -245,10 +254,15 @@ export function AgentsOrchestrator() {
           }),
         );
         setResultsOpen(true);
-        setChainSuggestions(voiceMirrorChainSuggestions(frameId, mirrored.status));
+        setFollowUpTitle(
+          failed
+            ? "Voice sync failed — retry or continue?"
+            : "Morning pulse synced — continue with a multi-agent chain?",
+        );
+        setFollowUps(postRunFollowUps([frameId], failed ? 1 : 0));
       } else {
         setStatus(`Voice sync complete: ${frameId}`);
-        setChainSuggestions([]);
+        setFollowUps([]);
       }
       return true;
     },
@@ -510,6 +524,18 @@ export function AgentsOrchestrator() {
         : "";
     setStatus((data.spoken_summary || `Completed ${frameIds.length} slices.`) + squadNote);
     if (results.length > 1) setResultsOpen(true);
+    setFollowUpTitle(
+      failCount > 0
+        ? "Some slices failed — retry or continue?"
+        : frameIds.length > 0
+          ? "Batch complete — run a follow-up chain?"
+          : "",
+    );
+    if (frameIds.length > 0 || failCount > 0) {
+      setFollowUps(postRunFollowUps(frameIds, failCount));
+    } else {
+      setFollowUps([]);
+    }
     void reload();
   };
 
@@ -887,6 +913,44 @@ export function AgentsOrchestrator() {
     [scheduleRun, dispatchAllSquadsInternal],
   );
 
+  const stackPresetChain = useCallback(
+    (chainId: string) => {
+      const plan = resolveBuiltinChainPlan(chainId);
+      if (!plan) return;
+      const labels = labelsForChainPlan(plan);
+      plan.stages.forEach((stage, index) => {
+        const label = labels[index] ?? `${plan.chainLabel}: ${stage.label}`;
+        stackBatch(label, () =>
+          runWithPlanInternal([...stage.preset.frameIds], stage.preset.mode, label),
+        );
+      });
+      if (plan.dispatchAfter) {
+        const dispatchLabel = labels[labels.length - 1] ?? `${plan.chainLabel}: Dispatch`;
+        stackBatch(dispatchLabel, () => dispatchAllSquadsInternal());
+      }
+    },
+    [stackBatch, runWithPlanInternal, dispatchAllSquadsInternal],
+  );
+
+  const stackUserChain = useCallback(
+    (chain: UserPresetChain) => {
+      const plan = resolveUserChainPlan(chain, userPresets);
+      if (!plan) return;
+      const labels = labelsForChainPlan(plan);
+      plan.stages.forEach((stage, index) => {
+        const label = labels[index] ?? `${plan.chainLabel}: ${stage.label}`;
+        stackBatch(label, () =>
+          runWithPlanInternal([...stage.preset.frameIds], stage.preset.mode, label),
+        );
+      });
+      if (plan.dispatchAfter) {
+        const dispatchLabel = labels[labels.length - 1] ?? `${plan.chainLabel}: Dispatch`;
+        stackBatch(dispatchLabel, () => dispatchAllSquadsInternal());
+      }
+    },
+    [userPresets, stackBatch, runWithPlanInternal, dispatchAllSquadsInternal],
+  );
+
   const saveCustomPreset = useCallback(() => {
     const picked = agentSlices.filter((s) => selected.has(s.agentId));
     if (picked.length === 0) return;
@@ -1195,13 +1259,47 @@ export function AgentsOrchestrator() {
     onError: (msg) => setStatus(msg),
   });
 
+  const executeFollowUp = useCallback(
+    (followUp: SliceFollowUp) => {
+      setFollowUps([]);
+      switch (followUp.action.kind) {
+        case "run_chain":
+          void runPresetChain(followUp.action.chainId);
+          break;
+        case "stack_chain":
+          stackPresetChain(followUp.action.chainId);
+          break;
+        case "retry_stagger": {
+          const frameIds = frameIdsFromFailedResults(lastResults);
+          if (frameIds.length > 0) {
+            runWithPlan(frameIds, "stagger", "Retry failed");
+          }
+          break;
+        }
+      }
+    },
+    [runPresetChain, stackPresetChain, lastResults, runWithPlan],
+  );
+
+  const runPrimaryFollowUp = useCallback(() => {
+    const primary = followUps[0];
+    if (!primary) return;
+    executeFollowUp(primary);
+  }, [followUps, executeFollowUp]);
+
+  const runSecondaryFollowUp = useCallback(() => {
+    const secondary = followUps[1];
+    if (!secondary) return;
+    executeFollowUp(secondary);
+  }, [followUps, executeFollowUp]);
+
   useSliceKeyboard({
     slices: agentSlices,
     busy,
     failedCount,
     selectedCount: selected.size,
     multiMode,
-    chainSuggestionCount: chainSuggestions.length,
+    followUpCount: followUps.length,
     queueDepth,
     onRunSlice: runOneSlice,
     onRetryFailed: retryFailed,
@@ -1210,18 +1308,9 @@ export function AgentsOrchestrator() {
     onRunAll: () => void runParallel("all_six"),
     onRunSelected: () => void runParallel("selected"),
     onRunSelectedStagger: () => void runSelectedStagger(),
-    onRunChainSuggestion: () => {
-      const primary = chainSuggestions[0];
-      if (!primary) return;
-      setChainSuggestions([]);
-      void runPresetChain(primary.chainId);
-    },
-    onRunSecondaryChainSuggestion: () => {
-      const secondary = chainSuggestions[1];
-      if (!secondary) return;
-      setChainSuggestions([]);
-      void runPresetChain(secondary.chainId);
-    },
+    onRunPrimaryFollowUp: runPrimaryFollowUp,
+    onRunSecondaryFollowUp: runSecondaryFollowUp,
+    onStackSelected: stackSelectedBatch,
     onOpenQueue: () => setQueueOpen(true),
     onOpenHistory: () => setHistoryOpen(true),
     onSelectAll: selectAllSlices,
@@ -1271,13 +1360,10 @@ export function AgentsOrchestrator() {
     bundleFilePicker.openPicker();
   }, [bundleFilePicker]);
 
-  const runSuggestedChain = useCallback(
-    (chainId: string) => {
-      setChainSuggestions([]);
-      void runPresetChain(chainId);
-    },
-    [runPresetChain],
-  );
+  const followUpHint =
+    followUps.length > 0
+      ? `C ${followUps[0]?.label}${followUps[1] ? ` · Shift+C ${followUps[1].label}` : ""}`
+      : undefined;
 
   const warmCount = agents.filter((a) => a.cached).length;
   const totalAgents = agents.length || 6;
@@ -1558,43 +1644,16 @@ export function AgentsOrchestrator() {
         </div>
       </div>
 
-      {chainSuggestions.length > 0 && !busy ? (
-        <div className={styles.suggestion} data-testid="voice-chain-suggestion">
-          <p className={styles.suggestionText}>
-            Morning pulse synced — continue with a multi-agent chain?
-          </p>
-          <div className={styles.suggestionChips}>
-            {chainSuggestions.map((suggestion, index) => (
-              <button
-                key={suggestion.chainId}
-                type="button"
-                disabled={busy}
-                onClick={() => void runSuggestedChain(suggestion.chainId)}
-                data-testid={
-                  index === 0
-                    ? "run-voice-chain-suggestion"
-                    : `run-voice-chain-suggestion-${suggestion.chainId}`
-                }
-                className={index === 0 ? styles.ctaPrimary : styles.ctaOutline}
-              >
-                <Play className="h-4 w-4" />
-                {suggestion.label}
-              </button>
-            ))}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setChainSuggestions([])}
-              data-testid="dismiss-voice-chain-suggestion"
-            >
-              Dismiss
-            </Button>
-          </div>
-          <p className={styles.suggestionHint}>
-            C {chainSuggestions[0]?.label}
-            {chainSuggestions[1] ? ` · Shift+C ${chainSuggestions[1].label}` : ""}
-          </p>
-        </div>
+      {followUps.length > 0 && !busy ? (
+        <SliceFollowUpBanner
+          title={followUpTitle}
+          followUps={followUps}
+          disabled={busy}
+          onExecute={executeFollowUp}
+          onDismiss={() => setFollowUps([])}
+          hint={followUpHint}
+          testId="slice-follow-up-banner"
+        />
       ) : null}
 
       <div className={styles.panel}>
@@ -1613,9 +1672,11 @@ export function AgentsOrchestrator() {
           id: chain.id,
           label: chain.label,
           onRun: () => void runPresetChain(chain.id),
+          onStack: () => stackPresetChain(chain.id),
         }))}
         userChains={userChains}
         onRunUserChain={(chain) => void runUserChain(chain)}
+        onStackUserChain={(chain) => stackUserChain(chain)}
         onDeleteUserChain={removeUserChain}
         chainBuilderMode={chainBuilderMode}
         onToggleChainBuilder={() => {

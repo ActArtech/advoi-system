@@ -1270,3 +1270,140 @@ def test_all_presets_for_bar_merges() -> None:
     merged = [*SLICE_PRESETS, *user]
     assert len(merged) == len(SLICE_PRESETS) + 1
     assert merged[-1]["id"] == "user_custom"
+
+
+def _frame_sets_equal(a: list[str], b: list[str]) -> bool:
+    return set(a) == set(b) and len(a) == len(b)
+
+
+def _chain_follow_up(chain_id: str, stack: bool = False) -> dict | None:
+    chain = chain_by_id(chain_id)
+    if not chain:
+        return None
+    return {
+        "id": f"stack_{chain_id}" if stack else f"run_{chain_id}",
+        "label": f"Stack {chain['label']}" if stack else chain["label"],
+        "action": {
+            "kind": "stack_chain" if stack else "run_chain",
+            "chainId": chain_id,
+        },
+    }
+
+
+def post_run_follow_ups(frame_ids: list[str], fail_count: int) -> list[dict]:
+    if fail_count > 0:
+        return [
+            {
+                "id": "retry_stagger",
+                "label": "Retry failed (stagger)",
+                "action": {"kind": "retry_stagger"},
+            }
+        ]
+    if not frame_ids:
+        return []
+
+    morning = preset_by_id("morning_pulse")
+    if morning and _frame_sets_equal(frame_ids, list(morning["frameIds"])):
+        return [
+            x
+            for x in [
+                _chain_follow_up("morning_then_ops"),
+                _chain_follow_up("morning_then_full"),
+                _chain_follow_up("morning_then_ops", stack=True),
+            ]
+            if x is not None
+        ]
+
+    ops = preset_by_id("ops_core")
+    if ops and _frame_sets_equal(frame_ids, list(ops["frameIds"])):
+        return [
+            x
+            for x in [
+                _chain_follow_up("ops_then_intel"),
+                _chain_follow_up("ops_then_intel", stack=True),
+            ]
+            if x is not None
+        ]
+
+    intel = preset_by_id("intel")
+    if intel and _frame_sets_equal(frame_ids, list(intel["frameIds"])):
+        nxt = _chain_follow_up("intel_then_dispatch")
+        return [nxt] if nxt else []
+
+    full = preset_by_id("full_six")
+    if full and _frame_sets_equal(frame_ids, list(full["frameIds"])):
+        nxt = _chain_follow_up("full_six_then_dispatch")
+        return [nxt] if nxt else []
+
+    return []
+
+
+def chain_playlist_labels(
+    chain_label: str,
+    preset_labels: list[str],
+    dispatch_after: bool = False,
+) -> list[str]:
+    labels = [f"{chain_label}: {preset}" for preset in preset_labels]
+    if dispatch_after:
+        labels.append(f"{chain_label}: Dispatch")
+    return labels
+
+
+def resolve_builtin_chain_plan(chain_id: str) -> dict | None:
+    chain = chain_by_id(chain_id)
+    if not chain:
+        return None
+    presets = resolve_chain_presets(chain)
+    if not presets:
+        return None
+    return {
+        "chainLabel": chain["label"],
+        "stages": [{"label": p["label"], "preset": p} for p in presets],
+        "dispatchAfter": bool(chain.get("dispatchAfter")),
+    }
+
+
+def labels_for_chain_plan(plan: dict) -> list[str]:
+    return chain_playlist_labels(
+        plan["chainLabel"],
+        [s["label"] for s in plan["stages"]],
+        plan.get("dispatchAfter"),
+    )
+
+
+def test_post_run_follow_ups_morning_pulse() -> None:
+    morning = preset_by_id("morning_pulse")
+    assert morning is not None
+    follow_ups = post_run_follow_ups(list(morning["frameIds"]), 0)
+    assert len(follow_ups) >= 2
+    assert follow_ups[0]["action"]["kind"] == "run_chain"
+    assert any(f["action"]["kind"] == "stack_chain" for f in follow_ups)
+
+
+def test_post_run_follow_ups_retry_on_failure() -> None:
+    follow_ups = post_run_follow_ups(["fleet_status"], 1)
+    assert len(follow_ups) == 1
+    assert follow_ups[0]["action"]["kind"] == "retry_stagger"
+
+
+def test_post_run_follow_ups_ops_core() -> None:
+    ops = preset_by_id("ops_core")
+    assert ops is not None
+    follow_ups = post_run_follow_ups(list(ops["frameIds"]), 0)
+    assert len(follow_ups) == 2
+    assert follow_ups[0]["action"]["chainId"] == "ops_then_intel"
+
+
+def test_chain_playlist_labels_dispatch() -> None:
+    labels = chain_playlist_labels("Full 6 → Dispatch", ["Full six"], True)
+    assert len(labels) == 2
+    assert "Dispatch" in labels[1]
+
+
+def test_resolve_builtin_chain_plan_ops_intel() -> None:
+    plan = resolve_builtin_chain_plan("ops_then_intel")
+    assert plan is not None
+    assert len(plan["stages"]) == 2
+    labels = labels_for_chain_plan(plan)
+    assert "Ops" in labels[0]
+    assert "Intel" in labels[1]

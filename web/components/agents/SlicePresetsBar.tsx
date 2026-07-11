@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlus, Download, GitBranch, Upload, X } from "lucide-react";
+import { BookmarkPlus, Download, GitBranch, ListPlus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { allPresetsForBar } from "@/lib/agents/slicePresets";
 import type { SlicePreset } from "@/lib/agents/slicePresets";
@@ -15,9 +15,10 @@ type SlicePresetsBarProps = {
   onSavePreset?: () => void;
   onDeleteUserPreset?: (id: string) => void;
   canSavePreset?: boolean;
-  chainButtons?: { id: string; label: string; onRun: () => void }[];
+  chainButtons?: { id: string; label: string; onRun: () => void; onStack?: () => void }[];
   userChains?: UserPresetChain[];
   onRunUserChain?: (chain: UserPresetChain) => void;
+  onStackUserChain?: (chain: UserPresetChain) => void;
   onDeleteUserChain?: (id: string) => void;
   chainBuilderMode?: boolean;
   onToggleChainBuilder?: () => void;
@@ -45,6 +46,7 @@ export function SlicePresetsBar({
   chainButtons = [],
   userChains = [],
   onRunUserChain,
+  onStackUserChain,
   onDeleteUserChain,
   chainBuilderMode = false,
   onToggleChainBuilder,
@@ -164,16 +166,29 @@ export function SlicePresetsBar({
         <p className={styles.sectionLabel}>Chains</p>
         <div className="flex flex-wrap items-center gap-2">
           {chainButtons.map((chain) => (
-            <button
-              key={chain.id}
-              type="button"
-              disabled={disabled}
-              onClick={chain.onRun}
-              data-testid={`slice-preset-chain-${chain.id}`}
-              className={cn(styles.chainBtn, disabled && "opacity-50")}
-            >
-              {chain.label}
-            </button>
+            <span key={chain.id} className="inline-flex items-center gap-0.5">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={chain.onRun}
+                data-testid={`slice-preset-chain-${chain.id}`}
+                className={cn(styles.chainBtn, disabled && "opacity-50")}
+              >
+                {chain.label}
+              </button>
+              {chain.onStack ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label={`Stack ${chain.label} in queue`}
+                  onClick={chain.onStack}
+                  data-testid={`stack-preset-chain-${chain.id}`}
+                  className="rounded-full p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                >
+                  <ListPlus className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </span>
           ))}
           {userChains.map((chain) => (
             <span key={chain.id} className="inline-flex items-center gap-0.5">
@@ -187,6 +202,18 @@ export function SlicePresetsBar({
                 {chain.label}
                 {chain.dispatchAfter ? " → Dispatch" : ""}
               </button>
+              {onStackUserChain ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label={`Stack ${chain.label} in queue`}
+                  onClick={() => onStackUserChain(chain)}
+                  data-testid={`stack-user-chain-${chain.id}`}
+                  className="rounded-full p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                >
+                  <ListPlus className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
               {onDeleteUserChain ? (
                 <button
                   type="button"

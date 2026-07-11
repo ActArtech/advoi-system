@@ -37,6 +37,14 @@ import {
   reorderQueueItem,
 } from "../lib/agents/sliceRunQueue";
 import {
+  labelsForChainPlan,
+  resolveBuiltinChainPlan,
+} from "../lib/agents/sliceChainStack";
+import {
+  chainPlaylistLabels,
+  postRunFollowUps,
+} from "../lib/agents/slicePostRunSuggestions";
+import {
   detectVoiceMirrorComplete,
   frameIdToPresetId,
   isFailedMirrorStatus,
@@ -253,6 +261,35 @@ test("voice mirror suggests ops and full six chains", async () => {
   expect(suggestions[0].chainId).toBe("morning_then_ops");
   expect(suggestions[1].chainId).toBe("morning_then_full");
   expect(voiceMirrorChainSuggestions("systems_pulse", "error")).toHaveLength(0);
+});
+
+test("postRunFollowUps suggests chains after morning pulse", async () => {
+  const morning = presetById("morning_pulse");
+  expect(morning).toBeTruthy();
+  const followUps = postRunFollowUps(morning!.frameIds, 0);
+  expect(followUps.length).toBeGreaterThanOrEqual(2);
+  expect(followUps[0].action.kind).toBe("run_chain");
+  expect(followUps.some((f) => f.action.kind === "stack_chain")).toBe(true);
+});
+
+test("postRunFollowUps suggests retry stagger on failure", async () => {
+  const followUps = postRunFollowUps(["fleet_status"], 2);
+  expect(followUps).toHaveLength(1);
+  expect(followUps[0].action.kind).toBe("retry_stagger");
+});
+
+test("resolveBuiltinChainPlan stacks ops then intel stages", async () => {
+  const plan = resolveBuiltinChainPlan("ops_then_intel");
+  expect(plan?.stages).toHaveLength(2);
+  const labels = labelsForChainPlan(plan!);
+  expect(labels[0]).toContain("Ops");
+  expect(labels[1]).toContain("Intel");
+});
+
+test("chainPlaylistLabels includes dispatch stage", async () => {
+  const labels = chainPlaylistLabels("Full 6 → Dispatch", ["Full six"], true);
+  expect(labels).toHaveLength(2);
+  expect(labels[1]).toContain("Dispatch");
 });
 
 test("agents tab shows orchestrator and wave preview", async ({ page }) => {
