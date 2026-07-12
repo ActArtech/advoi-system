@@ -15,6 +15,7 @@ Runbooks for local development and staging validation.
 | [ANALYTICS-FUNNEL.md](ANALYTICS-FUNNEL.md) | PWA connect→frame→confirm→success funnel SQL on PEL `portfolio_events` |
 | [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) | What to test / tested / bugs (does not block dev) |
 | [E2E-USE-CASE-TESTS.md](E2E-USE-CASE-TESTS.md) | Full journey use cases (portfolio, voice, agents, Aether) |
+| [../current-state/WHAT-WE-DID-2026-07-11.md](../current-state/WHAT-WE-DID-2026-07-11.md) | Session summary + quick start (project selector, FirstMate) |
 | [local-testing.md](local-testing.md) | Developers on Windows/Mac/Linux |
 | [staging-runbook.md](staging-runbook.md) | VPS deploy and smoke (T2: `scripts/t2-staging-smoke.sh`) |
 | [MIGRATIONS.md](MIGRATIONS.md) | Versioned SQL under `deploy/migrations/`, apply order, staging verify (SSH parked) |
