@@ -293,6 +293,51 @@ async def test_invoke_guardian_required_skips_subprocess(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_wake_firstmate_uses_session_after_portfolio_active(client, monkeypatch):
+    """portfolio/active session override feeds fleet trigger when project omitted."""
+    from advoi.portfolio.ecr import clear_session_active_venture
+
+    clear_session_active_venture()
+    monkeypatch.setenv("ADVOI_FLEET_MOCK", "true")
+
+    activate = client.post(
+        "/api/portfolio/active",
+        json={"venture_id": "advoi-system"},
+    )
+    assert activate.status_code == 200
+
+    resp = client.post(
+        "/api/fleet/trigger",
+        json={"action": "wake_firstmate", "confirmed": True},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["project"] == "advoi"
+    assert data["action"] == "wake_firstmate"
+
+
+@pytest.mark.asyncio
+async def test_wake_firstmate_uses_session_venture_slug(monkeypatch):
+    """Session ECR override resolves fleet project without on-slug in transcript."""
+    from advoi.portfolio.ecr import clear_session_active_venture, set_session_active_venture
+
+    clear_session_active_venture()
+    set_session_active_venture("advoi-system")
+    monkeypatch.setenv("ADVOI_FLEET_MOCK", "true")
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+
+    result = await fleet_trigger_from_voice(
+        "wake_firstmate",
+        transcript="wake firstmate confirm",
+        confirmed=True,
+    )
+    assert result["ok"] is True
+    assert result["project"] == "advoi"
+    assert result["action"] == "wake_firstmate"
+
+
+@pytest.mark.asyncio
 async def test_wake_firstmate_api_reaches_bridge(client, monkeypatch, tmp_path):
     """T0: POST /api/fleet/trigger wake_firstmate confirmed → bridge arm."""
     monkeypatch.setenv("ADVOI_FLEET_MOCK", "false")

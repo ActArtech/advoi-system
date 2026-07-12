@@ -534,23 +534,27 @@ Say each phrase (or tap equivalent button):
 
 ---
 
-## UC-17: Fleet voice write (optional / P2, confirm required)
+## UC-17: Fleet voice write + project bar (confirm required)
 
 **Actor:** Fleet operator  
-**Goal:** Voice triggers FirstMate with Guardian confirm.
+**Goal:** Project bar + voice/UI trigger FirstMate on the correct fleet slug.
 
 **Warning:** Use only on staging; confirm prompts required.
 
 ### Steps
 
-1. Say: **"wake firstmate on advoi"** — expect confirm prompt
-2. Say **"no"** — action cancelled
-3. (Optional) Repeat with **"yes"** only if safe on staging
+1. Project bar → **ADVoi System** (`advoi`)
+2. Say: **"wake firstmate"** — expect confirm prompt naming advoi
+3. Say **"no"** — action cancelled
+4. Tap **Wake FirstMate** — confirm prompt should also reference **advoi** (not stale fleet profile only)
+5. Say **"yes"** only if safe on staging
+6. Say **"fleet status"** — verify queue/arm state changed
 
 ### Pass criteria
 
 - [ ] Write intent requires confirmation
 - [ ] Deny does not execute fleet write
+- [ ] UI fleet buttons use project bar slug (`advoi`), not only fleet profile file
 - [ ] Accept produces fleet spoken result (if live bridge enabled)
 
 ### Record

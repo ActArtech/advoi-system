@@ -95,3 +95,24 @@ export function makeUserFeatureId(label: string): string {
     .replace(/^-|-$/g, "");
   return `custom-${slug || "feature"}-${Date.now().toString(36)}`;
 }
+
+/** Fleet fm-bridge slug: project bar wins over FirstMate profile snapshot. */
+export function resolveFleetProjectSlug(
+  activeVenture: VentureProject | null | undefined,
+  fleetProfileSlug?: string | null,
+): string | null {
+  const fromBar = activeVenture?.fleet_slug?.trim();
+  if (fromBar) return fromBar;
+  const fromProfile = fleetProfileSlug?.trim();
+  return fromProfile || null;
+}
+
+export function fleetActionTranscript(
+  action: string,
+  projectSlug: string | null | undefined,
+  confirmed = false,
+): string {
+  const phrase = action.replace(/_/g, " ");
+  const scoped = projectSlug ? `${phrase} on ${projectSlug}` : phrase;
+  return confirmed ? `${scoped} confirm` : scoped;
+}

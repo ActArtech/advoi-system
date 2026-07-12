@@ -32,7 +32,12 @@ import {
   emitBeaconForUiEvent,
   emitPwaBeacon,
 } from "./pwaBeacon";
-import { PROJECT_SWITCH_EVENT } from "@/lib/portfolio/projectModel";
+import { useProjectContext } from "@/components/shell/ProjectContext";
+import {
+  fleetActionTranscript,
+  PROJECT_SWITCH_EVENT,
+  resolveFleetProjectSlug,
+} from "@/lib/portfolio/projectModel";
 import {
   INITIAL_UI_SESSION,
   reduceUiSession,
@@ -146,6 +151,7 @@ function attachRemoteAudio(track: { kind: Track.Kind; attach: () => HTMLMediaEle
 }
 
 export function VoiceSession() {
+  const projectCtx = useProjectContext();
   const [ui, dispatchUiRaw] = useReducer(
     (ctx: UiSessionContext, event: UiSessionEvent) => reduceUiSession(ctx, event),
     INITIAL_UI_SESSION,
@@ -173,6 +179,15 @@ export function VoiceSession() {
   const [errorRecovery, setErrorRecovery] = useState<ErrorRecoveryModel | null>(null);
   /** Last failed frame id for Retry on api_frame recovery. */
   const [lastFailedFrameId, setLastFailedFrameId] = useState<string | null>(null);
+
+  const fleetProjectSlug = useMemo(
+    () =>
+      resolveFleetProjectSlug(
+        projectCtx?.activeVenture,
+        capabilities?.systems_access?.firstmate_fleet?.active_slug,
+      ),
+    [projectCtx?.activeVenture, capabilities?.systems_access?.firstmate_fleet?.active_slug],
+  );
 
   /** State-machine dispatch with PEL thin-beacon side effects (no third-party SDK). */
   const dispatchUi = useCallback(
@@ -752,14 +767,14 @@ export function VoiceSession() {
         { type: "FRAME_START" },
         { target: "fleet", action, confirmed },
       );
-      const project = capabilities?.systems_access?.firstmate_fleet?.active_slug;
+      const project = fleetProjectSlug;
       const label = FLEET_LABELS[action];
-      setStatus(confirmed ? `${label}...` : `Confirm ${label.toLowerCase()}...`);
+      const projectHint = project ? ` on ${project}` : "";
+      setStatus(
+        confirmed ? `${label}${projectHint}...` : `Confirm ${label.toLowerCase()}${projectHint}...`,
+      );
       try {
-        const transcript =
-          action === "start_development"
-            ? `start development${project ? ` on ${project}` : ""}${confirmed ? " confirm" : ""}`
-            : `${action.replace(/_/g, " ")}${confirmed ? " confirm" : ""}`;
+        const transcript = fleetActionTranscript(action, project, confirmed);
         const resp = await fetch(`${apiBase}/fleet/trigger`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -817,9 +832,9 @@ export function VoiceSession() {
     },
     [
       apiBase,
-      capabilities,
       clearErrorRecovery,
       dispatchUi,
+      fleetProjectSlug,
       loadAgents,
       operatorBusy,
       publishSpeak,

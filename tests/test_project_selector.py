@@ -130,6 +130,33 @@ def test_merge_user_features_mirror():
     assert merged[-1]["kind"] == "custom"
 
 
+def test_resolve_fleet_project_slug_mirror():
+    """Mirror resolveFleetProjectSlug from projectModel.ts."""
+
+    def resolve_fleet_project_slug(active_venture, fleet_profile_slug=None):
+        from_bar = (active_venture or {}).get("fleet_slug")
+        if from_bar and str(from_bar).strip():
+            return str(from_bar).strip()
+        from_profile = (fleet_profile_slug or "").strip()
+        return from_profile or None
+
+    assert resolve_fleet_project_slug({"fleet_slug": "advoi"}, "clapart") == "advoi"
+    assert resolve_fleet_project_slug(None, "clapart") == "clapart"
+    assert resolve_fleet_project_slug({"fleet_slug": ""}, None) is None
+
+
+def test_fleet_action_transcript_mirror():
+    """Mirror fleetActionTranscript from projectModel.ts."""
+
+    def fleet_action_transcript(action, project_slug, confirmed=False):
+        phrase = action.replace("_", " ")
+        scoped = f"{phrase} on {project_slug}" if project_slug else phrase
+        return f"{scoped} confirm" if confirmed else scoped
+
+    assert fleet_action_transcript("wake_firstmate", "advoi", True) == "wake firstmate on advoi confirm"
+    assert fleet_action_transcript("run_next_backlog", None, False) == "run next backlog"
+
+
 def test_make_user_feature_id_mirror():
     """Mirror makeUserFeatureId from projectModel.ts."""
 
