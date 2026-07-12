@@ -123,8 +123,9 @@ $env:ADVOI_BASE_URL = "https://advoi.keyteller.com"
 2. Select **ADVoi System** (`advoi-system`)
 3. Confirm label updates to "ADVoi System"
 4. Expand active project — tap function chip **Fleet status**
-5. Select **Gem Dev Shop** — confirm label changes
-6. Refresh page — confirm last selection persists (localStorage)
+5. Scroll to **FirstMate on advoi** — tap **Wake FirstMate**, then **Confirm**
+6. Select **Gem Dev Shop** — confirm label changes
+7. Refresh page — confirm last selection persists (localStorage)
 
 ### Pass criteria
 

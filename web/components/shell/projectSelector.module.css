@@ -170,3 +170,57 @@
   color: #64748b;
   white-space: nowrap;
 }
+
+.fleetSection {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 0.55rem 0.9rem 0.85rem;
+}
+
+.fleetActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.fleetBtn {
+  border-radius: 0.65rem;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(14, 165, 233, 0.14);
+  padding: 0.38rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7dd3fc;
+  cursor: pointer;
+}
+
+.fleetBtn:hover,
+.fleetBtn[data-pending="true"] {
+  border-color: rgba(56, 189, 248, 0.7);
+  background: rgba(14, 165, 233, 0.24);
+}
+
+.fleetBtnDanger {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.25);
+  color: #fca5a5;
+}
+
+.fleetBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.fleetHint {
+  margin-top: 0.45rem;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.fleetHintOk {
+  color: #86efac;
+}
+
+.fleetHintWarn {
+  color: #fcd34d;
+}

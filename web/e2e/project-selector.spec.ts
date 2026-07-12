@@ -37,6 +37,39 @@ test.describe("Project selector", () => {
       });
     });
 
+    await page.route("**/api/fleet/trigger", async (route) => {
+      const body = route.request().postDataJSON() as {
+        action?: string;
+        confirmed?: boolean;
+        project?: string;
+      };
+      if (!body.confirmed) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            status: "confirmation_required",
+            action: body.action,
+            project: body.project,
+            prompt: `Confirm ${body.action} on ${body.project}.`,
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          status: "mock",
+          action: body.action,
+          project: body.project,
+          spoken: `FirstMate fleet loop armed on ${body.project}.`,
+        }),
+      });
+    });
+
     await page.route("**/api/portfolio/active", async (route) => {
       const body = route.request().postDataJSON() as {
         venture_id?: string;
@@ -68,5 +101,15 @@ test.describe("Project selector", () => {
     await page.getByTestId("project-selector-trigger").click();
     await page.getByTestId("project-function-fleet_status").click();
     await expect(page.getByTestId("project-selector-trigger")).toContainText("Fleet status");
+  });
+
+  test("wake firstmate from project dropdown with confirm", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("project-selector-trigger").click();
+    await expect(page.getByTestId("project-fleet-actions")).toBeVisible();
+    await page.getByTestId("project-fleet-wake_firstmate").click();
+    await expect(page.getByTestId("project-fleet-message")).toContainText("Confirm");
+    await page.getByTestId("project-fleet-wake_firstmate").click();
+    await expect(page.getByTestId("project-fleet-message")).toContainText("armed on advoi");
   });
 });

@@ -1,21 +1,42 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, FolderKanban, Mic, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, FolderKanban, Mic, Plus, Rocket } from "lucide-react";
 import { useProjectContext } from "@/components/shell/ProjectContext";
 import styles from "@/components/shell/projectSelector.module.css";
+import {
+  FLEET_ACTION_LABELS,
+  triggerFleetAction,
+  type FleetAction,
+} from "@/lib/portfolio/fleetTrigger";
 import { mergeUserFeatures } from "@/lib/portfolio/projectModel";
+
+const FLEET_DROPDOWN_ACTIONS: FleetAction[] = [
+  "wake_firstmate",
+  "start_development",
+  "run_next_backlog",
+  "fleet_stop",
+];
+
+function apiBaseFromEnv(): string {
+  return process.env.NEXT_PUBLIC_API_BASE ?? "/api";
+}
 
 export function ProjectSelector() {
   const ctx = useProjectContext();
+  const apiBase = apiBaseFromEnv();
   const [open, setOpen] = useState(false);
   const [draftFeature, setDraftFeature] = useState("");
+  const [fleetBusy, setFleetBusy] = useState(false);
+  const [pendingFleet, setPendingFleet] = useState<FleetAction | null>(null);
+  const [fleetMessage, setFleetMessage] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const ventures = ctx?.catalog?.ventures ?? [];
   const activeVentureId = ctx?.activeVentureId ?? null;
   const activeFunctionId = ctx?.activeFunctionId ?? null;
   const userFeatures = ctx?.userFeatures ?? [];
+  const activeFleetSlug = ctx?.activeVenture?.fleet_slug?.trim() || null;
 
   const activeFunctions = useMemo(() => {
     const venture = ventures.find((row) => row.id === activeVentureId);
@@ -34,6 +55,42 @@ export function ProjectSelector() {
     window.addEventListener("mousedown", onPointerDown);
     return () => window.removeEventListener("mousedown", onPointerDown);
   }, [open]);
+
+  const runFleetAction = useCallback(
+    async (action: FleetAction) => {
+      if (fleetBusy || !activeFleetSlug) return;
+      const confirming = pendingFleet === action;
+      setFleetBusy(true);
+      setFleetMessage(null);
+      try {
+        const data = await triggerFleetAction(apiBase, action, {
+          project: activeFleetSlug,
+          confirmed: confirming,
+        });
+        if (data.status === "confirmation_required") {
+          setPendingFleet(action);
+          setFleetMessage(
+            typeof data.prompt === "string"
+              ? data.prompt
+              : `Confirm ${FLEET_ACTION_LABELS[action].toLowerCase()} on ${activeFleetSlug}.`,
+          );
+          return;
+        }
+        setPendingFleet(null);
+        const spoken =
+          typeof data.spoken === "string"
+            ? data.spoken
+            : `${FLEET_ACTION_LABELS[action]} completed on ${activeFleetSlug}.`;
+        setFleetMessage(spoken);
+      } catch (err) {
+        setPendingFleet(null);
+        setFleetMessage(err instanceof Error ? err.message : "Fleet action failed.");
+      } finally {
+        setFleetBusy(false);
+      }
+    },
+    [activeFleetSlug, apiBase, fleetBusy, pendingFleet],
+  );
 
   if (!ctx) return null;
 
@@ -83,6 +140,8 @@ export function ProjectSelector() {
                   data-testid={`project-option-${venture.id}`}
                   onClick={() => {
                     void ctx.selectProject(venture.id, { source: "dropdown" });
+                    setPendingFleet(null);
+                    setFleetMessage(null);
                     setOpen(false);
                   }}
                 >
@@ -119,6 +178,52 @@ export function ProjectSelector() {
             );
           })}
 
+          {activeVentureId && activeFleetSlug ? (
+            <div className={styles.fleetSection} data-testid="project-fleet-actions">
+              <div className={styles.panelHeader}>
+                <Rocket
+                  aria-hidden
+                  size={12}
+                  style={{ display: "inline", marginRight: 5, verticalAlign: -1 }}
+                />
+                FirstMate on {activeFleetSlug}
+              </div>
+              <div className={styles.fleetActions}>
+                {FLEET_DROPDOWN_ACTIONS.map((action) => {
+                  const isPending = pendingFleet === action;
+                  const label = isPending ? "Confirm" : FLEET_ACTION_LABELS[action];
+                  return (
+                    <button
+                      key={action}
+                      type="button"
+                      className={`${styles.fleetBtn} ${action === "fleet_stop" ? styles.fleetBtnDanger : ""}`}
+                      data-pending={isPending}
+                      data-testid={`project-fleet-${action}`}
+                      disabled={fleetBusy}
+                      onClick={() => void runFleetAction(action)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {fleetMessage ? (
+                <p
+                  className={`${styles.fleetHint} ${
+                    pendingFleet ? styles.fleetHintWarn : styles.fleetHintOk
+                  }`}
+                  data-testid="project-fleet-message"
+                >
+                  {fleetMessage}
+                </p>
+              ) : (
+                <p className={styles.fleetHint}>
+                  Tap Wake FirstMate, then Confirm. Targets fleet slug {activeFleetSlug}.
+                </p>
+              )}
+            </div>
+          ) : null}
+
           {activeVentureId ? (
             <div className={styles.addRow}>
               <input
@@ -148,10 +253,6 @@ export function ProjectSelector() {
                 Add
               </button>
             </div>
-          ) : null}
-
-          {activeVentureId && activeFunctions.length > 0 ? (
-            <div className={styles.panelHeader}>Active functions</div>
           ) : null}
         </div>
       ) : null}
