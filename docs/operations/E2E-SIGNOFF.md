@@ -2,6 +2,8 @@
 
 Human validation template for Path A (LiveKit + server TTS). Copy this section into `docs/dev-log/DEV-LOG.md` or a ticket when signing off.
 
+**Full journey playbook (portfolio + agents + Aether):** [E2E-USE-CASE-TESTS.md](E2E-USE-CASE-TESTS.md)
+
 **Environment (canonical staging):** `https://advoi-staging.keyteller.com`  
 **Live (do not treat as tip staging):** `https://advoi.keyteller.com`  
 **Deploy ref / date:** VPS tree `5d50805` / 2026-07-10 (bootstrap; develop tip `3d5a00d` **not** promoted — GAP-013)  

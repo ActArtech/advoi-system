@@ -2,7 +2,9 @@
 
 **Purpose:** Record what humans still need to verify. **Does not block development** — agents continue Phase 4+ while items here stay open.
 
-**Last updated:** 2026-07-10
+**Last updated:** 2026-07-11
+
+**Full E2E use cases:** [E2E-USE-CASE-TESTS.md](E2E-USE-CASE-TESTS.md) (17 journeys + session map)
 **Staging:** https://advoi.keyteller.com  
 **Local:** http://localhost:3000 (web) + http://127.0.0.1:8010 (API)
 

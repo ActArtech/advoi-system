@@ -14,6 +14,7 @@ Runbooks for local development and staging validation.
 | [DISCORD-WORKFLOW.md](DISCORD-WORKFLOW.md) | FirstMate Discord bridge: bot setup, webhook flow, ACK/PROMOTE/NEXT, env vars (M8.4) |
 | [ANALYTICS-FUNNEL.md](ANALYTICS-FUNNEL.md) | PWA connect→frame→confirm→success funnel SQL on PEL `portfolio_events` |
 | [MANUAL-TEST-TRACKER.md](MANUAL-TEST-TRACKER.md) | What to test / tested / bugs (does not block dev) |
+| [E2E-USE-CASE-TESTS.md](E2E-USE-CASE-TESTS.md) | Full journey use cases (portfolio, voice, agents, Aether) |
 | [local-testing.md](local-testing.md) | Developers on Windows/Mac/Linux |
 | [staging-runbook.md](staging-runbook.md) | VPS deploy and smoke (T2: `scripts/t2-staging-smoke.sh`) |
 | [MIGRATIONS.md](MIGRATIONS.md) | Versioned SQL under `deploy/migrations/`, apply order, staging verify (SSH parked) |
