@@ -18,6 +18,45 @@ Host promote entrypoints (optional install on VPS):
 | `promote-to-staging.sh` (this directory) | `/var/www/advoi/promote-to-staging.sh` |
 | `promote-to-live.sh` | **not in repo** — live cutover is out of scope here |
 
+## Branch policy (avoid missed deploys)
+
+| Ref | Role | Remote on GitHub? |
+|-----|------|-------------------|
+| `master` | Integration + VPS pull target (default) | yes (`origin/master`) |
+| `develop` | Feature integration; must stay ff-aligned with `master` | yes (`origin/develop`) |
+| `staging` | **Local VPS branch name only** in `/var/www/advoi/staging` | **no** — never `git pull origin staging` |
+
+**What went wrong (2026-07-16):** `deploy-staging.sh` ran `git pull origin $(current-branch)`. On VPS the current branch was `staging`, but `origin/staging` does not exist. Compose restarted without fetching new commits from `master`.
+
+**Correct routine (www tier, no develop checkout):**
+
+```bash
+bash /var/www/advoi/deploy-staging.sh
+# internally: git fetch origin master && git checkout -B staging origin/master && compose up
+```
+
+**Correct routine (three-tier, develop checkout present):**
+
+```bash
+cd /data/projects/advoi && git pull origin develop
+bash /var/www/advoi/promote-to-staging.sh
+```
+
+**Verify alignment:**
+
+```bash
+bash /var/www/advoi/staging/scripts/www/branch-policy-check.sh
+# or: ADVOI_STAGING_DEPLOY_MODE=redeploy bash /var/www/advoi/deploy-staging.sh --check-only
+```
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `ADVOI_STAGING_DEPLOY_MODE` | `pull` | `pull` \| `promote` \| `redeploy` |
+| `ADVOI_STAGING_DEPLOY_BRANCH` | `master` | Remote branch to fetch |
+| `ADVOI_STAGING_LOCAL_BRANCH` | `staging` | Local branch name after pull |
+
+Ship code: merge to `master`, fast-forward `develop` to the same SHA, then deploy.
+
 ## Operator prerequisite — GAP-013
 
 **SSH host-key verification must succeed** for `deploy@` on the VPS before any remote promote or automated SSH deploy. If `known_hosts` / host key verification fails, fix that first; green T2 on the public staging URL only proves the currently deployed bootstrap tree, not develop tip parity.

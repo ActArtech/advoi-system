@@ -15,6 +15,7 @@ sudo chown deploy:deploy "$WWW"
 if [[ ! -d "${WWW}/staging/.git" ]]; then
   git clone --branch master "$REMOTE" "${WWW}/staging"
   cd "${WWW}/staging"
+  # Local name "staging" only — there is no origin/staging. deploy-staging.sh pulls origin/master.
   git checkout -B staging master
 else
   echo "  keep: ${WWW}/staging"
@@ -26,7 +27,7 @@ else
   echo "  keep: ${WWW}/live"
 fi
 
-for script in deploy-staging.sh deploy-live.sh promote-to-staging.sh promote-to-live.sh checkout-pr.sh; do
+for script in deploy-staging.sh deploy-live.sh promote-to-staging.sh promote-to-live.sh checkout-pr.sh branch-policy-check.sh; do
   cp "${REPO_ROOT}/scripts/www/${script}" "${WWW}/${script}"
   chmod +x "${WWW}/${script}"
 done

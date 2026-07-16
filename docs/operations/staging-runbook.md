@@ -31,12 +31,20 @@ Host ports (PG **5438**, Redis **6382**, API **8010**, Voice **8011**, OTEL **43
 
 ## Deploy
 
-### Preferred — promote to www staging
+### Preferred — www staging deploy
+
+**Branch policy:** VPS local branch `staging` has no `origin/staging`. `deploy-staging.sh` pulls `origin/master` (default) and pins the local `staging` branch. Keep `develop` fast-forwarded to `master` on GitHub.
 
 ```bash
-# After changes land on develop checkout (/data/projects/advoi):
+# Routine (pull master + compose):
+bash /var/www/advoi/deploy-staging.sh
+
+# Drift check only:
+bash /var/www/advoi/staging/scripts/www/branch-policy-check.sh
+
+# Three-tier when /data/projects/advoi exists:
 bash /data/projects/advoi/scripts/www/promote-to-staging.sh
-# Host install (optional): /var/www/advoi/promote-to-staging.sh
+
 curl https://advoi-staging.keyteller.com/api/health
 ADVOI_BASE_URL=https://advoi-staging.keyteller.com bash scripts/t2-staging-smoke.sh
 ```
