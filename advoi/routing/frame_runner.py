@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from advoi.cache.agent_cache import read_agent_cache
+from advoi.cache.agent_cache import cache_frame_run, read_agent_cache
 from advoi.copy_style import format_briefs_spoken, normalize_brief_title, plain_copy
 from advoi.decision.frames import DecisionFrame, get_frame
 from advoi.memory import MemoryRouter
@@ -119,29 +119,167 @@ def _fleet_profile_snapshot(data_dir: Path) -> dict[str, Any]:
     }
 
 
-def _fleet_backlog_snapshot(data_dir: Path, active_slug: str | None) -> dict[str, Any]:
-    backlog_path = data_dir / "backlog.md"
-    text = _read_text(backlog_path)
-    if text is None:
+def _session_scope_fleet_slug() -> str | None:
+    """PWA/voice project bar override (ECR session). None when no session set."""
+    from advoi.portfolio.ecr import resolve_execution_target
+
+    target = resolve_execution_target()
+    if target.get("source") != "session":
+        return None
+    slug = (target.get("fleet_slug") or "").strip().lower()
+    return slug or None
+
+
+def _effective_fleet_slug(profile: dict[str, Any]) -> tuple[str | None, str]:
+    """Resolve which project Fleet Scout should narrate.
+
+    Priority: project-bar session → fleet-profile.md active_slug → ECR/gate.
+    Without this, a stale fleet-profile active_slug (e.g. advoi) overrides Gem Dev Shop.
+    """
+    session_slug = _session_scope_fleet_slug()
+    if session_slug:
+        return session_slug, "session"
+
+    profile_slug = profile.get("active_slug")
+    if profile_slug:
+        return str(profile_slug).strip().lower(), "profile"
+
+    from advoi.portfolio.ecr import resolve_execution_target
+
+    target = resolve_execution_target()
+    slug = (target.get("fleet_slug") or "").strip().lower() or None
+    if slug:
+        return slug, str(target.get("source") or "ecr")
+    return None, "unknown"
+
+
+_REPO_SLUG_RE = re.compile(r"repo:\s*([a-zA-Z0-9_-]+)", re.IGNORECASE)
+
+
+def _repo_slug_from_line(line: str) -> str | None:
+    match = _REPO_SLUG_RE.search(line or "")
+    return match.group(1).lower() if match else None
+
+
+def _backlog_line_label(line: str) -> str | None:
+    stripped = line.strip()
+    if stripped in {"_(none)_", "(none)"} or not stripped.startswith("- ["):
+        return None
+    match = re.match(r"^- \[[ xX]\] \*\*([^*]+)\*\*", stripped)
+    if match:
+        return match.group(1)
+    if stripped.startswith("- [ ]") or stripped.startswith("- [x]") or stripped.startswith("- [X]"):
+        return stripped.lstrip("- ").strip()[:80]
+    return None
+
+
+def _line_matches_fleet_slug(line: str, slug: str) -> bool:
+    """Match task card to fleet slug via repo: field or id/prefix heuristics."""
+    slug_l = slug.strip().lower()
+    if not slug_l:
+        return True
+    text = line.lower()
+    repo = _repo_slug_from_line(line)
+    if repo:
+        return repo == slug_l
+    label = (_backlog_line_label(line) or "").lower()
+    if label == slug_l or label.startswith(f"{slug_l}-"):
+        return True
+    if f"({slug_l})" in text or f"/{slug_l}" in text:
+        return True
+    return False
+
+
+def _parse_backlog_items_for_slug(section_text: str, active_slug: str | None) -> list[str]:
+    """Parse checkbox lines; when active_slug set, keep only matching cards."""
+    items: list[str] = []
+    for line in section_text.splitlines():
+        label = _backlog_line_label(line)
+        if not label:
+            continue
+        if active_slug and not _line_matches_fleet_slug(line, active_slug):
+            continue
+        items.append(label)
+    return items
+
+
+def _fleet_backlog_snapshot(
+    data_dir: Path,
+    active_slug: str | None,
+    *,
+    scope_filter: bool = False,
+) -> dict[str, Any]:
+    """Load tactical queue.
+
+    Default (scope_filter=False): single data/backlog.md (captain global queue).
+    Session scope (scope_filter=True): prefer feedback-backlog-<slug>.md and filter
+    main backlog by repo:/slug so Gem Dev Shop does not narrate advoi cards.
+    """
+    filter_slug = active_slug if scope_filter else None
+    sources: list[str] = []
+    in_flight: list[str] = []
+    queued: list[str] = []
+    blocked: list[str] = []
+    snapshot_line = ""
+    any_file = False
+
+    def _ingest(path: Path, *, force_filter: bool) -> None:
+        nonlocal any_file, snapshot_line, in_flight, queued, blocked
+        text = _read_text(path)
+        if text is None:
+            return
+        any_file = True
+        sources.append(path.name)
+        slug = filter_slug if force_filter else None
+        # Per-slug feedback files are already project-scoped; do not re-filter by repo.
+        use_slug = None if path.name.startswith("feedback-backlog-") else slug
+        in_flight.extend(
+            _parse_backlog_items_for_slug(_extract_markdown_section(text, "In flight"), use_slug)
+        )
+        queued.extend(
+            _parse_backlog_items_for_slug(_extract_markdown_section(text, "Queued"), use_slug)
+        )
+        blocked.extend(
+            _parse_backlog_items_for_slug(_extract_markdown_section(text, "Blocked"), use_slug)
+        )
+        if not snapshot_line:
+            for line in text.splitlines():
+                if line.startswith(">") and "Staging:" in line:
+                    snapshot_line = line.lstrip("> ").strip()
+                    break
+
+    if scope_filter and active_slug:
+        feedback = data_dir / f"feedback-backlog-{active_slug}.md"
+        if feedback.is_file():
+            _ingest(feedback, force_filter=False)
+
+    # Captain tactical queue — filter when session-scoped so wrong-repo cards drop out.
+    _ingest(data_dir / "backlog.md", force_filter=bool(scope_filter and active_slug))
+
+    if not any_file:
         return {"backlog_found": False}
 
-    in_flight = _parse_backlog_items(_extract_markdown_section(text, "In flight"))
-    queued = _parse_backlog_items(_extract_markdown_section(text, "Queued"))
-    blocked = _parse_backlog_items(_extract_markdown_section(text, "Blocked"))
-
-    snapshot_line = ""
-    for line in text.splitlines():
-        if line.startswith(">") and "Staging:" in line:
-            snapshot_line = line.lstrip("> ").strip()
-            break
+    # Dedupe while preserving order
+    def _dedupe(seq: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for item in seq:
+            key = item.strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(item)
+        return out
 
     return {
         "backlog_found": True,
         "active_slug": active_slug,
-        "in_flight": in_flight,
-        "queued": queued,
-        "blocked": blocked,
+        "in_flight": _dedupe(in_flight),
+        "queued": _dedupe(queued),
+        "blocked": _dedupe(blocked),
         "snapshot_line": snapshot_line,
+        "sources": sources,
+        "scope_filter": bool(scope_filter and active_slug),
     }
 
 
@@ -269,8 +407,21 @@ def _collect_fleet_snapshot_from_disk(root: Path) -> tuple[str, dict[str, Any]] 
         return None
 
     profile = _fleet_profile_snapshot(data_dir)
-    active_slug = profile.get("active_slug")
-    backlog = _fleet_backlog_snapshot(data_dir, active_slug)
+    active_slug, scope_source = _effective_fleet_slug(profile)
+    # Session (project bar) must not inherit the captain profile slug in spoken copy.
+    scoped_profile = {
+        **profile,
+        "active_slug": active_slug,
+        "scope_source": scope_source,
+    }
+    if profile.get("active_slug") and active_slug and profile.get("active_slug") != active_slug:
+        scoped_profile["profile_active_slug"] = profile.get("active_slug")
+
+    backlog = _fleet_backlog_snapshot(
+        data_dir,
+        active_slug,
+        scope_filter=(scope_source == "session"),
+    )
     state = _fleet_state_snapshot(state_dir)
     aether = _aether_snapshot(data_dir)
 
@@ -278,13 +429,16 @@ def _collect_fleet_snapshot_from_disk(root: Path) -> tuple[str, dict[str, Any]] 
         return None
 
     spoken, detail = _summarize_fleet_snapshot(
-        profile,
+        scoped_profile,
         backlog,
         state,
         advanced_text=None,
         aether=aether,
     )
     detail["snapshot_at"] = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    detail["scope_source"] = scope_source
+    if scoped_profile.get("profile_active_slug"):
+        detail["profile_active_slug"] = scoped_profile["profile_active_slug"]
     return spoken, detail
 
 
@@ -315,6 +469,11 @@ async def _run_fleet_scout() -> tuple[str, dict[str, Any], str]:
         )
 
     spoken, detail = disk_snapshot
+    # Advanced status is per-slug; align FM_ACTIVE_PROJECT with session/profile scope.
+    active_for_scripts = detail.get("active_slug")
+    if active_for_scripts:
+        script_env["FM_ACTIVE_PROJECT"] = str(active_for_scripts)
+
     backlog_full = {
         "backlog_found": True,
         "active_slug": detail.get("active_slug"),
@@ -336,6 +495,11 @@ async def _run_fleet_scout() -> tuple[str, dict[str, Any], str]:
             )
             detail.update(refreshed)
             detail["advanced_preview"] = advanced_text[:400]
+            # Preserve scope metadata after summarize rebuilds detail.
+            if active_for_scripts:
+                detail["active_slug"] = active_for_scripts
+            if "scope_source" in disk_snapshot[1]:
+                detail["scope_source"] = disk_snapshot[1]["scope_source"]
     except (TimeoutError, FileNotFoundError):
         detail["advanced_error"] = "timeout_or_missing"
 
@@ -578,6 +742,12 @@ async def run_frame(
         from advoi.aether.architect import post_frame_aether
 
         await post_frame_aether(result)
+        cache_frame_run(
+            result.agent_id,
+            result.frame_id,
+            result.status,
+            result.spoken_summary,
+        )
         await _emit_frame_run_event(result, confirmed=confirmed, refresh=refresh)
         return result
     elif frame.id == "memory_health":
@@ -604,6 +774,12 @@ async def run_frame(
     from advoi.aether.architect import post_frame_aether
 
     await post_frame_aether(result)
+    cache_frame_run(
+        result.agent_id,
+        result.frame_id,
+        result.status,
+        result.spoken_summary,
+    )
     await _emit_frame_run_event(result, confirmed=confirmed, refresh=refresh)
     return result
 

@@ -8,7 +8,7 @@ from typing import Literal
 from advoi.decision.frames import get_frame
 from advoi.routing.intent import is_confirm_phrase
 
-_DEFAULT_PROMPT = "Confirm yes on voice or tap again to proceed."
+_DEFAULT_PROMPT = "Say go, yes, or tap Confirm to proceed."
 
 FleetVoiceAction = Literal[
     "wake_firstmate",
@@ -28,15 +28,15 @@ HIGH_RISK_FLEET_ACTIONS: frozenset[FleetVoiceAction] = frozenset(
 
 _FLEET_CONFIRM_PROMPTS: dict[FleetVoiceAction, str] = {
     "wake_firstmate": (
-        "To wake FirstMate and arm the fleet loop, say wake firstmate confirm."
+        "Wake FirstMate will arm the fleet loop. Say go, yes, or tap Confirm."
     ),
     "start_development": (
-        "To start development on a project, say start development on clapart confirm."
+        "Start development will arm the fleet and pick up work. Say go, yes, or tap Confirm."
     ),
     "run_next_backlog": (
-        "To dispatch the next backlog item to FirstMate, say run next backlog confirm."
+        "This dispatches the next backlog item to FirstMate. Say go, yes, or tap Confirm."
     ),
-    "fleet_stop": "To stop the FirstMate fleet loop, say stop fleet confirm.",
+    "fleet_stop": "This stops the FirstMate fleet loop. Say go, yes, or tap Confirm.",
 }
 
 
@@ -47,10 +47,23 @@ def global_confirmation_enabled() -> bool:
 def transcript_has_explicit_confirm(transcript: str | None) -> bool:
     if not transcript:
         return False
-    lowered = transcript.lower()
+    lowered = transcript.lower().strip()
     if is_confirm_phrase(lowered):
         return True
-    return any(w in lowered for w in ("confirm", "confirmed", "yes go ahead"))
+    # Embedded confirms (e.g. "wake firstmate confirm", "yes go ahead").
+    return any(
+        w in lowered
+        for w in (
+            "confirm",
+            "confirmed",
+            "yes go ahead",
+            " go ",
+            " go.",
+            "go ahead",
+            "go on",
+            "ship it",
+        )
+    ) or lowered.endswith(" go") or lowered == "go"
 
 
 def frame_needs_confirmation(frame_id: str) -> bool:
@@ -74,7 +87,7 @@ def confirmation_prompt(frame_id: str) -> str:
     frame = get_frame(frame_id)
     if frame and frame.requires_confirmation:
         return (
-            f"To run {frame.label}, confirm yes on voice or tap again after reviewing."
+            f"To run {frame.label}, say go or yes, or tap Confirm after reviewing."
         )
     return _DEFAULT_PROMPT
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 from advoi.cache.redis_client import get_redis
@@ -14,6 +15,25 @@ CACHEABLE_STATUSES = frozenset({"ok", "confirmation_required"})
 
 def cache_key(agent_id: str) -> str:
     return f"advoi:agent:{agent_id}:last"
+
+
+def cache_frame_run(
+    agent_id: str,
+    frame_id: str,
+    status: str,
+    spoken_summary: str,
+) -> bool:
+    """Persist a completed frame run for PWA freshness and systems pulse."""
+    return write_agent_cache(
+        agent_id,
+        {
+            "agent_id": agent_id,
+            "frame_id": frame_id,
+            "status": status,
+            "spoken_summary": spoken_summary,
+            "timestamp": time.time(),
+        },
+    )
 
 
 def write_agent_cache(agent_id: str, payload: dict[str, Any]) -> bool:
@@ -52,7 +72,11 @@ def read_all_agent_caches() -> dict[str, dict[str, Any]]:
     except Exception:
         return {}
     out: dict[str, dict[str, Any]] = {}
-    for agent_id, raw in zip(AGENT_FRAMES.keys(), values, strict=True):
+    # Redis mget can return partial lists under mock/edge clients; zip loosely.
+    agent_ids = list(AGENT_FRAMES.keys())
+    raw_values = list(values or [])
+    for idx, agent_id in enumerate(agent_ids):
+        raw = raw_values[idx] if idx < len(raw_values) else None
         if not raw:
             continue
         try:

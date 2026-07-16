@@ -49,23 +49,73 @@ export async function runSixParallel(
   return res.json();
 }
 
-export async function runFrameSliceParallel(
-  frameIds: string[],
-  opts: { refresh?: boolean; signal?: AbortSignal } = {},
+export type SliceOrchestrateBody = {
+  frame_ids?: string[];
+  mode?: "parallel" | "wave" | "stagger";
+  preset_id?: string;
+  chain_id?: string;
+  dispatch_squads?: boolean;
+  confirmed?: boolean;
+  refresh?: boolean;
+};
+
+export type SliceOrchestratePayload = OrchestratePayload & {
+  mode?: string;
+  wave_plan?: unknown;
+  fail_count?: number;
+  preset_id?: string | null;
+  chain_id?: string | null;
+};
+
+export async function runSliceOrchestrate(
+  body: SliceOrchestrateBody,
+  opts: { signal?: AbortSignal } = {},
   base = apiBaseUrl(),
-): Promise<OrchestratePayload> {
+): Promise<SliceOrchestratePayload> {
   const res = await fetch(`${base}/agents/orchestrate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      frame_ids: frameIds,
       confirmed: true,
-      refresh: opts.refresh ?? true,
+      refresh: true,
+      ...body,
     }),
     signal: opts.signal,
   });
   if (!res.ok) throw new Error(`orchestrate ${res.status}`);
   return res.json();
+}
+
+export async function fetchSliceCatalog(base = apiBaseUrl()): Promise<{
+  presets: { id: string; label: string; frameIds: string[]; mode: string }[];
+  chains: {
+    id: string;
+    label: string;
+    presetIds: string[];
+    dispatchAfter?: boolean;
+  }[];
+  defaultSix: string[];
+}> {
+  const res = await fetch(`${base}/agents/slice-catalog`);
+  if (!res.ok) throw new Error(`slice-catalog ${res.status}`);
+  return res.json();
+}
+
+export async function runFrameSliceParallel(
+  frameIds: string[],
+  opts: { refresh?: boolean; signal?: AbortSignal; mode?: "parallel" | "wave" | "stagger" } = {},
+  base = apiBaseUrl(),
+): Promise<OrchestratePayload> {
+  return runSliceOrchestrate(
+    {
+      frame_ids: frameIds,
+      mode: opts.mode ?? "parallel",
+      refresh: opts.refresh ?? true,
+      confirmed: true,
+    },
+    { signal: opts.signal },
+    base,
+  );
 }
 
 export async function runSingleFrame(

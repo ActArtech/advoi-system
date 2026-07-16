@@ -37,71 +37,118 @@ def _tone_for_verdict(verdict: str | None, found: bool) -> str:
     return "empty"
 
 
-def aether_gate_chip_model(status: dict[str, Any] | None) -> dict[str, Any]:
+def _short_slug(slug: Any) -> str | None:
+    if slug is None:
+        return None
+    s = str(slug).strip()
+    return s or None
+
+
+def aether_gate_chip_model(
+    status: dict[str, Any] | None,
+    options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Mirror of aetherGateChipModel in web/components/aetherGateChip.ts."""
-    if status is None:
-        return {
+    options = options or {}
+
+    def _empty(**kwargs: Any) -> dict[str, Any]:
+        base = {
             "available": False,
             "verdict": None,
             "active_slug": None,
-            "label": "Gate —",
-            "title": "Aether status unavailable",
-            "tone": "empty",
+            "working_slug": None,
             "found": False,
         }
+        base.update(kwargs)
+        return base
+
+    if status is None:
+        return _empty(
+            label="Gate —",
+            title="Aether status unavailable",
+            tone="empty",
+        )
 
     if status.get("error"):
-        return {
-            "available": False,
-            "verdict": None,
-            "active_slug": None,
-            "label": "Gate err",
-            "title": f"Aether status error: {status['error']}",
-            "tone": "error",
-            "found": False,
-        }
+        return _empty(
+            label="Gate err",
+            title=f"Aether status error: {status['error']}",
+            tone="error",
+        )
+
+    # Working project from options or session execution_context
+    work_slug = _short_slug(options.get("workingFleetSlug") or options.get("workingVentureId"))
+    work_name = (options.get("workingVentureName") or "").strip() or None
+    if not work_slug:
+        ecr = status.get("execution_context") or {}
+        if ecr.get("source") == "session":
+            work_slug = _short_slug(ecr.get("fleet_slug") or ecr.get("venture_id"))
 
     gate = status.get("gate")
     if gate is None:
-        return {
-            "available": True,
-            "verdict": None,
-            "active_slug": None,
-            "label": "Gate —",
-            "title": "Aether gate not present in status",
-            "tone": "empty",
-            "found": False,
-        }
+        return _empty(
+            available=True,
+            working_slug=work_slug,
+            label="Gate —",
+            title="Aether gate not present in status",
+            tone="empty",
+            found=False,
+        )
 
     found = bool(gate.get("found"))
     verdict = _normalize_verdict(gate.get("verdict"))
-    raw_slug = gate.get("active_slug")
-    active_slug = str(raw_slug).strip() if raw_slug is not None and str(raw_slug).strip() else None
+    active_slug = _short_slug(gate.get("active_slug"))
 
     if not found:
         path = gate.get("path")
         title = f"Aether gate not found ({path})" if path else "Aether gate not found"
-        return {
-            "available": True,
-            "verdict": None,
-            "active_slug": active_slug,
-            "label": "Gate —",
-            "title": title,
-            "tone": "empty",
-            "found": False,
-        }
+        return _empty(
+            available=True,
+            active_slug=active_slug,
+            working_slug=work_slug,
+            label="Gate —",
+            title=title,
+            tone="empty",
+            found=False,
+        )
 
-    verdict_part = f"Gate {verdict}" if verdict and verdict != "unknown" else "Gate"
-    parts = [verdict_part]
-    if active_slug:
-        parts.append(active_slug)
-    label = " · ".join(parts)
+    verdict_word = verdict if verdict and verdict != "unknown" else None
+    if verdict_word and active_slug:
+        label = f"Gov {verdict_word} · {active_slug}"
+    elif verdict_word:
+        label = f"Gov {verdict_word}"
+    elif active_slug:
+        label = f"Gov · {active_slug}"
+    else:
+        label = "Gov"
+
+    gate_key = (active_slug or "").lower()
+    work_key = (work_slug or "").lower()
+    diverged = (
+        bool(work_slug)
+        and bool(gate_key)
+        and work_key != gate_key
+        and work_key not in gate_key
+        and gate_key not in work_key
+    )
+    if diverged and work_slug:
+        label = f"{label} · Work {work_slug}"
 
     tone = _tone_for_verdict(verdict, found)
-    title_parts = [label]
-    active_venture = status.get("active_venture") or {}
-    if active_venture.get("name"):
-        title_parts.append(f"venture {active_venture['name']}")
+    title_parts: list[str] = []
+    if active_slug:
+        title_parts.append(f"Governance: {verdict_word or 'gate'} · {active_slug}")
+    else:
+        title_parts.append(f"Governance: {verdict_word or 'gate'}")
+    if work_slug:
+        if work_name:
+            title_parts.append(f"Working project: {work_name} ({work_slug})")
+        else:
+            title_parts.append(f"Working project: {work_slug}")
+    else:
+        active_venture = status.get("active_venture") or {}
+        if active_venture.get("name") and not diverged:
+            title_parts.append(f"venture {active_venture['name']}")
     if gate.get("path"):
         title_parts.append(str(gate["path"]))
 
@@ -109,8 +156,9 @@ def aether_gate_chip_model(status: dict[str, Any] | None) -> dict[str, Any]:
         "available": True,
         "verdict": verdict,
         "active_slug": active_slug,
+        "working_slug": work_slug,
         "label": label,
-        "title": " · ".join(title_parts),
+        "title": " | ".join(title_parts),
         "tone": tone,
         "found": True,
     }
@@ -169,8 +217,30 @@ def test_pass_with_active_slug():
     assert m["tone"] == "ok"
     assert m["verdict"] == "pass"
     assert m["active_slug"] == "gem-dev-shop"
-    assert m["label"] == "Gate pass · gem-dev-shop"
-    assert "Gem Dev Shop" in m["title"]
+    assert m["label"] == "Gov pass · gem-dev-shop"
+    assert "Governance:" in m["title"]
+    assert "gem-dev-shop" in m["title"]
+
+
+def test_diverged_working_project_on_chip():
+    m = aether_gate_chip_model(
+        {
+            "gate": {
+                "found": True,
+                "verdict": "pass",
+                "active_slug": "gem-dev-shop",
+            }
+        },
+        {
+            "workingVentureId": "advoi-system",
+            "workingVentureName": "ADVoi System",
+            "workingFleetSlug": "advoi",
+        },
+    )
+    assert m["label"] == "Gov pass · gem-dev-shop · Work advoi"
+    assert "Governance: pass · gem-dev-shop" in m["title"]
+    assert "Working project: ADVoi System (advoi)" in m["title"]
+    assert m["working_slug"] == "advoi"
 
 
 def test_hold_tone():
@@ -184,7 +254,7 @@ def test_hold_tone():
         }
     )
     assert m["tone"] == "warn"
-    assert m["label"] == "Gate hold · clapart"
+    assert m["label"] == "Gov hold · clapart"
     assert m["verdict"] == "hold"
 
 
@@ -199,7 +269,7 @@ def test_fail_tone():
         }
     )
     assert m["tone"] == "error"
-    assert "Gate fail" in m["label"]
+    assert "Gov fail" in m["label"]
     assert "advoi" in m["label"]
 
 
@@ -214,7 +284,7 @@ def test_unknown_verdict_with_slug():
         }
     )
     assert m["tone"] == "empty"
-    assert m["label"] == "Gate · advoi"
+    assert m["label"] == "Gov · advoi"
     assert m["active_slug"] == "advoi"
 
 
@@ -228,7 +298,7 @@ def test_verdict_without_slug():
             }
         }
     )
-    assert m["label"] == "Gate pass"
+    assert m["label"] == "Gov pass"
     assert m["active_slug"] is None
     assert m["tone"] == "ok"
 
@@ -263,8 +333,7 @@ def test_api_aether_status_feeds_chip(client):
     assert "found" in gate
     model = aether_gate_chip_model(data)
     assert model["available"] is True
-    assert model["label"].startswith("Gate")
-    # Chip always exposes slug field (null when gate has none).
+    assert model["label"].startswith("Gov") or model["label"].startswith("Gate")
     assert "active_slug" in model
     if gate.get("found") and gate.get("active_slug"):
         assert model["active_slug"] == gate["active_slug"]

@@ -45,6 +45,7 @@ BUILTIN_VENTURES = (
     "advoi-system",
     "firstmate-fleet",
     "hermes-beacon",
+    "gem-dev-shop",
 )
 
 
@@ -100,8 +101,6 @@ def test_portfolio_builtin_fallback(tmp_path):
 
     for vid in BUILTIN_VENTURES:
         assert is_valid_venture_id(vid) is True, vid
-    # gem-dev-shop is JSON-only, not in builtin fallback
-    assert is_valid_venture_id("gem-dev-shop") is False
     assert is_valid_venture_id("nonexistent-venture") is False
 
 

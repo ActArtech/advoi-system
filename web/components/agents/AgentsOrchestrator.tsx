@@ -314,8 +314,13 @@ export function AgentsOrchestrator() {
   }, [reload]);
 
   const scopedSquads = useMemo(
-    () => filterSquadsForVenture<SquadRow>(squads, projectCtx?.activeVentureId),
-    [squads, projectCtx?.activeVentureId],
+    () =>
+      filterSquadsForVenture<SquadRow>(
+        squads,
+        projectCtx?.activeVentureId,
+        projectCtx?.activeVenture?.squads,
+      ),
+    [squads, projectCtx?.activeVentureId, projectCtx?.activeVenture?.squads],
   );
 
   const scopedFrames = useMemo(() => {

@@ -289,9 +289,9 @@ def spoken_capabilities_summary() -> str:
         "Say queue deep review to queue desktop follow-up, then confirm yes.",
         "Say run all agents for a full parallel refresh.",
         "Say stop agents to pause background daemons, or restart agents to bring them back.",
-        "Say wake firstmate confirm to arm the FirstMate fleet loop.",
-        "Say start development on clapart confirm to arm fleet and dispatch the next backlog item.",
-        "Say run next backlog confirm to send the top queued task to the captain.",
+        "Say wake firstmate, then go or yes to arm the FirstMate fleet loop.",
+        "Say start development, then go to arm fleet and dispatch the next backlog item.",
+        "Say run next backlog, then go to send the top queued task to the captain.",
     ]
     fleet = payload["systems_access"]["firstmate_fleet"]
     if fleet.get("configured"):
@@ -322,9 +322,9 @@ def spoken_firstmate_access() -> str:
     return (
         f"Yes. I have read-only access to FirstMate fleet at {root}. "
         f"Active slug is {slug}, mode {mode}, GitHub {repo}. "
-        "Say wake firstmate confirm to arm the fleet loop, "
-        "start development on a project confirm to dispatch dev work, "
-        "or run next backlog confirm for the top queued item. "
+        "Say wake firstmate then go to arm the fleet loop, "
+        "start development then go to dispatch dev work, "
+        "or run next backlog then go for the top queued item. "
         "Say fleet status for a read-only snapshot."
     )
 

@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 
-from advoi.cache.agent_cache import write_agent_cache
+from advoi.cache.agent_cache import cache_frame_run
 from advoi.memory.write_targets import MemoryEventType
 from advoi.routing.agent_config import AGENT_FRAMES
 from advoi.routing.frame_runner import run_frame
@@ -38,7 +38,12 @@ async def tick_agent(agent_id: str, *, refresh: bool | None = None) -> dict | No
         "spoken_summary": result.spoken_summary,
         "timestamp": time.time(),
     }
-    if not write_agent_cache(agent_id, payload):
+    if not cache_frame_run(
+        result.agent_id,
+        result.frame_id,
+        result.status,
+        result.spoken_summary,
+    ):
         if result.status not in ("ok", "confirmation_required"):
             logger.debug("No cache for %s status=%s", agent_id, result.status)
 

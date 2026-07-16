@@ -33,11 +33,60 @@ Check-Post "run six agents" "$Base/api/agents/run-six?refresh=true&confirmed=tru
 Check-Get "squads" "$Base/api/squads" "fleet-squad"
 Check-Get "platform diagnostics" "$Base/api/diagnostics/platform" "multi_agent"
 Check-Post "voice respond" "$Base/api/voice/respond" '{"transcript":"systems pulse"}' "spoken"
+# Whitespace-only text must be rejected (400).
+# Flake notes:
+# - PS 7+ only has Invoke-WebRequest -SkipHttpErrorCheck; without it, 400 throws.
+# - Inline JSON to curl.exe from Windows PowerShell 5.1 can corrupt the body (422).
+# Body file + curl http_code (or IWR fallback) is stable on 5.1 and 7+.
 Write-Host -NoNewline "==> voice speak (validation) ... "
+$code = $null
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("advoi-speak-val-" + [guid]::NewGuid().ToString("n") + ".json")
 try {
-    $r = Invoke-WebRequest -Uri "$Base/api/voice/speak" -Method Post -ContentType "application/json" -Body '{"text":"  "}' -SkipHttpErrorCheck
-    if ($r.StatusCode -eq 400) { Write-Host "OK" } else { Write-Host "FAIL (expected 400)"; $fail = 1 }
-} catch { Write-Host "FAIL"; $fail = 1 }
+    [System.IO.File]::WriteAllText($tmp, '{"text":"  "}')
+    $uri = "$Base/api/voice/speak"
+    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+        $raw = & curl.exe -s -o NUL -w "%{http_code}" -X POST `
+            -H "Content-Type: application/json" `
+            --data-binary "@$tmp" `
+            $uri 2>$null
+        if ($raw -match '(\d{3})\s*$') {
+            $code = [int]$Matches[1]
+        } elseif ($raw -match '(\d{3})') {
+            $code = [int]$Matches[1]
+        }
+    }
+    if ($null -eq $code) {
+        $payload = [System.IO.File]::ReadAllText($tmp)
+        try {
+            if ($PSVersionTable.PSVersion.Major -ge 7) {
+                $r = Invoke-WebRequest -Uri $uri -Method Post -ContentType "application/json" `
+                    -Body $payload -SkipHttpErrorCheck -UseBasicParsing
+                $code = [int]$r.StatusCode
+            } else {
+                $r = Invoke-WebRequest -Uri $uri -Method Post -ContentType "application/json" `
+                    -Body $payload -UseBasicParsing
+                $code = [int]$r.StatusCode
+            }
+        } catch {
+            $resp = $_.Exception.Response
+            if ($null -eq $resp) { throw }
+            $code = [int]$resp.StatusCode
+        }
+    }
+    if ($code -eq 400) {
+        Write-Host "OK"
+    } else {
+        Write-Host "FAIL (expected 400 got $code)"
+        $script:fail = 1
+    }
+} catch {
+    Write-Host "FAIL ($($_.Exception.Message))"
+    $script:fail = 1
+} finally {
+    if (Test-Path -LiteralPath $tmp) {
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    }
+}
 Check-Get "frame intents" "$Base/api/frames" "guardian_status"
 Check-Get "review queue" "$Base/api/review-queue" "pending"
 Check-Get "guardian" "$Base/api/diagnostics/guardian" "confirmation_enabled"

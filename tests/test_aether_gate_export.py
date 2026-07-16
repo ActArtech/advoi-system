@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.bash_util import bash_available, run_bash
+
 from advoi.aether.gate_export import (
     DEFAULT_REPO_RELATIVE,
     GATE_ARTIFACT,
@@ -275,6 +277,7 @@ def test_export_shell_script_exists_and_is_executable():
     assert "data/aether" in text or "gate_export" in text
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_export_shell_writes_repo_and_pel(tmp_path: Path):
     source = tmp_path / "gate.md"
     source.write_text(SAMPLE_GATE, encoding="utf-8")
@@ -292,8 +295,8 @@ def test_export_shell_writes_repo_and_pel(tmp_path: Path):
     # Drop DATABASE_URL so we do not hit real Postgres from the subprocess.
     env.pop("DATABASE_URL", None)
 
-    proc = subprocess.run(
-        ["bash", str(EXPORT_SH)],
+    proc = run_bash(
+        EXPORT_SH,
         cwd=str(ROOT),
         env=env,
         capture_output=True,
@@ -306,6 +309,7 @@ def test_export_shell_writes_repo_and_pel(tmp_path: Path):
     assert "aether-gate-export: OK" in proc.stdout or "aether-gate-export done" in proc.stdout
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_export_shell_fails_on_missing_source(tmp_path: Path):
     env = os.environ.copy()
     env.update(
@@ -317,8 +321,8 @@ def test_export_shell_fails_on_missing_source(tmp_path: Path):
         }
     )
     env.pop("DATABASE_URL", None)
-    proc = subprocess.run(
-        ["bash", str(EXPORT_SH)],
+    proc = run_bash(
+        EXPORT_SH,
         cwd=str(ROOT),
         env=env,
         capture_output=True,

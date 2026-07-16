@@ -10,6 +10,7 @@ import {
   dispatchSquad,
   runFrameSliceParallel,
   runSingleFrame,
+  runSliceOrchestrate,
 } from "./orchestrateClient";
 import type {
   FrameRunResult,
@@ -37,6 +38,12 @@ function assertNotAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 }
 
+function useServerSlicePath(mode: RunExecutionMode, callbacks?: WaveCallbacks): boolean {
+  if (mode === "stagger") return false;
+  if (!callbacks) return true;
+  return !callbacks.onFrameDone && !callbacks.onWaveStart && !callbacks.onWaveDone;
+}
+
 /** Run frame ids using parallel batches per mode. */
 export async function executeSlicePlan(
   frameIds: string[],
@@ -44,9 +51,17 @@ export async function executeSlicePlan(
   callbacks?: WaveCallbacks,
   opts?: RunPlanOptions,
 ): Promise<OrchestratePayload> {
+  const signal = opts?.signal;
+  if (useServerSlicePath(mode, callbacks)) {
+    assertNotAborted(signal);
+    return runSliceOrchestrate(
+      { frame_ids: frameIds, mode, refresh: true, confirmed: true },
+      { signal },
+    );
+  }
+
   const waves = chunkFrameWaves(frameIds, mode);
   const payloads: OrchestratePayload[] = [];
-  const signal = opts?.signal;
 
   for (let wi = 0; wi < waves.length; wi++) {
     assertNotAborted(signal);

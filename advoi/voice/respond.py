@@ -59,7 +59,10 @@ def _stop_agents_needs_confirm(transcript: str) -> bool:
     }:
         return False
     lowered = transcript.lower()
-    return not any(w in lowered for w in ("confirm", "confirmed", "yes go ahead"))
+    return not any(
+        w in lowered
+        for w in ("confirm", "confirmed", "yes go ahead", " go", "go ahead", "ship it")
+    ) and lowered.strip() not in {"go", "yes", "ok", "okay", "yup"}
 
 
 def _agent_roster_context() -> str:

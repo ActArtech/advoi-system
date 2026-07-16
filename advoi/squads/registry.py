@@ -48,6 +48,16 @@ SQUADS: tuple[Squad, ...] = (
         venture_id="advoi-system",
         dispatch_target="systems_pulse",
     ),
+    # Gem Dev Shop venture crew — portfolio lists venture-squad; keep primary
+    # agent→squad ownership on fleet/briefs/review (setdefault below).
+    Squad(
+        id="venture-squad",
+        name="Venture Squad",
+        channel="aether",
+        agent_ids=("fleet-scout", "brief-curator", "review-queue"),
+        venture_id="gem-dev-shop",
+        dispatch_target="open_briefs",
+    ),
 )
 
 SQUADS_BY_ID: dict[str, Squad] = {s.id: s for s in SQUADS}
@@ -55,7 +65,8 @@ SQUADS_BY_ID: dict[str, Squad] = {s.id: s for s in SQUADS}
 AGENT_SQUAD_MAP: dict[str, str] = {}
 for squad in SQUADS:
     for agent_id in squad.agent_ids:
-        AGENT_SQUAD_MAP[agent_id] = squad.id
+        # First registered squad owns the agent (do not let venture-squad steal).
+        AGENT_SQUAD_MAP.setdefault(agent_id, squad.id)
 
 
 def squad_for_agent(agent_id: str) -> Squad | None:

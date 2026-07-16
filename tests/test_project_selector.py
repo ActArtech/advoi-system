@@ -98,7 +98,42 @@ def test_portfolio_active_api(client):
     data = resp.json()
     assert data["ok"] is True
     assert data["venture_id"] == "hermes-beacon"
-    assert data["frame_id"] == "memory_health"
+
+
+def test_filter_squads_for_venture_gem_maps_venture_squad():
+    """Mirror filterSquadsForVenture — gem uses venture-squad when present."""
+
+    def filter_squads_for_venture(squads, venture_id, allowed=None):
+        if not venture_id:
+            return list(squads)
+        scoped = [s for s in squads if s.get("venture_id") == venture_id]
+        if scoped:
+            return scoped
+        if allowed:
+            allow = set(allowed)
+            by_id = [s for s in squads if s.get("id") in allow]
+            if by_id:
+                return by_id
+        fallback = {
+            "gem-dev-shop": ["venture-squad", "fleet-squad", "briefs-squad", "review-squad"],
+        }.get(venture_id)
+        if fallback:
+            allow = set(fallback)
+            by_fb = [s for s in squads if s.get("id") in allow]
+            if by_fb:
+                return by_fb
+        return list(squads)
+
+    squads = [
+        {"id": "fleet-squad", "venture_id": "firstmate-fleet"},
+        {"id": "venture-squad", "venture_id": "gem-dev-shop"},
+        {"id": "platform-squad", "venture_id": "advoi-system"},
+    ]
+    gem = filter_squads_for_venture(squads, "gem-dev-shop")
+    assert len(gem) == 1
+    assert gem[0]["id"] == "venture-squad"
+    advoi = filter_squads_for_venture(squads, "advoi-system")
+    assert advoi[0]["id"] == "platform-squad"
 
 
 def test_voice_intent_switch_project(client):

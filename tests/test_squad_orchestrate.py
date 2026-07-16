@@ -10,8 +10,8 @@ from advoi.squads.orchestrate import dispatch_all_squads, run_six_with_platform
 @pytest.mark.asyncio
 async def test_dispatch_all_squads_mock():
     result = await dispatch_all_squads(confirmed=True)
-    assert result["total"] == 4
-    assert result["dispatched"] == 4
+    assert result["total"] == 5
+    assert result["dispatched"] == 5
     assert result["ok"] is True
 
 
@@ -24,7 +24,7 @@ async def test_run_six_with_platform_dispatch():
         retain_memory=True,
     )
     assert len(payload["results"]) == 6
-    assert payload["squads"]["dispatched"] == 4
+    assert payload["squads"]["dispatched"] == 5
     assert "spoken_summary" in payload
 
 
@@ -33,19 +33,19 @@ def test_run_six_api_with_dispatch_squads(client):
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["results"]) == 6
-    assert data["squads"]["dispatched"] == 4
+    assert data["squads"]["dispatched"] == 5
 
 
 def test_squads_list_api(client):
     resp = client.get("/api/squads")
     assert resp.status_code == 200
-    assert resp.json()["total"] == 4
+    assert resp.json()["total"] == 5
 
 
 def test_squads_dispatch_all_api(client):
     resp = client.post("/api/squads/dispatch-all")
     assert resp.status_code == 200
-    assert resp.json()["dispatched"] == 4
+    assert resp.json()["dispatched"] == 5
 
 
 def test_platform_diagnostics_api(client):

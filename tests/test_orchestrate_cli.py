@@ -36,3 +36,19 @@ async def test_orchestrate_six_squads_mode():
 async def test_orchestrate_prewarm_only():
     code = await _run("prewarm", refresh=False)
     assert code == 0
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_catalog_mode(capsys):
+    code = await _run("catalog", refresh=False)
+    assert code == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert "presets" in payload
+    assert "chains" in payload
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_preset_ops_core():
+    code = await _run("preset", refresh=True, preset_id="ops_core")
+    assert code == 0

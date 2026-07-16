@@ -5,6 +5,18 @@ from __future__ import annotations
 import re
 import time
 
+from advoi.routing.slice_orchestration import (
+    DEFAULT_SIX_FRAME_IDS,
+    PRESET_CHAINS,
+    SLICE_PRESETS,
+    chunk_frame_waves,
+    describe_wave_plan,
+    preset_by_id as _catalog_preset_by_id,
+    chain_by_id as _catalog_chain_by_id,
+    resolve_chain_presets as _catalog_resolve_chain_presets,
+    wave_size_for_mode,
+)
+
 FRAME_SHORT = {
     "fleet_status": "fleet",
     "open_briefs": "briefs",
@@ -14,41 +26,7 @@ FRAME_SHORT = {
     "guardian_status": "guardian",
 }
 
-DEFAULT_SIX = [
-    "fleet_status",
-    "open_briefs",
-    "queue_deep_review",
-    "systems_pulse",
-    "memory_health",
-    "guardian_status",
-]
-
-SLICE_PRESETS = [
-    {
-        "id": "morning_pulse",
-        "label": "Morning pulse",
-        "frameIds": ["systems_pulse"],
-        "mode": "stagger",
-    },
-    {
-        "id": "ops_core",
-        "label": "Ops core",
-        "frameIds": ["fleet_status", "open_briefs", "guardian_status"],
-        "mode": "wave",
-    },
-    {
-        "id": "intel",
-        "label": "Intel",
-        "frameIds": ["open_briefs", "queue_deep_review", "memory_health"],
-        "mode": "wave",
-    },
-    {
-        "id": "full_six",
-        "label": "Full six",
-        "frameIds": list(DEFAULT_SIX),
-        "mode": "parallel",
-    },
-]
+DEFAULT_SIX = list(DEFAULT_SIX_FRAME_IDS)
 
 
 def short_frame_label(frame_id: str) -> str:
@@ -79,36 +57,6 @@ def format_last_run_relative(ts: str | int | float | None) -> str | None:
     return f"{days}d ago"
 
 
-PRESET_CHAINS = [
-    {
-        "id": "ops_then_intel",
-        "label": "Ops → Intel",
-        "presetIds": ["ops_core", "intel"],
-    },
-    {
-        "id": "morning_then_ops",
-        "label": "Pulse → Ops",
-        "presetIds": ["morning_pulse", "ops_core"],
-    },
-    {
-        "id": "morning_then_full",
-        "label": "Pulse → Full 6",
-        "presetIds": ["morning_pulse", "full_six"],
-    },
-    {
-        "id": "intel_then_dispatch",
-        "label": "Intel → Dispatch",
-        "presetIds": ["intel"],
-        "dispatchAfter": True,
-    },
-    {
-        "id": "full_six_then_dispatch",
-        "label": "Full 6 → Dispatch",
-        "presetIds": ["full_six"],
-        "dispatchAfter": True,
-    },
-]
-
 MAX_SLICE_QUEUE_DEPTH = 5
 MORNING_PULSE_FRAME_ID = "systems_pulse"
 
@@ -116,15 +64,15 @@ MAX_USER_PRESETS = 8
 
 
 def preset_by_id(preset_id: str) -> dict | None:
-    return next((p for p in SLICE_PRESETS if p["id"] == preset_id), None)
+    return _catalog_preset_by_id(preset_id)
 
 
 def chain_by_id(chain_id: str) -> dict | None:
-    return next((c for c in PRESET_CHAINS if c["id"] == chain_id), None)
+    return _catalog_chain_by_id(chain_id)
 
 
 def resolve_chain_presets(chain: dict) -> list[dict]:
-    return [p for pid in chain["presetIds"] if (p := preset_by_id(pid)) is not None]
+    return _catalog_resolve_chain_presets(chain)
 
 
 def slugify_user_preset_id(label: str) -> str:
@@ -225,26 +173,6 @@ def squad_membership_map(squads: list[dict]) -> dict[str, list[str]]:
     return out
 
 
-def wave_size_for_mode(mode: str) -> int:
-    if mode == "parallel":
-        return 64
-    if mode == "wave":
-        return 2
-    return 1
-
-
-def chunk_frame_waves(frame_ids: list[str], mode: str) -> list[list[str]]:
-    size = wave_size_for_mode(mode)
-    if not frame_ids:
-        return []
-    if mode == "parallel":
-        return [frame_ids]
-    waves: list[list[str]] = []
-    for i in range(0, len(frame_ids), size):
-        waves.append(frame_ids[i : i + size])
-    return waves
-
-
 def frame_ids_for_squad_agent_ids(agent_ids: list[str], frames: list[dict]) -> list[str]:
     by_agent = {f["agent_id"]: f["id"] for f in frames}
     ids: list[str] = []
@@ -289,22 +217,6 @@ def frame_ids_from_failed_results(results: list[dict]) -> list[str]:
 
 def count_failed_results(results: list[dict]) -> int:
     return len(frame_ids_from_failed_results(results))
-
-
-def describe_wave_plan(frame_ids: list[str], mode: str) -> dict:
-    waves = chunk_frame_waves(frame_ids, mode)
-    return {
-        "mode": mode,
-        "waveCount": len(waves),
-        "waves": [
-            {
-                "index": i,
-                "frameIds": wave,
-                "labels": [short_frame_label(fid) for fid in wave],
-            }
-            for i, wave in enumerate(waves)
-        ],
-    }
 
 
 def squad_run_progress_model(

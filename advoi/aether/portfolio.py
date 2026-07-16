@@ -46,7 +46,7 @@ def _builtin_ventures() -> tuple[Venture, ...]:
             name="ADVoi System",
             status="active",
             primary_frames=("fleet_status", "systems_pulse", "guardian_status"),
-            squads=("platform-squad",),
+            squads=("platform-squad", "review-squad"),
         ),
         Venture(
             id="firstmate-fleet",
@@ -61,6 +61,14 @@ def _builtin_ventures() -> tuple[Venture, ...]:
             status="active",
             primary_frames=("open_briefs", "memory_health"),
             squads=("briefs-squad",),
+        ),
+        Venture(
+            id="gem-dev-shop",
+            name="Gem Dev Shop",
+            status="active",
+            primary_frames=("open_briefs", "queue_deep_review"),
+            squads=("venture-squad",),
+            tags=("venture", "aether-active"),
         ),
     )
 

@@ -9,7 +9,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from advoi.portfolio.ecr import clear_session_active_venture
 from advoi.routing import frame_runner  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _clear_session_override():
+    """Fleet scope reads ECR session; never leak into other test modules."""
+    clear_session_active_venture()
+    yield
+    clear_session_active_venture()
 
 
 @pytest.fixture
@@ -50,6 +59,63 @@ def test_collect_fleet_snapshot_from_disk(fleet_tree: Path):
     assert detail["source"] == "file_snapshot"
     assert detail["state"]["afk_on"] is True
     assert detail["state"]["wake_queue_bytes"] == 42
+
+
+def test_session_scope_overrides_profile_slug(fleet_tree: Path, monkeypatch: pytest.MonkeyPatch):
+    """Project bar session must win over fleet-profile.md active_slug."""
+    from advoi.portfolio.ecr import clear_session_active_venture, set_session_active_venture
+
+    # Mixed backlog: profile is clapart, session will be gem-dev-shop.
+    data = fleet_tree / "data"
+    (data / "backlog.md").write_text(
+        """# backlog
+
+## In flight
+_(none)_
+
+## Queued
+- [ ] **advoi-ops-01** - ADVoi only (repo: advoi, value: 8, complexity: S)
+- [ ] **gem-fe-01** - Gem only (repo: gem-dev-shop, value: 7, complexity: S)
+- [ ] **clapart-fe-01** - Clapart only (repo: clapart, value: 6, complexity: S)
+""",
+        encoding="utf-8",
+    )
+    (data / "feedback-backlog-gem-dev-shop.md").write_text(
+        """# feedback gem
+
+## Queued
+- [ ] **fe-aether-intake-01** - Review intake (repo: gem-dev-shop, value: 7)
+""",
+        encoding="utf-8",
+    )
+
+    clear_session_active_venture()
+    set_session_active_venture("gem-dev-shop")
+    try:
+        spoken, detail = frame_runner._collect_fleet_snapshot_from_disk(fleet_tree)
+    finally:
+        clear_session_active_venture()
+
+    assert "gem-dev-shop" in spoken
+    assert "clapart" not in spoken.lower() or "Fleet snapshot for gem-dev-shop" in spoken
+    assert detail["active_slug"] == "gem-dev-shop"
+    assert detail["scope_source"] == "session"
+    assert detail.get("profile_active_slug") == "clapart"
+    queued = detail["backlog"]["queued_full"]
+    assert "fe-aether-intake-01" in queued
+    assert "gem-fe-01" in queued
+    assert "advoi-ops-01" not in queued
+    assert "clapart-fe-01" not in queued
+
+
+def test_without_session_keeps_profile_slug(fleet_tree: Path):
+    from advoi.portfolio.ecr import clear_session_active_venture
+
+    clear_session_active_venture()
+    spoken, detail = frame_runner._collect_fleet_snapshot_from_disk(fleet_tree)
+    assert "clapart" in spoken
+    assert detail["active_slug"] == "clapart"
+    assert detail["scope_source"] == "profile"
 
 
 @pytest.mark.asyncio

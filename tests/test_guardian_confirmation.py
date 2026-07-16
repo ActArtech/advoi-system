@@ -66,6 +66,19 @@ def test_fleet_confirm_accepts_confirm_phrase(monkeypatch):
     assert result["proceed"] is True
 
 
+def test_fleet_confirm_accepts_go(monkeypatch):
+    monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
+    result = evaluate_fleet_confirmation(
+        "wake_firstmate",
+        confirmed=False,
+        transcript="go",
+    )
+    assert result["proceed"] is True
+    soft = evaluate_fleet_confirmation("wake_firstmate", confirmed=False)
+    assert soft["proceed"] is False
+    assert "go" in str(soft.get("prompt", "")).lower()
+
+
 def test_fleet_confirm_disabled_when_global_off(monkeypatch):
     monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "false")
     assert fleet_action_needs_confirmation("start_development") is False

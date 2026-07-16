@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.bash_util import bash_available, run_bash
+
 from advoi.aether.publish_atomic import (
     ARTIFACT_NAMES,
     DIRECTIVES_ARTIFACT,
@@ -218,8 +220,8 @@ def _run_publish_sh(
     env["FM_AETHER_PROACTIVE"] = str(proactive)
     env["FM_AETHER_DIRECTIVES"] = str(directives)
     env["FM_AETHER_PROJECT_ROOT"] = str(ROOT)
-    return subprocess.run(
-        ["bash", str(PUBLISH_SH)],
+    return run_bash(
+        PUBLISH_SH,
         capture_output=True,
         text=True,
         check=False,
@@ -228,6 +230,7 @@ def _run_publish_sh(
     )
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_shell_success_writes_all_three(tmp_path: Path):
     fleet = tmp_path / "fleet"
     src = tmp_path / "src"
@@ -248,6 +251,7 @@ def test_shell_success_writes_all_three(tmp_path: Path):
     _assert_new_written(fleet)
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_shell_failure_missing_source_leaves_prior(tmp_path: Path):
     fleet = tmp_path / "fleet"
     _seed_prior(fleet)

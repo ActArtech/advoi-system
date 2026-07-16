@@ -1119,7 +1119,11 @@ export function VoiceSession() {
   const agentsReady = agents.filter((a) => a.cached).length;
   const agentsTotal = agents.length || voiceDiag?.checks?.agents;
   const slaChip = latencyChipModel(latencyDiag);
-  const gateChip = aetherGateChipModel(aetherStatus);
+  const gateChip = aetherGateChipModel(aetherStatus, {
+    workingVentureId: projectCtx?.activeVenture?.id ?? null,
+    workingVentureName: projectCtx?.activeVenture?.name ?? null,
+    workingFleetSlug: projectCtx?.activeVenture?.fleet_slug ?? null,
+  });
   const expectedFrames = capabilities?.frame_count ?? 6;
   const deployStale = frames.length > 0 && frames.length < expectedFrames;
   const fleetAccess = capabilities?.systems_access?.firstmate_fleet;
@@ -1165,6 +1169,7 @@ export function VoiceSession() {
             data-available={gateChip.available ? "true" : "false"}
             data-verdict={gateChip.verdict ?? ""}
             data-active-slug={gateChip.activeSlug ?? ""}
+            data-working-slug={gateChip.workingSlug ?? ""}
             data-found={gateChip.found ? "true" : "false"}
             title={gateChip.title}
             aria-label={gateChip.title}

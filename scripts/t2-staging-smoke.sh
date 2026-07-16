@@ -21,7 +21,7 @@
 #     bash scripts/t2-staging-smoke.sh >> /var/log/advoi-t2-smoke.log 2>&1
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="${ADVOI_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 BASE="${ADVOI_BASE_URL:-https://advoi-staging.keyteller.com}"
 EXPECTED_AGENTS="${ADVOI_EXPECTED_AGENTS:-6}"
 RETRIES="${ADVOI_CURL_RETRIES:-5}"

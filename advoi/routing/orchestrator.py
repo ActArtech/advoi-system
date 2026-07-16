@@ -165,12 +165,19 @@ async def run_all_specialist_frames(
     confirmed: bool = True,
     refresh: bool = False,
 ) -> OrchestrateBundle:
-    """Run all six specialist frames in parallel."""
-    results = await run_frames_parallel(
-        list(ALL_SPECIALIST_FRAME_IDS),
-        confirmed=confirmed,
-        refresh=refresh,
+    """Run all six specialist frames.
+
+    Non-pulse frames run in parallel first so systems_pulse can read warm caches.
+    """
+    from advoi.routing.frame_runner import run_frame
+
+    pulse_id: FrameId = "systems_pulse"
+    other_ids = [fid for fid in ALL_SPECIALIST_FRAME_IDS if fid != pulse_id]
+    results = list(
+        await run_frames_parallel(other_ids, confirmed=confirmed, refresh=refresh)
     )
+    pulse = await run_frame(pulse_id, confirmed=confirmed, refresh=refresh)
+    results.append(pulse)
     return _bundle_from_results(results)
 
 

@@ -299,22 +299,24 @@ async def test_wake_firstmate_uses_session_after_portfolio_active(client, monkey
 
     clear_session_active_venture()
     monkeypatch.setenv("ADVOI_FLEET_MOCK", "true")
+    try:
+        activate = client.post(
+            "/api/portfolio/active",
+            json={"venture_id": "advoi-system"},
+        )
+        assert activate.status_code == 200
 
-    activate = client.post(
-        "/api/portfolio/active",
-        json={"venture_id": "advoi-system"},
-    )
-    assert activate.status_code == 200
-
-    resp = client.post(
-        "/api/fleet/trigger",
-        json={"action": "wake_firstmate", "confirmed": True},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["ok"] is True
-    assert data["project"] == "advoi"
-    assert data["action"] == "wake_firstmate"
+        resp = client.post(
+            "/api/fleet/trigger",
+            json={"action": "wake_firstmate", "confirmed": True},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ok"] is True
+        assert data["project"] == "advoi"
+        assert data["action"] == "wake_firstmate"
+    finally:
+        clear_session_active_venture()
 
 
 @pytest.mark.asyncio
@@ -326,15 +328,17 @@ async def test_wake_firstmate_uses_session_venture_slug(monkeypatch):
     set_session_active_venture("advoi-system")
     monkeypatch.setenv("ADVOI_FLEET_MOCK", "true")
     monkeypatch.setenv("ADVOI_CONFIRMATION_REQUIRED", "true")
-
-    result = await fleet_trigger_from_voice(
-        "wake_firstmate",
-        transcript="wake firstmate confirm",
-        confirmed=True,
-    )
-    assert result["ok"] is True
-    assert result["project"] == "advoi"
-    assert result["action"] == "wake_firstmate"
+    try:
+        result = await fleet_trigger_from_voice(
+            "wake_firstmate",
+            transcript="wake firstmate confirm",
+            confirmed=True,
+        )
+        assert result["ok"] is True
+        assert result["project"] == "advoi"
+        assert result["action"] == "wake_firstmate"
+    finally:
+        clear_session_active_venture()
 
 
 @pytest.mark.asyncio

@@ -575,6 +575,10 @@ class OrchestrateRequest(BaseModel):
     frame_ids: list[str] = Field(default_factory=list)
     confirmed: bool = False
     refresh: bool = False
+    mode: str | None = None
+    preset_id: str | None = None
+    chain_id: str | None = None
+    dispatch_squads: bool = False
 
 
 class OrchestrateResponse(BaseModel):
@@ -583,6 +587,11 @@ class OrchestrateResponse(BaseModel):
     systems: list[str] = Field(default_factory=list)
     spoken_summary: str = ""
     squads: dict[str, Any] | None = None
+    mode: str | None = None
+    wave_plan: dict[str, Any] | None = None
+    fail_count: int = 0
+    preset_id: str | None = None
+    chain_id: str | None = None
 
 
 class SquadDispatchRequest(BaseModel):
@@ -775,36 +784,73 @@ async def voice_respond(body: VoiceRespondRequest) -> VoiceRespondResponse:
     )
 
 
+@app.get("/api/agents/slice-catalog")
+async def agents_slice_catalog() -> dict[str, Any]:
+    from advoi.routing.slice_orchestration import slice_catalog
+
+    return slice_catalog()
+
+
 @app.post("/api/agents/orchestrate", response_model=OrchestrateResponse)
 async def orchestrate_agents(body: OrchestrateRequest) -> OrchestrateResponse:
-    frame_ids = body.frame_ids or ["fleet_status", "open_briefs"]
-    for fid in frame_ids:
-        require_frame_id(fid)
-    results = await run_frames_parallel(
-        frame_ids,  # type: ignore[arg-type]
-        confirmed=body.confirmed,
-        refresh=body.refresh,
+    from advoi.routing.slice_orchestration import (
+        RunMode,
+        resolve_slice_run,
+        run_slice_orchestrate,
     )
 
-    if not results:
-        raise HTTPException(status_code=400, detail="No valid frame ids provided")
+    run_mode: RunMode | None = None
+    if body.mode in ("parallel", "wave", "stagger"):
+        run_mode = body.mode  # type: ignore[assignment]
 
-    agents_used: list[str] = []
-    systems: set[str] = set()
-    spoken_parts: list[str] = []
-    rows: list[FrameRunResponse] = []
-    for result in results:
-        agents_used.extend(result.detail.get("agents_used") or [result.agent_id])
-        systems.update(systems_for_frame(result.frame_id))
-        spoken_parts.append(result.spoken_summary)
-        rows.append(_frame_run_response(result))
+    effective_ids: list[str] | None
+    if body.preset_id or body.chain_id:
+        effective_ids = body.frame_ids or None
+    else:
+        effective_ids = body.frame_ids if body.frame_ids else ["fleet_status", "open_briefs"]
 
-    deduped_agents = list(dict.fromkeys(agents_used))
+    try:
+        frame_ids, _, chain_meta, _ = resolve_slice_run(
+            frame_ids=effective_ids,
+            preset_id=body.preset_id,
+            chain_id=body.chain_id,
+            mode=run_mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    for fid in frame_ids:
+        require_frame_id(fid)
+    if chain_meta:
+        for preset in chain_meta["stages"]:
+            for fid in preset["frameIds"]:
+                require_frame_id(fid)
+
+    try:
+        payload = await run_slice_orchestrate(
+            frame_ids=frame_ids if not chain_meta else None,
+            preset_id=body.preset_id,
+            chain_id=body.chain_id,
+            mode=run_mode,
+            confirmed=body.confirmed,
+            refresh=body.refresh,
+            dispatch_squads=body.dispatch_squads,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    rows = [_frame_run_response(r) for r in payload["results"]]
     return OrchestrateResponse(
         results=rows,
-        agents_used=deduped_agents,
-        systems=sorted(systems),
-        spoken_summary=" ".join(spoken_parts),
+        agents_used=payload["agents_used"],
+        systems=payload["systems"],
+        spoken_summary=payload["spoken_summary"],
+        squads=payload.get("squads"),
+        mode=payload.get("mode"),
+        wave_plan=payload.get("wave_plan"),
+        fail_count=int(payload.get("fail_count") or 0),
+        preset_id=payload.get("preset_id"),
+        chain_id=payload.get("chain_id"),
     )
 
 

@@ -68,13 +68,38 @@ export function ventureById(
   return catalog.ventures.find((row) => row.id === ventureId) ?? null;
 }
 
+/** When portfolio lists squad ids but registry venture_id differs, map by id. */
+const VENTURE_SQUAD_FALLBACK_IDS: Record<string, readonly string[]> = {
+  "gem-dev-shop": ["venture-squad", "fleet-squad", "briefs-squad", "review-squad"],
+};
+
+/**
+ * Scope Agents tab squads to the project bar venture.
+ * Prefer venture_id match; else portfolio squad ids; else known fallbacks; else all.
+ */
 export function filterSquadsForVenture<T extends { id: string; venture_id?: string }>(
   squads: readonly T[],
   ventureId: string | null | undefined,
+  allowedSquadIds?: readonly string[] | null,
 ): T[] {
   if (!ventureId) return [...squads];
   const scoped = squads.filter((row) => row.venture_id === ventureId);
-  return scoped.length > 0 ? scoped : [...squads];
+  if (scoped.length > 0) return scoped;
+
+  if (allowedSquadIds && allowedSquadIds.length > 0) {
+    const allow = new Set(allowedSquadIds);
+    const byId = squads.filter((row) => allow.has(row.id));
+    if (byId.length > 0) return byId;
+  }
+
+  const fallback = VENTURE_SQUAD_FALLBACK_IDS[ventureId];
+  if (fallback) {
+    const allow = new Set(fallback);
+    const byFallback = squads.filter((row) => allow.has(row.id));
+    if (byFallback.length > 0) return byFallback;
+  }
+
+  return [...squads];
 }
 
 export function projectSelectorLabel(

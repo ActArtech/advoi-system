@@ -39,15 +39,21 @@ _KEYWORD_FRAMES: tuple[tuple[tuple[str, ...], FrameId], ...] = (
     (("fleet",), "fleet_status"),
 )
 
+# Keep in sync with web/voice-interface/warmth.ts CONFIRM_RE.
 _CONFIRM_WORDS: frozenset[str] = frozenset(
     {
         "yes",
         "yeah",
         "yep",
+        "yup",
         "confirm",
         "confirmed",
+        "go",
         "go ahead",
+        "go on",
+        "let's go",
         "do it",
+        "ship it",
         "sure",
         "okay",
         "ok",

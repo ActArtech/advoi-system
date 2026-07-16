@@ -8,8 +8,10 @@ export function warmTextForTTS(text: string): string {
   return out;
 }
 
+// Keep in sync with advoi.routing.intent._CONFIRM_WORDS / is_confirm_phrase.
+// Prefer multi-word forms before bare "go" so "go ahead" still matches cleanly.
 const CONFIRM_RE =
-  /^(yes|yeah|yep|confirm|confirmed|go ahead|do it|sure|okay|ok|proceed|approved)\b/i;
+  /^(yes|yeah|yep|yup|confirm|confirmed|go ahead|go on|let'?s go|go|do it|ship it|sure|okay|ok|proceed|approved)\b/i;
 
 export function isConfirmPhrase(transcript: string): boolean {
   return CONFIRM_RE.test((transcript || "").trim());

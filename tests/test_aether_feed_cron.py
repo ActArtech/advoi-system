@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.bash_util import bash_available, run_bash
+
 from advoi.aether.feed_cron import (
     GATE_FAIL,
     GATE_PASS,
@@ -100,8 +102,8 @@ def _run_cron(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     base.update(env)
     # Isolate from real firstmate scripts
     base.setdefault("FM_AETHER_FEED_CMD", "echo FEED_RAN")
-    return subprocess.run(
-        ["bash", str(CRON_SH)],
+    return run_bash(
+        CRON_SH,
         capture_output=True,
         text=True,
         check=False,
@@ -110,6 +112,7 @@ def _run_cron(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     )
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_script_exists_and_is_executable_bit_or_bashable():
     assert CRON_SH.is_file()
     # Shebang present even if mode not +x in tree
@@ -118,6 +121,7 @@ def test_cron_script_exists_and_is_executable_bit_or_bashable():
     assert "FM_AETHER_GATE_REQUIRED" in text
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_skips_feed_when_gate_exit_2_and_required():
     proc = _run_cron(
         {
@@ -132,6 +136,7 @@ def test_cron_skips_feed_when_gate_exit_2_and_required():
     assert "FEED_RAN" not in out
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_skips_feed_when_gate_exit_3_and_required():
     proc = _run_cron(
         {
@@ -146,6 +151,7 @@ def test_cron_skips_feed_when_gate_exit_3_and_required():
     assert "FEED_RAN" not in out
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_publishes_on_gate_pass_exit_0():
     proc = _run_cron(
         {
@@ -160,6 +166,7 @@ def test_cron_publishes_on_gate_pass_exit_0():
     assert "aether-feed: skipped" not in out
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_publishes_on_gate_pass_audit_only_exit_1():
     proc = _run_cron(
         {
@@ -175,6 +182,7 @@ def test_cron_publishes_on_gate_pass_audit_only_exit_1():
     assert "aether-feed: skipped" not in out
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_publishes_when_gate_not_required_even_on_fail():
     proc = _run_cron(
         {
@@ -189,6 +197,7 @@ def test_cron_publishes_when_gate_not_required_even_on_fail():
     assert "aether-feed: skipped" not in out
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_gate_cmd_mock_exit_2_skips():
     """Mock via FM_AETHER_GATE_CMD (shell snippet) instead of FM_AETHER_GATE_EXIT."""
     proc = _run_cron(
@@ -204,6 +213,7 @@ def test_cron_gate_cmd_mock_exit_2_skips():
     assert "FEED_RAN" not in out
 
 
+@pytest.mark.skipif(not bash_available(), reason="bash not available")
 def test_cron_defaults_gate_required_to_one():
     """Omitting FM_AETHER_GATE_REQUIRED still defaults to required=1."""
     env = {
@@ -214,8 +224,8 @@ def test_cron_defaults_gate_required_to_one():
     base = os.environ.copy()
     base.pop("FM_AETHER_GATE_REQUIRED", None)
     base.update(env)
-    proc = subprocess.run(
-        ["bash", str(CRON_SH)],
+    proc = run_bash(
+        CRON_SH,
         capture_output=True,
         text=True,
         check=False,

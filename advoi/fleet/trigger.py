@@ -16,6 +16,7 @@ from advoi.routing.frame_runner import (
     _fleet_backlog_snapshot,
     _fleet_profile_snapshot,
     _fleet_root,
+    _session_scope_fleet_slug,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,9 +57,10 @@ def resolve_active_project(explicit: str | None = None) -> str:
 
 def peek_fleet_backlog(project: str | None = None) -> dict[str, Any]:
     data_dir = _fleet_root() / "data"
-    profile = _fleet_profile_snapshot(data_dir)
-    slug = project or profile.get("active_slug")
-    backlog = _fleet_backlog_snapshot(data_dir, slug)
+    # Explicit project or session/ECR resolution (same rules as Fleet Scout).
+    slug = project or resolve_active_project()
+    scope = bool(project) or bool(_session_scope_fleet_slug())
+    backlog = _fleet_backlog_snapshot(data_dir, slug, scope_filter=scope)
     queued = backlog.get("queued") or []
     in_flight = backlog.get("in_flight") or []
     return {
